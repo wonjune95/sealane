@@ -56,3 +56,16 @@ helm upgrade sealane oci://ghcr.io/wonjune95/charts/sealane --version 0.10.0 -n 
 With plain `--reuse-values` the new `oidc.defaultRole` key is absent. If you then enable OIDC, users with no matching group are refused until you set `oidc.defaultRole` explicitly (for example `viewer`).
 
 Existing sessions are invalidated once, because the session cookie format gained a provider field. Everyone signs in again after the upgrade.
+
+## From 0.10.x to 1.0.x
+
+1.0 has no breaking changes: values, environment variables, the accounts ConfigMap and the clusters Secret keep their format, and existing sessions stay valid. From 1.0 on, [Versioning and support](versioning.md) describes what stays stable.
+
+```bash
+helm upgrade sealane oci://ghcr.io/wonjune95/charts/sealane --version 1.0.0 -n <namespace> --reset-then-reuse-values
+```
+
+Two behaviors change:
+
+- The new `SHUTDOWN_DELAY` (default `5s`) makes the pod wait before it closes the listener on SIGTERM, so termination takes 5 seconds longer. Set `SHUTDOWN_DELAY=0s` to turn it off.
+- Cookies are marked `Secure` automatically when `OIDC_REDIRECT_URL` is `https://`. If TLS terminates elsewhere and Sealane is still reached over plain http on that URL, logins would fail. Keep the redirect URL on the scheme users actually use.

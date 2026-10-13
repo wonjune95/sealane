@@ -19,13 +19,13 @@ export function Overview() {
   const [cat, setCat] = useState<Category | ''>('')
   const namespaces = useNamespaces()
   const types = useResourceTypes()
-  const catByType = new Map((types.data ?? []).map((t) => [t.typeId, t.category]))
+  const catByType = new Map((types.data ?? []).map((rt) => [rt.typeId, rt.category]))
 
-  const installed = (types.data ?? []).filter((t) => t.installed && (cat === '' || t.category === cat))
+  const installed = (types.data ?? []).filter((rt) => rt.installed && (cat === '' || rt.category === cat))
   const results = useQueries({
-    queries: installed.map((t) => ({
-      queryKey: ['resources', t.typeId, ns],
-      queryFn: () => apiGet<ResourceSummary[]>(`/api/resources/${t.typeId}${ns ? `?ns=${ns}` : ''}`),
+    queries: installed.map((rt) => ({
+      queryKey: ['resources', rt.typeId, ns],
+      queryFn: () => apiGet<ResourceSummary[]>(`/api/resources/${rt.typeId}${ns ? `?ns=${ns}` : ''}`),
     })),
   })
 
@@ -94,19 +94,19 @@ export function Overview() {
 
       {/* count chips */}
       <div className="flex flex-wrap gap-1.5">
-        {installed.map((t, i) => {
+        {installed.map((rt, i) => {
           const n = results[i]?.data?.length ?? 0
-          const a = accentFor(t.category)
+          const a = accentFor(rt.category)
           return (
             <Link
-              key={t.typeId}
-              to={`/resources/${t.typeId}`}
+              key={rt.typeId}
+              to={`/resources/${rt.typeId}`}
               className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs ${
                 n > 0 ? `${a.bg} ${a.text} ${a.border}` : 'border-base text-faint'
               }`}
             >
-              {t.kind} <span className="font-semibold">{n}</span>
-              {t.dangerous && <Icon name="warning" className="h-3 w-3 text-amber-500" />}
+              {rt.kind} <span className="font-semibold">{n}</span>
+              {rt.dangerous && <Icon name="warning" className="h-3 w-3 text-amber-500" />}
             </Link>
           )
         })}

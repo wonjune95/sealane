@@ -22,24 +22,24 @@ const QUICK: { type: string; label: string; hint: Key }[] = [
 export function Home() {
   const caps = useCapabilities()
   const types = useResourceTypes()
-  const installed = (types.data ?? []).filter((t) => t.installed)
+  const installed = (types.data ?? []).filter((rt) => rt.installed)
   const audit = useAudit()
-  const kindOf = (typeId: string) => types.data?.find((t) => t.typeId === typeId)?.kind ?? typeId
+  const kindOf = (typeId: string) => types.data?.find((rt) => rt.typeId === typeId)?.kind ?? typeId
   const results = useQueries({
-    queries: installed.map((t) => ({
-      queryKey: ['resources', t.typeId, ''],
-      queryFn: () => apiGet<ResourceSummary[]>(`/api/resources/${t.typeId}`),
+    queries: installed.map((rt) => ({
+      queryKey: ['resources', rt.typeId, ''],
+      queryFn: () => apiGet<ResourceSummary[]>(`/api/resources/${rt.typeId}`),
     })),
   })
-  const countByType = new Map(installed.map((t, i) => [t.typeId, results[i]?.data?.length]))
+  const countByType = new Map(installed.map((rt, i) => [rt.typeId, results[i]?.data?.length]))
   const loading = types.isLoading || results.some((r) => r.isLoading)
   const failed = types.isError || results.some((r) => r.isError)
   const total = [...countByType.values()].reduce<number>((a, b) => a + (b ?? 0), 0)
-  const dangerousActive = installed.filter((t) => t.dangerous && (countByType.get(t.typeId) ?? 0) > 0).length
+  const dangerousActive = installed.filter((rt) => rt.dangerous && (countByType.get(rt.typeId) ?? 0) > 0).length
   const catCount = (cat: Category) =>
-    installed.filter((t) => t.category === cat).reduce((a, t) => a + (countByType.get(t.typeId) ?? 0), 0)
+    installed.filter((rt) => rt.category === cat).reduce((a, rt) => a + (countByType.get(rt.typeId) ?? 0), 0)
   const canWrite = caps.data?.role === 'admin' || caps.data?.role === 'editor'
-  const quick = QUICK.filter((q) => installed.some((t) => t.typeId === q.type))
+  const quick = QUICK.filter((q) => installed.some((rt) => rt.typeId === q.type))
 
   return (
     <div className="space-y-6">
@@ -165,9 +165,9 @@ export function Home() {
           <div className="grid gap-4 md:grid-cols-2">
             {CATEGORY_ORDER.map((cat) => {
               const a = accentFor(cat)
-              const kinds = installed.filter((t) => t.category === cat)
+              const kinds = installed.filter((rt) => rt.category === cat)
               if (!kinds.length) return null
-              const incomplete = kinds.some((t) => countByType.get(t.typeId) === undefined)
+              const incomplete = kinds.some((rt) => countByType.get(rt.typeId) === undefined)
               return (
                 <div key={cat} className="panel overflow-hidden">
                   <div className="flex items-center gap-2.5 border-b border-base px-4 py-3">
@@ -180,13 +180,13 @@ export function Home() {
                     </span>
                   </div>
                   <div className="grid gap-x-2 p-2 sm:grid-cols-2">
-                    {kinds.map((t) => (
-                      <Link key={t.typeId} to={`/resources/${t.typeId}`} className="category-item">
+                    {kinds.map((rt) => (
+                      <Link key={rt.typeId} to={`/resources/${rt.typeId}`} className="category-item">
                         <span className="flex min-w-0 items-center gap-1.5">
-                          <span className="truncate">{t.kind}</span>
-                          {t.dangerous && <Icon name="warning" className="h-3 w-3 shrink-0 text-amber-500" />}
+                          <span className="truncate">{rt.kind}</span>
+                          {rt.dangerous && <Icon name="warning" className="h-3 w-3 shrink-0 text-amber-500" />}
                         </span>
-                        <span className="nav-count">{countByType.get(t.typeId) ?? '—'}</span>
+                        <span className="nav-count">{countByType.get(rt.typeId) ?? '—'}</span>
                       </Link>
                     ))}
                   </div>

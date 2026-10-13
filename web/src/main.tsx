@@ -6,9 +6,11 @@ import { App } from './App'
 import { ToastProvider } from './components/Toast'
 import { NamespaceProvider } from './ui/namespace'
 import { applyTheme, initialTheme } from './ui/theme'
+import { locale } from './i18n'
 import './index.css'
 
 applyTheme(initialTheme()) // set <html> class before first paint
+document.documentElement.lang = locale
 
 const queryClient = new QueryClient({
   defaultOptions: { queries: { retry: 1, refetchOnWindowFocus: false } },

@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { diffLines } from 'diff'
 import { Modal } from './Modal'
 import { Icon } from './icons'
+import { t } from '../i18n'
 
 // "kubectl diff"-style preview before applying: shows line-level changes between
 // the current object and the dry-run result. For dangerous kinds, requires typing
@@ -12,9 +13,9 @@ export function DiffModal({
   name,
   dangerous,
   busy,
-  title = '적용 미리보기',
-  subtitle = '검증(dry-run) 통과 · 변경사항을 확인하세요',
-  confirmLabel = '확인하고 적용',
+  title = t('diff.title'),
+  subtitle = t('diff.subtitle'),
+  confirmLabel = t('diff.confirm'),
   warn = false,
   onConfirm,
   onCancel,
@@ -52,7 +53,7 @@ export function DiffModal({
             onClick={onCancel}
             disabled={busy}
             className="icon-button -mr-2 -mt-1"
-            aria-label="미리보기 닫기"
+            aria-label={t('diff.close')}
           >
             <Icon name="close" className="h-4 w-4" />
           </button>
@@ -60,7 +61,7 @@ export function DiffModal({
 
         <div className="min-h-0 flex-1 overflow-auto p-4">
           {noChange ? (
-            <div className="py-8 text-center text-sm text-faint">변경사항이 없습니다.</div>
+            <div className="py-8 text-center text-sm text-faint">{t('diff.noChanges')}</div>
           ) : (
             <pre className="overflow-x-auto rounded-lg border border-base bg-slate-50 p-3 text-xs leading-5 dark:bg-slate-950">
               {parts.flatMap((p, pi) =>
@@ -90,8 +91,9 @@ export function DiffModal({
           {dangerous && (
             <div className="mb-3">
               <p className="mb-1.5 text-xs text-red-600 dark:text-red-400">
-                고위험 리소스입니다. 계속하려면 이름{' '}
-                <code className="rounded bg-slate-100 px-1 dark:bg-slate-800">{name}</code> 을 입력하세요.
+                {t('diff.dangerBefore')}{' '}
+                <code className="rounded bg-slate-100 px-1 dark:bg-slate-800">{name}</code>{' '}
+                {t('diff.dangerAfter')}
               </p>
               <input
                 autoFocus
@@ -104,7 +106,7 @@ export function DiffModal({
           )}
           <div className="flex justify-end gap-2">
             <button onClick={onCancel} disabled={busy} className="btn-ghost text-sm">
-              취소
+              {t('common.cancel')}
             </button>
             <button
               onClick={onConfirm}

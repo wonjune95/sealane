@@ -14,6 +14,7 @@ import { ResourceList } from './pages/ResourceList'
 import { ResourceEdit } from './pages/ResourceEdit'
 import { Settings } from './pages/Settings'
 import { Icon } from './components/icons'
+import { t } from './i18n'
 
 export function App() {
   // Resolve a persisted selection before sending requests to a remote cluster.
@@ -40,14 +41,14 @@ export function App() {
   )
     return <Login />
   if (missingCluster || (remoteSelected && clusters.isPending))
-    return <Centered>클러스터 선택을 확인하는 중…</Centered>
+    return <Centered>{t('app.checkingCluster')}</Centered>
   if (remoteSelected && clusters.isError) {
-    return <ConnectionError message={`클러스터 목록을 불러오지 못했습니다: ${clusters.error.message}`} />
+    return <ConnectionError message={t('app.clustersFailed', { message: clusters.error.message })} />
   }
-  if (isLoading) return <Centered>로딩 중…</Centered>
+  if (isLoading) return <Centered>{t('common.loading')}</Centered>
   if (isError) return <ConnectionError message={error.message} />
 
-  // 초기 비밀번호(admin/admin) 그대로면 변경 전까지 어디에도 못 들어간다.
+  // Initial password (admin/admin) still in use → nothing else is reachable until it changes.
   if (data?.mustChangePassword) return <ForcePasswordChange />
 
   // No routing CRDs at all → install-guide screen.
@@ -76,15 +77,15 @@ function ConnectionError({ message }: { message: string }) {
   const remoteSelected = !!getCluster() && getCluster() !== 'local'
   return (
     <Centered>
-      <span className="block text-base font-semibold text-strong">클러스터에 연결하지 못했습니다</span>
+      <span className="block text-base font-semibold text-strong">{t('app.connectFailed')}</span>
       <span className="mt-2 block">{message}</span>
       <span className="mt-5 flex flex-wrap justify-center gap-2">
         <button className="btn-ghost" onClick={() => window.location.reload()}>
-          다시 시도
+          {t('common.retry')}
         </button>
         {remoteSelected && (
           <button className="btn-primary" onClick={() => setCluster('', '/')}>
-            local 클러스터로 돌아가기
+            {t('app.backToLocal')}
           </button>
         )}
       </span>
@@ -101,7 +102,7 @@ function Centered({ children }: { children: ReactNode }) {
   )
 }
 
-// 초기 비밀번호 강제 변경 화면 — 성공하면 전체 리로드로 capabilities를 다시 받는다.
+// Forced initial password change — a full reload refetches capabilities on success.
 function ForcePasswordChange() {
   const [current, setCurrent] = useState('')
   const [next, setNext] = useState('')
@@ -129,13 +130,10 @@ function ForcePasswordChange() {
     <div className="flex min-h-screen items-center justify-center bg-gray-50 px-4 dark:bg-slate-950">
       <form onSubmit={submit} className="panel w-full max-w-sm space-y-4 rounded-2xl p-8">
         <img src="/favicon.svg" alt="" className="mb-4 h-10 w-10" />
-        <h1 className="text-xl font-semibold text-strong">계정을 안전하게 설정하세요</h1>
-        <p className="text-sm text-muted">
-          초기 비밀번호(<code>admin</code>)를 그대로 쓰고 있습니다. 계속하려면 먼저 비밀번호를 변경해야
-          합니다.
-        </p>
+        <h1 className="text-xl font-semibold text-strong">{t('pw.title')}</h1>
+        <p className="text-sm text-muted">{t('pw.intro')}</p>
         <label className="block">
-          <span className="mb-1 block text-xs font-medium text-muted">현재 비밀번호</span>
+          <span className="mb-1 block text-xs font-medium text-muted">{t('pw.current')}</span>
           <input
             type="password"
             value={current}
@@ -145,7 +143,7 @@ function ForcePasswordChange() {
           />
         </label>
         <label className="block">
-          <span className="mb-1 block text-xs font-medium text-muted">새 비밀번호 (8자 이상)</span>
+          <span className="mb-1 block text-xs font-medium text-muted">{t('pw.new')}</span>
           <input
             type="password"
             value={next}
@@ -155,7 +153,7 @@ function ForcePasswordChange() {
           />
         </label>
         <label className="block">
-          <span className="mb-1 block text-xs font-medium text-muted">새 비밀번호 확인</span>
+          <span className="mb-1 block text-xs font-medium text-muted">{t('pw.confirm')}</span>
           <input
             type="password"
             value={confirm}
@@ -165,11 +163,11 @@ function ForcePasswordChange() {
           />
         </label>
         {confirm !== '' && next !== confirm && (
-          <p className="text-sm text-red-600 dark:text-red-400">새 비밀번호가 일치하지 않습니다.</p>
+          <p className="text-sm text-red-600 dark:text-red-400">{t('pw.mismatch')}</p>
         )}
         {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
         <button type="submit" disabled={!canSubmit} className="btn-primary w-full disabled:opacity-50">
-          {busy ? '변경 중…' : '비밀번호 변경'}
+          {busy ? t('pw.busy') : t('pw.submit')}
           <Icon name="arrow" className="h-4 w-4" />
         </button>
       </form>

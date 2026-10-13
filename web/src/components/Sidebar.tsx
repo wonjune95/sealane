@@ -8,12 +8,13 @@ import { useClusters } from '../api/clusters'
 import { CATEGORY_ORDER, CATEGORY_ICON, accentFor } from '../ui/categories'
 import { useNamespace } from '../ui/namespace'
 import { Icon } from './icons'
+import { t, type Key } from '../i18n'
 
-const LINKS = [
-  { to: '/', icon: 'home', label: '클러스터 개요' },
-  { to: '/overview', icon: 'cube', label: '전체 리소스' },
-  { to: '/flowmap', icon: 'route', label: '트래픽 흐름' },
-  { to: '/routecheck', icon: 'terminal', label: '요청 콘솔' },
+const LINKS: { to: string; icon: string; label: Key }[] = [
+  { to: '/', icon: 'home', label: 'nav.home' },
+  { to: '/overview', icon: 'cube', label: 'nav.overview' },
+  { to: '/flowmap', icon: 'route', label: 'nav.flowmap' },
+  { to: '/routecheck', icon: 'terminal', label: 'nav.routecheck' },
 ]
 
 export function Sidebar({ onNavigate, onClose }: { onNavigate?: () => void; onClose?: () => void }) {
@@ -26,11 +27,11 @@ export function Sidebar({ onNavigate, onClose }: { onNavigate?: () => void; onCl
   const topLink = ({ isActive }: { isActive: boolean }) => `nav-link ${isActive ? 'active' : ''}`
 
   return (
-    <nav className="app-sidebar" aria-label="주요 탐색">
+    <nav className="app-sidebar" aria-label={t('sidebar.primaryNav')}>
       {onClose && (
         <div className="flex items-center justify-between border-b border-base px-4 py-3">
           <span className="text-sm font-semibold text-strong">Sealane</span>
-          <button onClick={onClose} className="icon-button" aria-label="탐색 메뉴 닫기">
+          <button onClick={onClose} className="icon-button" aria-label={t('sidebar.closeMenu')}>
             <Icon name="close" />
           </button>
         </div>
@@ -38,7 +39,7 @@ export function Sidebar({ onNavigate, onClose }: { onNavigate?: () => void; onCl
       <div className="px-4 pb-3 pt-5">
         <div className="workspace-card">
           <div className="mb-2 text-[9px] font-semibold uppercase tracking-[.14em] text-muted">
-            Current workspace
+            {t('sidebar.currentWorkspace')}
           </div>
           <div className="flex items-center gap-2.5">
             <span className="flex h-7 w-7 items-center justify-center rounded-md border border-base bg-white text-muted dark:bg-slate-800">
@@ -47,11 +48,11 @@ export function Sidebar({ onNavigate, onClose }: { onNavigate?: () => void; onCl
             <span className="min-w-0 flex-1 truncate text-xs font-semibold text-strong">
               {getCluster() || 'local'}
             </span>
-            <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" title="API 연결됨" />
+            <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" title={t('sidebar.apiConnected')} />
           </div>
           {onClose && clusters && clusters.length > 1 && (
             <select
-              aria-label="클러스터 선택"
+              aria-label={t('layout.selectCluster')}
               className="input-base mt-3 text-xs"
               value={getCluster() || 'local'}
               onChange={(e) => setCluster(e.target.value)}
@@ -69,14 +70,14 @@ export function Sidebar({ onNavigate, onClose }: { onNavigate?: () => void; onCl
         {LINKS.map((l) => (
           <NavLink key={l.to} to={l.to} end={l.to === '/'} className={topLink} onClick={onNavigate}>
             <Icon name={l.icon} className="h-[18px] w-[18px]" />
-            {l.label}
+            {t(l.label)}
           </NavLink>
         ))}
       </div>
       <div className="min-h-0 flex-1 overflow-y-auto border-t border-base px-3 pb-4 pt-4">
         <div className="mb-3 flex items-center justify-between px-3">
-          <span className="text-[10px] font-semibold uppercase tracking-[.12em] text-muted">Resources</span>
-          <span className="text-[10px] tabular-nums text-muted">{installed.length} kinds</span>
+          <span className="text-[10px] font-semibold uppercase tracking-[.12em] text-muted">{t('sidebar.resources')}</span>
+          <span className="text-[10px] tabular-nums text-muted">{t('sidebar.kindCount', { n: installed.length })}</span>
         </div>
         <label className="relative mb-4 block">
           <Icon
@@ -86,20 +87,20 @@ export function Sidebar({ onNavigate, onClose }: { onNavigate?: () => void; onCl
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="리소스 종류 찾기"
-            aria-label="리소스 종류 찾기"
+            placeholder={t('sidebar.searchKinds')}
+            aria-label={t('sidebar.searchKinds')}
             className="input-base !min-h-8 !py-1.5 pl-8 text-xs"
           />
         </label>
         {isLoading && (
-          <div className="space-y-2 px-3" aria-label="리소스 로딩 중">
+          <div className="space-y-2 px-3" aria-label={t('sidebar.loading')}>
             {[1, 2, 3].map((n) => (
               <div key={n} className="h-5 animate-pulse rounded bg-slate-100 dark:bg-slate-800" />
             ))}
           </div>
         )}
         {search && filtered.length === 0 && (
-          <p className="px-3 py-3 text-xs text-muted">일치하는 종류가 없습니다.</p>
+          <p className="px-3 py-3 text-xs text-muted">{t('sidebar.noKinds')}</p>
         )}
         {CATEGORY_ORDER.map((cat) => {
           const items = filtered.filter((t) => t.category === cat)
@@ -121,7 +122,7 @@ export function Sidebar({ onNavigate, onClose }: { onNavigate?: () => void; onCl
       <div className="border-t border-base p-3">
         <NavLink to="/settings" className={topLink} onClick={onNavigate}>
           <Icon name="settings" className="h-[18px] w-[18px]" />
-          설정<span className="ml-auto text-[10px] capitalize text-faint">{caps?.role}</span>
+          {t('nav.settings')}<span className="ml-auto text-[10px] capitalize text-faint">{caps?.role}</span>
         </NavLink>
         {onClose && !caps?.devMode && (
           <button
@@ -131,7 +132,7 @@ export function Sidebar({ onNavigate, onClose }: { onNavigate?: () => void; onCl
             }}
           >
             <Icon name="logout" className="h-[18px] w-[18px]" />
-            로그아웃
+            {t('common.logout')}
           </button>
         )}
       </div>

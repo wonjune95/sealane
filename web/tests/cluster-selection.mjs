@@ -41,15 +41,15 @@ async function scenario({ registered = false, authenticated = true, failCapabili
       return route.fulfill({ json: { ok: true } })
     }
     if (!authenticated) {
-      return route.fulfill({ status: 401, json: { error: { reason: 'Unauthorized', message: '로그인이 필요합니다' } } })
+      return route.fulfill({ status: 401, json: { error: { reason: 'Unauthorized', message: 'login required' } } })
     }
     if (url.pathname === '/api/clusters') {
-      if (failList) return route.fulfill({ status: 500, json: { error: { reason: 'Internal', message: '목록 조회 실패' } } })
+      if (failList) return route.fulfill({ status: 500, json: { error: { reason: 'Internal', message: 'list failed' } } })
       return route.fulfill({ json: registered ? [{ name: 'local' }, { name: 'app-cluster' }] : [{ name: 'local' }] })
     }
     if (url.pathname === '/api/capabilities') {
       if (failCapabilities && url.searchParams.get('cluster')) {
-        return route.fulfill({ status: 500, json: { error: { reason: 'Internal', message: '원격 API 서버에 연결할 수 없습니다' } } })
+        return route.fulfill({ status: 500, json: { error: { reason: 'Internal', message: 'cannot reach the remote API server' } } })
       }
       return route.fulfill({ json: capabilities })
     }
@@ -72,7 +72,7 @@ try {
   {
     const s = await scenario()
     await s.page.goto(`${base}/resources/virtualservices.networking.istio.io/old-namespace/old-name`)
-    await s.page.getByRole('heading', { name: '클러스터 개요', exact: true }).waitFor()
+    await s.page.getByRole('heading', { name: 'Cluster overview', exact: true }).waitFor()
     assert.equal(new URL(s.page.url()).pathname, '/')
     assert.equal(await s.page.evaluate((key) => localStorage.getItem(key), key), null)
     assert.ok(s.requests.filter((r) => r.path === '/api/capabilities').every((r) => r.cluster === null))
@@ -83,12 +83,12 @@ try {
   {
     const s = await scenario({ authenticated: false })
     await s.page.goto(base)
-    await s.page.getByRole('heading', { name: '워크스페이스에 로그인' }).waitFor()
+    await s.page.getByRole('heading', { name: 'Sign in to your workspace' }).waitFor()
     assert.equal(await s.page.evaluate((key) => localStorage.getItem(key), key), 'app-cluster')
-    await s.page.getByRole('textbox', { name: '아이디', exact: true }).fill('test-user')
-    await s.page.getByLabel('비밀번호', { exact: true }).fill('test-password')
-    await s.page.getByRole('button', { name: '로그인', exact: true }).click()
-    await s.page.getByRole('heading', { name: '클러스터 개요', exact: true }).waitFor()
+    await s.page.getByRole('textbox', { name: 'Username', exact: true }).fill('test-user')
+    await s.page.getByLabel('Password', { exact: true }).fill('test-password')
+    await s.page.getByRole('button', { name: 'Sign in', exact: true }).click()
+    await s.page.getByRole('heading', { name: 'Cluster overview', exact: true }).waitFor()
     assert.equal(await s.page.evaluate((key) => localStorage.getItem(key), key), null)
     assert.ok(s.requests.filter((r) => r.path === '/api/login').every((r) => r.cluster === null))
     await s.finish()
@@ -98,7 +98,7 @@ try {
   {
     const s = await scenario({ registered: true })
     await s.page.goto(base)
-    await s.page.getByRole('heading', { name: '클러스터 개요', exact: true }).waitFor()
+    await s.page.getByRole('heading', { name: 'Cluster overview', exact: true }).waitFor()
     assert.equal(await s.page.evaluate((key) => localStorage.getItem(key), key), 'app-cluster')
     assert.ok(s.requests.filter((r) => r.path === '/api/capabilities').every((r) => r.cluster === 'app-cluster'))
     await s.finish()
@@ -108,11 +108,11 @@ try {
   {
     const s = await scenario({ registered: true, failCapabilities: true })
     await s.page.goto(`${base}/overview`)
-    const back = s.page.getByRole('button', { name: 'local 클러스터로 돌아가기' })
+    const back = s.page.getByRole('button', { name: 'Back to local cluster' })
     await back.waitFor()
     assert.equal(await s.page.evaluate((key) => localStorage.getItem(key), key), 'app-cluster')
     await back.click()
-    await s.page.getByRole('heading', { name: '클러스터 개요', exact: true }).waitFor()
+    await s.page.getByRole('heading', { name: 'Cluster overview', exact: true }).waitFor()
     assert.equal(new URL(s.page.url()).pathname, '/')
     assert.equal(await s.page.evaluate((key) => localStorage.getItem(key), key), null)
     await s.finish()
@@ -122,7 +122,7 @@ try {
   {
     const s = await scenario({ registered: true, failList: true })
     await s.page.goto(base)
-    await s.page.getByText('클러스터 목록을 불러오지 못했습니다: 목록 조회 실패', { exact: true }).waitFor()
+    await s.page.getByText('Could not load clusters: list failed', { exact: true }).waitFor()
     assert.equal(await s.page.evaluate((key) => localStorage.getItem(key), key), 'app-cluster')
     assert.equal(s.requests.filter((r) => r.path === '/api/capabilities').length, 0)
     await s.finish()

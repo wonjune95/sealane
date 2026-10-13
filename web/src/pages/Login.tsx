@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { ApiError, apiPost } from '../api/client'
 import { Icon } from '../components/icons'
 import { useTheme } from '../ui/theme'
+import { t, locale, setLocale } from '../i18n'
 
 export function Login() {
   const [username, setUsername] = useState('')
@@ -32,41 +33,49 @@ export function Login() {
         </div>
         <div className="relative my-auto py-16">
           <p className="mb-5 text-[11px] font-semibold uppercase tracking-[.2em] text-blue-300">
-            Your service mesh, connected.
+            {t('login.eyebrow')}
           </p>
           <h1 className="text-4xl font-semibold leading-[1.4] tracking-tight xl:text-5xl">
-            복잡한 연결을,
+            {t('login.headline1')}
             <br />
-            명확한 흐름으로.
+            {t('login.headline2')}
           </h1>
           <p className="mt-5 max-w-md text-sm leading-7 text-slate-300">
-            라우팅부터 보안 정책까지.
+            {t('login.sub1')}
             <br />
-            서비스 메시를 한곳에서 살펴보고 관리하세요.
+            {t('login.sub2')}
           </p>
           <MeshIllustration />
           <div className="mt-6 flex flex-wrap gap-x-6 gap-y-3 text-xs text-slate-300">
             <span className="flex items-center gap-2">
               <Icon name="route" className="h-4 w-4 text-blue-300" />
-              트래픽 라우팅
+              {t('login.featRouting')}
             </span>
             <span className="flex items-center gap-2">
               <Icon name="shield" className="h-4 w-4 text-blue-300" />
-              보안 정책
+              {t('login.featSecurity')}
             </span>
             <span className="flex items-center gap-2">
               <Icon name="chart" className="h-4 w-4 text-blue-300" />
-              텔레메트리
+              {t('login.featTelemetry')}
             </span>
           </div>
         </div>
-        <p className="relative text-[11px] text-slate-400">Built for Istio &amp; Kubernetes Gateway API</p>
+        <p className="relative text-[11px] text-slate-400">{t('login.footer')}</p>
       </section>
       <section className="login-form-side relative">
         <button
+          onClick={() => setLocale(locale === 'ko' ? 'en' : 'ko')}
+          aria-label={t('lang.switchLabel')}
+          title={t('lang.switchLabel')}
+          className="icon-button absolute right-16 top-5 px-2 text-xs font-semibold"
+        >
+          {t('lang.switch')}
+        </button>
+        <button
           onClick={toggle}
-          aria-label={theme === 'dark' ? '라이트 모드' : '다크 모드'}
-          title={theme === 'dark' ? '라이트 모드' : '다크 모드'}
+          aria-label={theme === 'dark' ? t('theme.light') : t('theme.dark')}
+          title={theme === 'dark' ? t('theme.light') : t('theme.dark')}
           className="icon-button absolute right-5 top-5"
         >
           <Icon name={theme === 'dark' ? 'sun' : 'moon'} className="h-5 w-5" />
@@ -79,31 +88,31 @@ export function Login() {
           <span className="mb-6 flex h-12 w-12 items-center justify-center rounded-2xl border border-blue-100 bg-blue-50 text-blue-600 dark:border-blue-500/20 dark:bg-blue-500/10 dark:text-blue-300">
             <Icon name="lock" className="h-5 w-5" />
           </span>
-          <h2 className="text-2xl font-semibold tracking-tight text-strong">워크스페이스에 로그인</h2>
+          <h2 className="text-2xl font-semibold tracking-tight text-strong">{t('login.title')}</h2>
           <p className="mb-8 mt-3 text-sm leading-6 text-muted">
-            계정으로 로그인하고 서비스 메시를 관리하세요.
+            {t('login.subtitle')}
           </p>
           <form onSubmit={submit} className="space-y-5">
             <label className="block">
-              <span className="mb-2 block text-xs font-medium text-strong">아이디</span>
+              <span className="mb-2 block text-xs font-medium text-strong">{t('login.username')}</span>
               <input
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 autoFocus
                 autoComplete="username"
-                placeholder="아이디를 입력하세요"
+                placeholder={t('login.usernamePlaceholder')}
                 required
                 className="login-input"
               />
             </label>
             <label className="block">
-              <span className="mb-2 block text-xs font-medium text-strong">비밀번호</span>
+              <span className="mb-2 block text-xs font-medium text-strong">{t('login.password')}</span>
               <input
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 autoComplete="current-password"
-                placeholder="비밀번호를 입력하세요"
+                placeholder={t('login.passwordPlaceholder')}
                 required
                 className="login-input"
               />
@@ -122,15 +131,15 @@ export function Login() {
               disabled={busy || !username.trim() || !password}
               className="btn-primary !mt-6 min-h-11 w-full"
             >
-              {busy ? '로그인 중…' : '로그인'}
+              {busy ? t('login.busy') : t('login.submit')}
               <Icon name={busy ? 'refresh' : 'arrow'} className={`h-4 w-4 ${busy ? 'animate-spin' : ''}`} />
             </button>
           </form>
           <div className="mt-8 border-t border-base pt-5">
             <p className="text-center text-xs leading-6 text-muted">
-              계정이 필요하거나 로그인이 어려우신가요?
+              {t('login.help1')}
               <br />
-              워크스페이스 관리자에게 문의하세요.
+              {t('login.help2')}
             </p>
           </div>
         </div>

@@ -19,3 +19,6 @@ web/dist/
 
 # 로컬 빌드 산출물
 bin/
+
+# Subagent-driven-development scratch (ledger, briefs, review packages)
+.superpowers/

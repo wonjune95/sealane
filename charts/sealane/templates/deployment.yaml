@@ -61,7 +61,8 @@ spec:
             # emptyDir so readOnlyRootFilesystem holds (Gemini review).
             - name: HOME
               value: /home/nonroot
-            {{- if or .Values.sessionSecret.create .Values.sessionSecret.existingSecret }}
+            {{- $ss := default dict .Values.sessionSecret }}
+            {{- if or $ss.create $ss.existingSecret }}
             # Stable session-signing key (see values.sessionSecret)
             - name: SESSION_SECRET
               valueFrom:

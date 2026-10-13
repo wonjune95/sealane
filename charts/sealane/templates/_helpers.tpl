@@ -21,5 +21,6 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 {{- end -}}
 
 {{- define "sealane.sessionSecretName" -}}
-{{- if .Values.sessionSecret.existingSecret -}}{{ .Values.sessionSecret.existingSecret }}{{- else -}}{{ printf "%s-session" (include "sealane.fullname" .) }}{{- end -}}
+{{- $ss := default dict .Values.sessionSecret -}}
+{{- if $ss.existingSecret -}}{{ $ss.existingSecret }}{{- else -}}{{ printf "%s-session" (include "sealane.fullname" .) }}{{- end -}}
 {{- end -}}

@@ -5,19 +5,21 @@ Try it before exposing it:
   open http://localhost:8080
 
 First login: admin / admin — you will be asked to change the password immediately.
-{{- if .Values.ingress.enabled }}
+{{- $ingressOn := (default dict .Values.ingress).enabled }}
+{{- $routeOn := (default dict .Values.httpRoute).enabled }}
+{{- if $ingressOn }}
 
 Ingress hosts: {{ join ", " .Values.ingress.hosts }}
 {{- end }}
-{{- if .Values.httpRoute.enabled }}
+{{- if $routeOn }}
 
 HTTPRoute hostnames: {{ join ", " .Values.httpRoute.hostnames }}
 {{- end }}
-{{- if not (or .Values.ingress.enabled .Values.httpRoute.enabled) }}
+{{- if not (or $ingressOn $routeOn) }}
 
 To expose it, set ingress.enabled=true or httpRoute.enabled=true (see values.yaml).
 {{- end }}
-{{- if .Values.requestTester.enabled }}
+{{- if (default dict .Values.requestTester).enabled }}
 
 Request tester is ON: the ServiceAccount has pods/exec in every namespace (admin-only in the UI).
 {{- end }}

@@ -1,5 +1,5 @@
 # On a v* tag push: build a multi-arch image, sign it (cosign keyless), attach an SBOM,
-# publish the Helm chart to GHCR, render install.yaml and create the GitHub Release.
+# publish and sign the Helm chart on GHCR, render install.yaml and create the GitHub Release.
 name: release
 
 on:
@@ -61,6 +61,7 @@ jobs:
           echo "${{ secrets.GITHUB_TOKEN }}" | helm registry login ghcr.io -u ${{ github.actor }} --password-stdin
           helm package charts/sealane --version "$TAG" --app-version "$TAG"
           helm push "sealane-$TAG.tgz" "oci://ghcr.io/${{ github.repository_owner }}/charts"
+          cosign sign --yes "ghcr.io/${{ github.repository_owner }}/charts/sealane:$TAG"
       - name: Render install.yaml
         run: |
           TAG=${{ steps.meta.outputs.tag }}

@@ -31,6 +31,9 @@ jobs:
           cache-dependency-path: web/package-lock.json
       - run: npm ci
       - run: npm run build
+      - run: npm run lint
+      - name: i18n guard (no Korean outside locale files, en/ko keys match)
+        run: ../hack/check-i18n.sh
 
   docker:
     runs-on: ubuntu-latest

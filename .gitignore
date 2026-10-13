@@ -19,7 +19,7 @@ web/dist/
 .idea/
 .vscode/
 
-# 로컬 빌드 산출물
+# Local build output
 bin/
 
 # Subagent-driven-development scratch (ledger, briefs, review packages)

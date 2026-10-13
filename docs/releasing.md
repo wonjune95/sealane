@@ -17,4 +17,4 @@ Before the first release: enable GitHub Pages once: Settings → Pages → Build
 6. Artifact Hub re-indexes the OCI repository within about 30 minutes.
 7. Verified publisher: `hack/artifacthub-publish.sh` (once, and again whenever `artifacthub-repo.yml` changes).
 
-The image and the chart (`ghcr.io/wonjune95/charts/sealane:X.Y.Z`) are both signed keyless (GitHub OIDC identity via Sigstore), so there is no public key to publish; verify the chart with the same `cosign verify` flags.
+The image and the chart (`ghcr.io/wonjune95/charts/sealane:X.Y.Z`) are both signed keyless (GitHub OIDC identity via Sigstore), so there is no public key to publish; verify the chart with the same `cosign verify` flags. Use cosign 3.x: from 1.0.0 on, signatures are stored as OCI referrers (Sigstore bundles), not as `.sig` tags, and only cosign 3.x reads both forms.

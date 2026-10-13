@@ -2,6 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: {{ include "sealane.fullname" . }}
+  namespace: {{ .Release.Namespace }}
   labels:
     {{- include "sealane.labels" . | nindent 4 }}
 spec:
@@ -60,14 +61,24 @@ spec:
             # emptyDir so readOnlyRootFilesystem holds (Gemini review).
             - name: HOME
               value: /home/nonroot
+            {{- if or .Values.sessionSecret.create .Values.sessionSecret.existingSecret }}
+            # Stable session-signing key (see values.sessionSecret)
+            - name: SESSION_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "sealane.sessionSecretName" . }}
+                  key: session-secret
+            {{- end }}
           livenessProbe:
             httpGet:
               path: /healthz
               port: http
+            timeoutSeconds: 3
           readinessProbe:
             httpGet:
               path: /readyz
               port: http
+            timeoutSeconds: 3
           securityContext:
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: true

@@ -19,3 +19,7 @@ helm.sh/chart: {{ printf "%s-%s" .Chart.Name .Chart.Version }}
 app.kubernetes.io/name: {{ include "sealane.name" . }}
 app.kubernetes.io/instance: {{ .Release.Name }}
 {{- end -}}
+
+{{- define "sealane.sessionSecretName" -}}
+{{- if .Values.sessionSecret.existingSecret -}}{{ .Values.sessionSecret.existingSecret }}{{- else -}}{{ printf "%s-session" (include "sealane.fullname" .) }}{{- end -}}
+{{- end -}}

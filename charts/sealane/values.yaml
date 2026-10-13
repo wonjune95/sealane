@@ -40,3 +40,32 @@ resources:
 
 serviceMonitor:
   enabled: false
+
+# Session cookie signing key. With create=true the chart generates a random key once and
+# keeps it across upgrades (helm lookup), so sessions survive restarts and are shared by all
+# replicas. Point existingSecret at your own Secret (key: session-secret) to manage it yourself.
+# install.yaml is rendered with create=false: the app then uses a random per-boot key.
+sessionSecret:
+  create: true
+  existingSecret: ""
+
+# Expose through an Ingress controller.
+ingress:
+  enabled: false
+  className: ""
+  annotations: {}
+  hosts:
+    - sealane.example.com
+  tls: []
+  #  - secretName: sealane-tls
+  #    hosts: [sealane.example.com]
+
+# Expose through a Gateway API Gateway (HTTPRoute).
+httpRoute:
+  enabled: false
+  annotations: {}
+  parentRefs: []
+  #  - name: my-gateway
+  #    namespace: my-gateway-ns
+  hostnames:
+    - sealane.example.com

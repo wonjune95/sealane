@@ -1,0 +1,67 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Sealane chart values",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "image": {
+      "type": "object", "additionalProperties": false,
+      "properties": {
+        "repository": { "type": "string", "minLength": 1 },
+        "tag": { "type": "string" },
+        "pullPolicy": { "type": "string", "enum": ["Always", "IfNotPresent", "Never"] }
+      },
+      "required": ["repository"]
+    },
+    "imagePullSecrets": {
+      "type": "array",
+      "items": { "type": "object", "properties": { "name": { "type": "string" } }, "required": ["name"] }
+    },
+    "replicaCount": { "type": "integer", "minimum": 0 },
+    "istioNamespace": { "type": "string", "minLength": 1 },
+    "service": {
+      "type": "object", "additionalProperties": false,
+      "properties": {
+        "type": { "type": "string", "enum": ["ClusterIP", "NodePort", "LoadBalancer"] },
+        "port": { "type": "integer", "minimum": 1, "maximum": 65535 }
+      }
+    },
+    "accountsConfigMap": { "type": "string", "minLength": 1 },
+    "clustersSecret": { "type": "string", "minLength": 1 },
+    "requestTester": {
+      "type": "object", "additionalProperties": false,
+      "properties": { "enabled": { "type": "boolean" } }
+    },
+    "resources": { "type": "object" },
+    "serviceMonitor": {
+      "type": "object", "additionalProperties": false,
+      "properties": { "enabled": { "type": "boolean" } }
+    },
+    "sessionSecret": {
+      "type": "object", "additionalProperties": false,
+      "properties": {
+        "create": { "type": "boolean" },
+        "existingSecret": { "type": "string" }
+      }
+    },
+    "ingress": {
+      "type": "object", "additionalProperties": false,
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "className": { "type": "string" },
+        "annotations": { "type": "object", "additionalProperties": { "type": "string" } },
+        "hosts": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+        "tls": { "type": "array", "items": { "type": "object" } }
+      }
+    },
+    "httpRoute": {
+      "type": "object", "additionalProperties": false,
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "annotations": { "type": "object", "additionalProperties": { "type": "string" } },
+        "parentRefs": { "type": "array", "items": { "type": "object", "properties": { "name": { "type": "string" } }, "required": ["name"] } },
+        "hostnames": { "type": "array", "items": { "type": "string", "minLength": 1 } }
+      }
+    }
+  }
+}

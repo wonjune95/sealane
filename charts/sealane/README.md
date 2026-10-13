@@ -21,8 +21,8 @@ kubectl -n sealane port-forward svc/sealane 8080:8080   # http://localhost:8080 
 | `accountsConfigMap` | `sealane-accounts` | Local accounts ConfigMap (not managed by the chart) |
 | `clustersSecret` | `sealane-clusters` | Remote kubeconfigs Secret (not managed by the chart) |
 | `requestTester.enabled` | `false` | Grants `pods/exec` cluster-wide; admin-only UI feature |
-| `sessionSecret.create` | `true` | Generate and keep a session-signing key (sessions survive restarts) |
-| `sessionSecret.existingSecret` | `""` | Use your own Secret (key `session-secret`) |
+| `sessionSecret.create` | `true` | Generate and keep a session-signing key (sessions survive restarts). GitOps tools (Argo CD, Flux) and plain "helm template" cannot use lookup and would render a new key on every sync — point existingSecret at a Secret you manage instead. |
+| `sessionSecret.existingSecret` | `""` | Use your own Secret (key `session-secret`). GitOps tools (Argo CD, Flux) and plain "helm template" cannot use lookup and would render a new key on every sync — point existingSecret at a Secret you manage instead. |
 | `ingress.enabled` / `className` / `hosts` / `tls` / `annotations` | `false` … | Standard Ingress |
 | `httpRoute.enabled` / `parentRefs` / `hostnames` / `annotations` | `false` … | Gateway API HTTPRoute |
 | `resources` | small requests/limits | |

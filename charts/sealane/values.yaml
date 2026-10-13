@@ -45,6 +45,7 @@ serviceMonitor:
 # keeps it across upgrades (helm lookup), so sessions survive restarts and are shared by all
 # replicas. Point existingSecret at your own Secret (key: session-secret) to manage it yourself.
 # install.yaml is rendered with create=false: the app then uses a random per-boot key.
+# GitOps tools (Argo CD, Flux) and plain "helm template" cannot use lookup and would render a new key on every sync — point existingSecret at a Secret you manage instead.
 sessionSecret:
   create: true
   existingSecret: ""

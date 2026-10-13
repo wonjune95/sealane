@@ -9,16 +9,24 @@ Sealane is the new name of Istio Dashboard. Images, charts and default resource 
    ```bash
    helm install sealane oci://ghcr.io/wonjune95/charts/sealane --version 0.8.0 -n <namespace> \
      --set accountsConfigMap=istio-dashboard-accounts \
-     --set clustersSecret=istio-dashboard-clusters \
-     --reuse-values   # drop this flag; copy any custom values (requestTester.enabled, image.*, resources) explicitly
+     --set clustersSecret=istio-dashboard-clusters
    kubectl -n <namespace> rollout status deploy/sealane
    ```
+
+   Copy any custom values from your old release explicitly (for example `requestTester.enabled`, `image.*`, `resources`); `helm get values istio-dashboard -n <namespace>` shows them.
 
 2. Point your HTTPRoute or Ingress backend at the `sealane` Service (port 8080) and open the UI. Existing accounts work unchanged; everyone signs in again once because the session cookie was renamed.
 
 3. Remove the old release: `helm uninstall istio-dashboard -n <namespace>`. The ConfigMap and Secret are not managed by Helm and stay in place.
 
-If you prefer the new default names, rename the resources (`kubectl get cm istio-dashboard-accounts -o yaml | sed 's/istio-dashboard-accounts/sealane-accounts/' | kubectl apply -f -`, same for the Secret) and drop the two `--set` flags.
+If you prefer the new default names, copy the data into new objects and drop the two `--set` flags:
+
+```bash
+kubectl -n <namespace> get cm istio-dashboard-accounts -o json | jq '{apiVersion, kind, metadata: {name: "sealane-accounts"}, data}' | kubectl -n <namespace> apply -f -
+kubectl -n <namespace> get secret istio-dashboard-clusters -o json | jq '{apiVersion, kind, type, metadata: {name: "sealane-clusters"}, data}' | kubectl -n <namespace> apply -f -
+```
+
+Then `helm upgrade sealane ... --set accountsConfigMap=sealane-accounts --set clustersSecret=sealane-clusters` (or omit the flags) and delete the old objects once the new release is healthy.
 
 ### What else changed in 0.8
 

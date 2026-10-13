@@ -148,6 +148,8 @@ Postman처럼 메서드·URL·헤더·본문을 한 화면에서 작성하고, �
 
 ## 빠른 시작 (Kubernetes 배포)
 
+프리빌트 이미지만 쓸 거라면 [맨 위](#sealane)의 OCI 설치 한 줄이면 충분하다. 아래 단계는 클론한 소스에서 빌드·설치하는 경우다.
+
 이 프로젝트는 클러스터 안에서 돌리는 게 기본이다. 빌드 도구 없이 Docker와 Helm만 있으면 된다(이미지 빌드가 멀티스테이지라 Go/Node 로컬 설치 불필요).
 
 ### 1) 이미지 준비
@@ -206,6 +208,7 @@ kubectl -n sealane edit configmap sealane-accounts
 | `--kubeconfig` | (기본 로딩 규칙) | dev 전용 kubeconfig 경로 |
 | `ACCOUNTS_DIR` | `/etc/sealane/accounts` | 계정 ConfigMap 마운트 경로 |
 | `ACCOUNTS_CONFIGMAP` / `POD_NAMESPACE` | (헬름이 주입) | 비밀번호 변경·초기 admin 생성이 patch할 CM 위치 |
+| `ISTIO_NAMESPACE` | `istio-system` (차트가 `istioNamespace`로 설정) | istiod가 있는 네임스페이스. 홈 화면의 컨트롤플레인 버전 표시에 쓰인다 |
 | `SESSION_SECRET` | (없음) | 세션 쿠키 서명 키. 비우면 부팅마다 랜덤(재시작 = 재로그인) |
 | `REQUEST_TESTER` | (헬름이 주입) | `true`면 실제 요청 테스터 활성화 (pods/exec 권한 필요, admin 전용) |
 | `CLUSTERS_SECRET` / `POD_NAMESPACE` | (헬름이 주입) | 멀티클러스터: 원격 클러스터 kubeconfig Secret 이름 (비우면 local만) |

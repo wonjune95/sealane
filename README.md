@@ -1,6 +1,6 @@
 # Sealane
 
-**English** | [&#54620;&#44397;&#50612;](README.ko.md)
+**English** | [Korean](README.ko.md)
 
 ![Kubernetes](https://img.shields.io/badge/Kubernetes-native-326CE5?logo=kubernetes&logoColor=white)
 ![Istio](https://img.shields.io/badge/Istio-%2FGateway%20API-466BB0?logo=istio&logoColor=white)
@@ -147,6 +147,8 @@ To try it: `kubectl apply -f examples/demo-mesh.yaml` brings up sidecar-injected
 
 ## Quick start (Kubernetes)
 
+If you just want the prebuilt image, the OCI one-liner at the [top](#sealane) is all you need; the steps below are for building and installing from a clone.
+
 Running in-cluster is the default. You only need Docker and Helm (the image build is multi-stage — no local Go/Node required).
 
 ### 1) Image
@@ -205,6 +207,7 @@ To manage multiple clusters from one Sealane install, go to **settings → clust
 | `--kubeconfig` | (default loading rules) | dev-only kubeconfig path |
 | `ACCOUNTS_DIR` | `/etc/sealane/accounts` | accounts ConfigMap mount path |
 | `ACCOUNTS_CONFIGMAP` / `POD_NAMESPACE` | (set by Helm) | CM that password changes / initial-admin creation patch |
+| `ISTIO_NAMESPACE` | `istio-system` (set by the chart from `istioNamespace`) | namespace where istiod runs; used to show the control-plane version on the home page |
 | `SESSION_SECRET` | (none) | session cookie signing key; empty = random per boot (restart = re-login) |
 | `REQUEST_TESTER` | (set by Helm) | `true` enables the in-pod request tester (needs pods/exec, admin only) |
 | `CLUSTERS_SECRET` / `POD_NAMESPACE` | (set by Helm) | multi-cluster: Secret holding remote kubeconfigs (empty = local only) |

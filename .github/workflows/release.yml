@@ -74,9 +74,11 @@ jobs:
               --set image.tag="$TAG" --set sessionSecret.create=false
           } > install.yaml
           grep -c '^kind:' install.yaml
+      - run: test -f docs/releases/v${{ steps.meta.outputs.tag }}.md
       - name: GitHub Release
         uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3.0.3
         with:
+          body_path: docs/releases/v${{ steps.meta.outputs.tag }}.md
           generate_release_notes: true
           files: |
             install.yaml

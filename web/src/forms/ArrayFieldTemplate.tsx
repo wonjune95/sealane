@@ -1,7 +1,8 @@
 import type { ArrayFieldTemplateProps, ArrayFieldItemTemplateProps } from '@rjsf/utils'
+import { t } from '../i18n'
 
 // rjsf v6: items are already-rendered elements (each via ArrayFieldItemTemplate).
-// We just stack them and provide a clean "+ 추가" button. Label/help come from
+// We just stack them and provide a clean "+ Add" button. Label/help come from
 // the surrounding FieldTemplate.
 export function ArrayFieldTemplate(props: ArrayFieldTemplateProps) {
   const { items, canAdd, onAddClick } = props
@@ -14,14 +15,14 @@ export function ArrayFieldTemplate(props: ArrayFieldTemplateProps) {
           onClick={onAddClick}
           className="rounded-md border border-dashed border-base px-2.5 py-1 text-xs font-medium text-accent hover:bg-accent-soft"
         >
-          + 추가
+          + {t('form.add')}
         </button>
       )}
     </div>
   )
 }
 
-// One array item: the field content + a compact 삭제 button (replaces rjsf's
+// One array item: the field content + a compact Delete button (replaces rjsf's
 // default empty Bootstrap-glyphicon buttons).
 export function ArrayFieldItemTemplate(props: ArrayFieldItemTemplateProps) {
   const { children, buttonsProps } = props
@@ -34,7 +35,7 @@ export function ArrayFieldItemTemplate(props: ArrayFieldItemTemplateProps) {
           onClick={buttonsProps.onRemoveItem}
           className="mt-1 shrink-0 rounded border border-base px-2 py-1 text-xs text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-500/10"
         >
-          삭제
+          {t('common.delete')}
         </button>
       )}
     </div>

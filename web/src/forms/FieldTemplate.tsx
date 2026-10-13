@@ -1,6 +1,7 @@
 import type { FieldTemplateProps } from '@rjsf/utils'
+import { t } from '../i18n'
 
-// Custom field layout (Gemini ③): required "*" vs "(선택)", Korean help under the
+// Custom field layout (Gemini ③): required "*" vs "(optional)", localized help under the
 // label, consistent spacing.
 //   - scalar & array fields → show the label here (our Array/Object templates
 //     don't render their own titles),
@@ -32,18 +33,18 @@ export function FieldTemplate(props: FieldTemplateProps) {
     <label htmlFor={id} className="flex items-center gap-1 text-sm font-medium text-strong">
       {label}
       {required ? (
-        <span className="text-red-500" title="필수">
+        <span className="text-red-500" title={t('form.required')}>
           *
         </span>
       ) : recommended ? (
         <span
           className="text-[10px] font-normal text-amber-600 dark:text-amber-400"
-          title="API상 선택이지만 채우기를 권장"
+          title={t('form.recommendedHint')}
         >
-          (권장)
+          {t('form.recommended')}
         </span>
       ) : (
-        <span className="text-[10px] font-normal text-faint">(선택)</span>
+        <span className="text-[10px] font-normal text-faint">{t('form.optional')}</span>
       )}
     </label>
   )

@@ -18,28 +18,30 @@ import { useToast } from '../components/Toast'
 import { KindBadge } from '../components/KindBadge'
 import { PageHeader } from '../components/PageHeader'
 import { Icon } from '../components/icons'
+import { t } from '../i18n'
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
-// Starter templates with Korean comments shown in the YAML tab for new resources.
+// Starter templates with localized comments shown in the YAML tab for new resources.
 // (Editing via the Form tab re-serializes and drops comments — Gemini ④.)
-const RICH_TEMPLATES: Record<string, string> = {
+// A function so the comments are translated at use, not at module load.
+const richTemplates = (): Record<string, string> => ({
   'httproutes.gateway.networking.k8s.io': `apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
   name: my-route
   namespace: default
 spec:
-  parentRefs:            # 이 라우트를 붙일 Gateway
+  parentRefs:            # ${t('edit.tpl.hrParentRefs')}
     - name: demo-gw
-  hostnames:             # 매칭할 호스트네임
+  hostnames:             # ${t('edit.tpl.hrHostnames')}
     - example.com
   rules:
-    - matches:           # 매칭 조건(경로 등)
+    - matches:           # ${t('edit.tpl.hrMatches')}
         - path:
             type: PathPrefix   # PathPrefix | Exact
             value: /
-      backendRefs:       # 보낼 백엔드 서비스
+      backendRefs:       # ${t('edit.tpl.hrBackendRefs')}
         - name: my-svc
           port: 80
 `,
@@ -49,17 +51,17 @@ metadata:
   name: my-virtualservice
   namespace: default
 spec:
-  hosts:                 # (필수) 적용 대상 호스트(도메인/서비스)
+  hosts:                 # ${t('edit.tpl.vsHosts')}
     - ''
-  gateways:              # (선택) 묶을 Gateway. 없으면 mesh(사이드카)에 적용
+  gateways:              # ${t('edit.tpl.vsGateways')}
     - ''
-  http:                  # HTTP 라우팅 규칙(위에서부터 매칭)
+  http:                  # ${t('edit.tpl.vsHttp')}
     - route:
         - destination:
-            host: ''     # 대상 서비스 이름
+            host: ''     # ${t('edit.tpl.vsHost')}
             port:
               number: 80
-          # weight: 100  # (선택) 여러 destination 가중치 분배
+          # weight: 100  # ${t('edit.tpl.vsWeight')}
 `,
   'destinationrules.networking.istio.io': `apiVersion: networking.istio.io/v1
 kind: DestinationRule
@@ -67,11 +69,11 @@ metadata:
   name: my-destinationrule
   namespace: default
 spec:
-  host: ''               # (필수) 정책을 적용할 대상 서비스
-  # trafficPolicy:       # (선택) 로드밸런싱/커넥션풀/이상감지
+  host: ''               # ${t('edit.tpl.drHost')}
+  # trafficPolicy:       # ${t('edit.tpl.drTrafficPolicy')}
   #   loadBalancer:
   #     simple: ROUND_ROBIN
-  # subsets:             # (선택) 버전별 서브셋(라벨로 구분)
+  # subsets:             # ${t('edit.tpl.drSubsets')}
   #   - name: v1
   #     labels: { version: v1 }
 `,
@@ -81,15 +83,15 @@ metadata:
   name: my-gateway
   namespace: default
 spec:
-  selector:              # (필수) 이 Gateway를 구동할 인그레스 파드 셀렉터
+  selector:              # ${t('edit.tpl.gwSelector')}
     istio: ingressgateway
-  servers:               # (필수) 수신할 포트/프로토콜/호스트
+  servers:               # ${t('edit.tpl.gwServers')}
     - port:
         number: 80
         name: http
         protocol: HTTP
       hosts:
-        - ''             # 예: '*' 또는 example.com
+        - ''             # ${t('edit.tpl.gwHosts')}
 `,
   'serviceentries.networking.istio.io': `apiVersion: networking.istio.io/v1
 kind: ServiceEntry
@@ -97,16 +99,16 @@ metadata:
   name: my-serviceentry
   namespace: default
 spec:
-  hosts:                 # (필수) 메시에 추가할 외부 서비스 호스트
+  hosts:                 # ${t('edit.tpl.seHosts')}
     - ''
-  ports:                 # (필수) 포트/프로토콜
+  ports:                 # ${t('edit.tpl.sePorts')}
     - number: 443
       name: https
       protocol: TLS
   resolution: DNS        # DNS | STATIC | NONE
-  location: MESH_EXTERNAL  # 외부 서비스면 MESH_EXTERNAL
+  location: MESH_EXTERNAL  # ${t('edit.tpl.seLocation')}
 `,
-}
+})
 
 function genericTemplate(rt: ResourceType): string {
   const obj: any = {
@@ -129,7 +131,7 @@ export function ResourceEdit() {
   const toast = useToast()
 
   const types = useResourceTypes()
-  const rt = types.data?.find((t) => t.typeId === type)
+  const rt = types.data?.find((x) => x.typeId === type)
   const curated = FORMS[type]
   // Auto-form applies when there's no curated form but the kind is schema-capable.
   const hasAuto = !curated && !!rt?.formCapable
@@ -154,7 +156,7 @@ export function ResourceEdit() {
   useEffect(() => {
     if (text !== null || !rt) return
     let initial: string
-    if (!isEdit) initial = RICH_TEMPLATES[type] ?? genericTemplate(rt)
+    if (!isEdit) initial = richTemplates()[type] ?? genericTemplate(rt)
     else if (resource.data) initial = yamlDump(resource.data.raw)
     else return
     setText(initial)
@@ -202,19 +204,19 @@ export function ResourceEdit() {
   // A read-only resource forces the YAML tab (editor locked) — no point showing a form.
   const shownTab: Tab = readOnly && tab === 'form' ? 'yaml' : tab
 
-  function switchTab(t: Tab) {
-    if (t === 'form' && !formAvailable) {
+  function switchTab(next: Tab) {
+    if (next === 'form' && !formAvailable) {
       toast(
         'info',
         parseErr
-          ? 'YAML 파싱 오류로 폼 전환 불가'
+          ? t('edit.parseErrorNoForm')
           : !curated && !hasAuto
-            ? `${rt?.kind ?? type} 폼은 없습니다 — YAML로 편집하세요`
-            : '폼이 표현할 수 없는 고급 필드가 있어 YAML 전용입니다',
+            ? t('edit.noForm', { kind: rt?.kind ?? type })
+            : t('edit.advancedYamlOnly'),
       )
       return
     }
-    setTab(t)
+    setTab(next)
   }
 
   // dangerous kinds require typed confirmation before a real mutation.
@@ -223,21 +225,21 @@ export function ResourceEdit() {
     else run()
   }
 
-  // 폼/YAML 공통 적용 경로의 사전 검증: 파싱 + 이름/네임스페이스 필수.
+  // Pre-check shared by the form and YAML apply paths: parse + name/namespace required.
   function parseBody(): any | null {
     let body: any
     try {
       body = yamlLoad(text ?? '')
     } catch (e) {
-      toast('error', `YAML 파싱 오류: ${(e as Error).message}`)
+      toast('error', t('edit.parseError', { message: (e as Error).message }))
       return null
     }
     if (!body?.metadata?.name) {
-      toast('error', '이름(metadata.name)은 필수입니다.')
+      toast('error', t('edit.nameRequired'))
       return null
     }
     if (rt?.namespaced && !body.metadata.namespace) {
-      toast('error', '네임스페이스(metadata.namespace)는 필수입니다.')
+      toast('error', t('edit.namespaceRequired'))
       return null
     }
     return body
@@ -251,9 +253,9 @@ export function ResourceEdit() {
       const q = `?dryRun=${dryRun}`
       if (isEdit) await apiPut(`/api/resources/${type}/${ns}/${name}${q}`, body)
       else await apiPost(`/api/resources/${type}${q}`, body)
-      if (dryRun) toast('success', '검증 통과 — 적용 가능합니다.')
+      if (dryRun) toast('success', t('edit.validated'))
       else {
-        toast('success', isEdit ? '수정이 적용되었습니다.' : '생성되었습니다.')
+        toast('success', isEdit ? t('edit.updated') : t('edit.created'))
         queryClient.invalidateQueries({ queryKey: ['resources', type] })
         queryClient.invalidateQueries({ queryKey: ['audit'] })
         navigate(`/resources/${type}`)
@@ -289,7 +291,7 @@ export function ResourceEdit() {
     setBusy(true)
     try {
       await apiPut(`/api/resources/${type}/${ns}/${name}`, body)
-      toast('success', '최신 버전 위에 적용되었습니다.')
+      toast('success', t('edit.overwritten'))
       queryClient.invalidateQueries({ queryKey: ['resources', type] })
       queryClient.invalidateQueries({ queryKey: ['audit'] })
       navigate(`/resources/${type}`)
@@ -304,8 +306,8 @@ export function ResourceEdit() {
     if (dryRun) {
       void doApply(true)
       return
-    } // "검증" button: validate only
-    void openPreview() // "적용" button: dry-run → diff preview → confirm
+    } // "Validate" button: validate only
+    void openPreview() // "Apply" button: dry-run → diff preview → confirm
   }
 
   // Runs a dry-run to get the would-be-applied object, then opens a diff preview
@@ -334,7 +336,7 @@ export function ResourceEdit() {
     setBusy(true)
     try {
       await apiDelete(`/api/resources/${type}/${ns}/${name}`)
-      toast('success', '삭제되었습니다.')
+      toast('success', t('list.deleted'))
       queryClient.invalidateQueries({ queryKey: ['resources', type] })
       queryClient.invalidateQueries({ queryKey: ['audit'] })
       navigate(`/resources/${type}`)
@@ -347,34 +349,36 @@ export function ResourceEdit() {
 
   function del() {
     if (rt?.dangerous) {
-      guard('삭제', name, () => void doDelete())
+      guard(t('common.delete'), name, () => void doDelete())
       return
     }
-    if (window.confirm(`${rt?.kind ?? type} ${ns}/${name} 를 삭제할까요?`)) void doDelete()
+    if (window.confirm(t('list.confirmDelete', { kind: rt?.kind ?? type, ns, name }))) void doDelete()
   }
 
-  if (!rt && types.isLoading) return <div className="text-muted">로딩 중…</div>
-  if (!rt) return <div className="text-red-600 dark:text-red-400">알 수 없는 리소스 타입: {type}</div>
-  if (isEdit && resource.isLoading) return <div className="text-muted">로딩 중…</div>
+  if (!rt && types.isLoading) return <div className="text-muted">{t('common.loading')}</div>
+  if (!rt) return <div className="text-red-600 dark:text-red-400">{t('edit.unknownType', { type })}</div>
+  if (isEdit && resource.isLoading) return <div className="text-muted">{t('common.loading')}</div>
   if (isEdit && resource.isError)
     return (
-      <div className="text-red-600 dark:text-red-400">불러오기 실패: {(resource.error as Error).message}</div>
+      <div className="text-red-600 dark:text-red-400">
+        {t('list.loadFailed', { message: (resource.error as Error).message })}
+      </div>
     )
-  if (text === null) return <div className="text-muted">준비 중…</div>
+  if (text === null) return <div className="text-muted">{t('edit.preparing')}</div>
 
   return (
     <div className="resource-editor mx-auto space-y-5">
       <PageHeader
         eyebrow={isEdit ? 'Resource editor' : 'New resource'}
-        title={isEdit ? name : `새 ${rt.kind}`}
+        title={isEdit ? name : t('edit.newTitle', { kind: rt.kind })}
         description={
           <span className="inline-flex flex-wrap items-center gap-2">
             <KindBadge kind={rt.kind} category={rt.category} />
-            {isEdit ? ns : '설정을 작성하고 변경사항을 검증한 후 적용하세요.'}
+            {isEdit ? ns : t('edit.newDescription')}
             {rt.dangerous && (
               <span className="inline-flex items-center gap-1 text-xs text-amber-600 dark:text-amber-400">
                 <Icon name="warning" className="h-3.5 w-3.5" />
-                고위험
+                {t('edit.highRisk')}
               </span>
             )}
           </span>
@@ -382,19 +386,24 @@ export function ResourceEdit() {
         actions={
           <Link to={`/resources/${type}`} className="btn-ghost">
             <Icon name="back" className="h-4 w-4" />
-            목록으로
+            {t('edit.backToList')}
           </Link>
         }
       />
 
       {readOnly && (
         <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-300">
-          이 리소스에 대한 <strong>수정 권한이 없습니다</strong> — 읽기 전용으로 표시됩니다.
+          {/* readOnlyBefore/After carry their own spaces around the <strong> */}
+          {t('edit.readOnlyBefore')}
+          <strong>{t('edit.readOnlyStrong')}</strong>
+          {t('edit.readOnlyAfter')}
         </div>
       )}
       {noCreate && (
         <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-300">
-          <strong>{rt.kind} 생성 권한이 없습니다</strong> — 적용할 수 없습니다 (YAML 작성/다운로드는 가능).
+          {/* noCreateAfter carries its own leading space after the <strong> */}
+          <strong>{t('edit.noCreateStrong', { kind: rt.kind })}</strong>
+          {t('edit.noCreateAfter')}
         </div>
       )}
 
@@ -404,20 +413,21 @@ export function ResourceEdit() {
           disabled={!formAvailable || readOnly}
           onClick={() => switchTab('form')}
         >
-          폼
+          {t('edit.tabForm')}
         </TabButton>
         <TabButton active={shownTab === 'yaml'} onClick={() => switchTab('yaml')}>
           YAML
         </TabButton>
         {curated && !formAvailable && !parseErr && (
           <span className="ml-3 self-center text-xs text-amber-600 dark:text-amber-400">
-            고급 필드 감지 — YAML 전용
+            {t('edit.advancedDetected')}
           </span>
         )}
         {shownTab === 'form' && formAvailable && (
           <span className="ml-auto self-center pb-1 text-xs text-faint">
-            <span className="text-red-500">*</span> 필수 ·{' '}
-            <span className="text-amber-600 dark:text-amber-400">(권장)</span> 채우면 좋음 · (선택) 부가
+            <span className="text-red-500">*</span> {t('edit.legendRequired')} ·{' '}
+            <span className="text-amber-600 dark:text-amber-400">{t('form.recommended')}</span>{' '}
+            {t('edit.legendRecommended')} · {t('form.optional')} {t('edit.legendOptional')}
           </span>
         )}
       </div>
@@ -437,7 +447,7 @@ export function ResourceEdit() {
           ns={formNs}
           onChange={(newSpec: any) => setText(yamlDump({ ...obj, spec: newSpec }))}
           header={
-            // 자동 폼은 spec만 렌더하므로 이름/네임스페이스는 여기서 받는다 (필수).
+            // The auto-form renders only spec, so name/namespace are collected here (required).
             <div className="mb-5 grid grid-cols-1 sm:grid-cols-2 gap-4 border-b border-base pb-5">
               <label className="block">
                 <span className="mb-1 block text-xs font-medium text-muted">
@@ -481,7 +491,7 @@ export function ResourceEdit() {
           className="btn-ghost text-sm disabled:opacity-50"
         >
           <Icon name="check" className="h-4 w-4" />
-          검증
+          {t('edit.validate')}
         </button>
         <button
           onClick={() => apply(false)}
@@ -489,16 +499,16 @@ export function ResourceEdit() {
           className="btn-primary text-sm disabled:opacity-50"
         >
           <Icon name="plus" className="h-4 w-4" />
-          변경사항 적용
+          {t('edit.apply')}
         </button>
         {isEdit && (
           <button
             onClick={del}
             disabled={busy || noDelete}
-            title={noDelete ? '삭제 권한이 없습니다' : undefined}
+            title={noDelete ? t('edit.noDeletePermission') : undefined}
             className="ml-auto rounded-md border border-red-300 px-3 py-1.5 text-sm font-medium text-red-600 hover:bg-red-50 disabled:opacity-50 dark:border-red-500/40 dark:text-red-400 dark:hover:bg-red-500/10"
           >
-            삭제
+            {t('common.delete')}
           </button>
         )}
       </div>
@@ -533,9 +543,9 @@ export function ResourceEdit() {
 
       {conflict && (
         <DiffModal
-          title="⚠ 충돌 — 다른 곳에서 수정됨"
-          subtitle="왼쪽(−) 최신 서버본 · 오른쪽(+) 내 수정본"
-          confirmLabel="최신 위에 덮어쓰기"
+          title={t('edit.conflictTitle')}
+          subtitle={t('edit.conflictSubtitle')}
+          confirmLabel={t('edit.conflictConfirm')}
           warn
           oldYaml={conflict.latestYaml}
           newYaml={conflict.mineYaml}

@@ -23,14 +23,14 @@ const NESTED_REF: Record<string, RefKind> = {
 }
 
 // Fields that are optional in the API but shouldn't be skipped thoughtlessly —
-// rendered with a "(권장)" badge instead of "(선택)" (e.g. exportTo: the default
+// rendered with a "(recommended)" badge instead of "(optional)" (e.g. exportTo: the default
 // is export-to-all-namespaces, which is rarely what a multi-tenant cluster wants).
 const RECOMMENDED_FIELD = new Set(['exportTo'])
 
 // Istio CRD schemas mark `required` on nested objects but never at the spec top
-// level, so without help every top-level field renders "(선택)". This overlay
+// level, so without help every top-level field renders "(optional)". This overlay
 // injects the practically-required fields (same judgment as the YAML starter
-// templates' "(필수)" comments); nested levels keep the CRD's own `required`.
+// templates' "(required)" comments); nested levels keep the CRD's own `required`.
 const REQUIRED_TOP: Record<string, string[]> = {
   'virtualservices.networking.istio.io': ['hosts'],
   'destinationrules.networking.istio.io': ['host'],

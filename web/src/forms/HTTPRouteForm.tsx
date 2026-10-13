@@ -1,6 +1,7 @@
 import type { GatewayRef } from '../api/gateways'
 import type { ServiceRef } from '../api/services'
 import type { HTTPRouteFormModel, RuleModel, BackendRefModel } from './httproute'
+import { t } from '../i18n'
 
 export function HTTPRouteForm({
   model,
@@ -39,7 +40,7 @@ export function HTTPRouteForm({
           <Row key={i} onRemove={() => set({ parentRefs: model.parentRefs.filter((_, j) => j !== i) })}>
             <select className={input} value={p.name}
               onChange={(e) => set({ parentRefs: replace(model.parentRefs, i, { ...p, name: e.target.value }) })}>
-              {apiGateways.length === 0 && <option value={p.name}>{p.name || '(게이트웨이 없음)'}</option>}
+              {apiGateways.length === 0 && <option value={p.name}>{p.name || t('form.noGateways')}</option>}
               {apiGateways.map((g) => <option key={g.name} value={g.name}>{g.name}</option>)}
             </select>
           </Row>
@@ -90,16 +91,16 @@ function RuleCard({
         </select>
         <input className={input} value={rule.pathValue} placeholder="/"
           onChange={(e) => onChange({ ...rule, pathValue: e.target.value })} />
-        <button onClick={onRemove} className="ml-auto text-sm text-red-600 hover:underline dark:text-red-400">규칙 삭제</button>
+        <button onClick={onRemove} className="ml-auto text-sm text-red-600 hover:underline dark:text-red-400">{t('form.deleteRule')}</button>
       </div>
 
       <div className="space-y-2">
         <div className="flex items-center justify-between">
           <span className="text-xs text-muted">
-            Backends (service<span className="text-red-500">*</span> / port<span className="text-red-500">*</span> / weight<span className="text-faint"> 선택</span>)
+            Backends (service<span className="text-red-500">*</span> / port<span className="text-red-500">*</span> / weight<span className="text-faint"> {t('form.optionalWord')}</span>)
           </span>
           {rule.backendRefs.length > 1 && (
-            <span className="text-xs text-faint">weight 합계: {weightSum}</span>
+            <span className="text-xs text-faint">{t('form.weightSum', { n: weightSum })}</span>
           )}
         </div>
         {rule.backendRefs.map((b, bi) => (
@@ -134,7 +135,7 @@ function BackendRow({
         </datalist>
       </div>
       {b.name !== '' && !known && (
-        <span className="rounded bg-amber-100 px-1.5 py-0.5 text-xs text-amber-700 dark:bg-amber-500/15 dark:text-amber-300" title="이 네임스페이스에 없는 서비스">⚠ 없음</span>
+        <span className="rounded bg-amber-100 px-1.5 py-0.5 text-xs text-amber-700 dark:bg-amber-500/15 dark:text-amber-300" title={t('form.serviceNotInNs')}>⚠ {t('form.missing')}</span>
       )}
       <input className={`${input} w-24`} type="number" value={b.port} placeholder="port"
         onChange={(e) => onChange({ ...b, port: Number(e.target.value) })} />
@@ -151,11 +152,11 @@ function replace<T>(arr: T[], i: number, v: T): T[] {
   return arr.map((x, j) => (j === i ? v : x))
 }
 
-// Same required convention as the auto-form's FieldTemplate: red * vs (선택).
+// Same required convention as the auto-form's FieldTemplate: red * vs (optional).
 function RequiredMark({ required }: { required?: boolean }) {
   return required
-    ? <span className="ml-1 text-red-500" title="필수">*</span>
-    : <span className="ml-1 text-[10px] font-normal text-faint">(선택)</span>
+    ? <span className="ml-1 text-red-500" title={t('form.required')}>*</span>
+    : <span className="ml-1 text-[10px] font-normal text-faint">{t('form.optional')}</span>
 }
 
 function Field({ label, required, children }: { label: string; required?: boolean; children: React.ReactNode }) {
@@ -172,7 +173,7 @@ function Section({ title, required, onAdd, children }: { title: string; required
     <div>
       <div className="mb-2 flex items-center justify-between">
         <h3 className="text-sm font-semibold text-strong">{title}<RequiredMark required={required} /></h3>
-        <button onClick={onAdd} className="text-sm text-accent hover:underline">+ 추가</button>
+        <button onClick={onAdd} className="text-sm text-accent hover:underline">+ {t('form.add')}</button>
       </div>
       <div className="space-y-2">{children}</div>
     </div>

@@ -9,6 +9,7 @@ import { FieldTemplate } from './FieldTemplate'
 import { ArrayFieldTemplate, ArrayFieldItemTemplate } from './ArrayFieldTemplate'
 import { widgets } from './widgets'
 import { ErrorBoundary } from '../components/ErrorBoundary'
+import { t } from '../i18n'
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
@@ -32,19 +33,19 @@ export function AutoForm({
   spec: any
   ns: string
   onChange: (spec: any) => void
-  header?: ReactNode // 이름/네임스페이스 등 metadata 입력 — spec 폼과 같은 패널에 렌더
+  header?: ReactNode // metadata inputs (name/namespace) — rendered in the same panel as the spec form
 }) {
   const schema = useSchema(type, true)
   const [initial] = useState<any>(() => spec ?? {}) // captured once; never updated
   const prepared = useMemo(() => (schema.data ? sanitizeSchema(schema.data, type) : null), [schema.data, type])
 
-  if (schema.isLoading) return <Box>스키마 로딩 중…</Box>
-  if (schema.isError || !prepared) return <Box>자동 폼 스키마를 불러올 수 없습니다 — YAML 탭을 사용하세요.</Box>
+  if (schema.isLoading) return <Box>{t('form.schemaLoading')}</Box>
+  if (schema.isError || !prepared) return <Box>{t('form.schemaUnavailable')}</Box>
 
   return (
     <div className="rjsf-compact panel p-5 shadow-sm">
       {header}
-      <ErrorBoundary fallback={<div className="text-sm text-amber-600 dark:text-amber-400">이 리소스는 폼으로 렌더하기 어렵습니다 — YAML 탭을 사용하세요.</div>}>
+      <ErrorBoundary fallback={<div className="text-sm text-amber-600 dark:text-amber-400">{t('form.renderFailed')}</div>}>
         <Form
           schema={prepared.jsonSchema}
           uiSchema={{ ...prepared.uiSchema, 'ui:submitButtonOptions': { norender: true } }}

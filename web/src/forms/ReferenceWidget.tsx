@@ -1,12 +1,13 @@
 import type { WidgetProps } from '@rjsf/utils'
 import { Link } from 'react-router-dom'
 import { useReferenceOptions, type RefKind } from '../api/references'
+import { t, type Key } from '../i18n'
 
-const UNKNOWN_HINT: Record<RefKind, string> = {
-  service: '등록된 서비스 아님 — 외부/다른 NS 호스트면 정상',
-  gateway: '클러스터에 없는 Gateway',
-  gatewayName: '클러스터에 없는 Gateway 이름',
-  subset: '정의된 subset 아님 — 적용 시 무시될 수 있음',
+const UNKNOWN_HINT: Record<RefKind, Key> = {
+  service: 'form.unknown.service',
+  gateway: 'form.unknown.gateway',
+  gatewayName: 'form.unknown.gatewayName',
+  subset: 'form.unknown.subset',
 }
 
 // Reference-resolving input: a free-text field backed by a <datalist> of real
@@ -48,16 +49,16 @@ export function ReferenceWidget(props: WidgetProps) {
       {v && (
         <div className="mt-1 flex items-center gap-2 text-xs">
           {known ? (
-            <span className="text-emerald-600 dark:text-emerald-400">✓ 확인됨</span>
+            <span className="text-emerald-600 dark:text-emerald-400">✓ {t('form.verified')}</span>
           ) : (
-            <span className="text-amber-600 dark:text-amber-400">⚠ {UNKNOWN_HINT[refKind]}</span>
+            <span className="text-amber-600 dark:text-amber-400">⚠ {t(UNKNOWN_HINT[refKind])}</span>
           )}
           {matched?.navTypeId && (
             <Link
               to={`/resources/${matched.navTypeId}/${matched.navNs}/${matched.navName}`}
               className="text-accent hover:underline"
             >
-              ↗ 이동
+              ↗ {t('form.goTo')}
             </Link>
           )}
         </div>

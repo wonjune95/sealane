@@ -3,8 +3,8 @@ import { yaml } from '@codemirror/lang-yaml'
 import { indentationMarkers } from '@replit/codemirror-indentation-markers'
 import { useTheme } from '../ui/theme'
 
-// YAML은 들여쓰기가 곧 문법이라 단계마다 세로 가이드라인(|)을 그려서
-// 한 칸 어긋남을 바로 볼 수 있게 한다. 커서가 있는 블록은 진하게 강조.
+// In YAML indentation is syntax, so draw a vertical guide (|) at every level to
+// make a one-column misalignment obvious. The block holding the cursor is emphasized.
 const whitespaceExtensions = [
   indentationMarkers({
     highlightActiveBlock: true,

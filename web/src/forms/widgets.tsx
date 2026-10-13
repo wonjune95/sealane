@@ -1,5 +1,6 @@
 import type { WidgetProps } from '@rjsf/utils'
 import { ReferenceWidget } from './ReferenceWidget'
+import { t } from '../i18n'
 
 // Tailwind-styled rjsf widgets (Gemini ①): replaces the bare default HTML inputs.
 // .input-base is the shared dark-aware, accent-focused input class (index.css).
@@ -37,7 +38,7 @@ export function SelectWidget(props: WidgetProps) {
       disabled={disabled || readonly}
       onChange={(e) => onChange(e.target.value === '' ? undefined : e.target.value)}
     >
-      <option value="">{placeholder || '선택…'}</option>
+      <option value="">{placeholder || t('form.selectPlaceholder')}</option>
       {enumOptions.map((o, i) => (
         <option key={i} value={String(o.value)}>{o.label}</option>
       ))}

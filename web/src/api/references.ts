@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import { apiGet } from './client'
+import { t } from '../i18n'
 
 // Reference resolution for auto-form fields (host/gateway/subset): turns opaque
 // text fields into suggest-as-you-type dropdowns linked to real cluster resources,
@@ -54,7 +55,7 @@ function normalize(kind: RefKind, raw: unknown, ns: string): RefOption[] {
       navNs: g.namespace,
       navName: g.name,
     }))
-    if (kind === 'gateway') gws.unshift({ value: 'mesh', label: 'mesh — Gateway 없이 사이드카에 적용' })
+    if (kind === 'gateway') gws.unshift({ value: 'mesh', label: t('form.meshOption') })
     return gws
   }
   return (raw as SubsetRef[]).map((s) => ({

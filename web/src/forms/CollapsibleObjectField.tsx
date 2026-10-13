@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import type { ObjectFieldTemplateProps } from '@rjsf/utils'
+import { t } from '../i18n'
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
@@ -35,9 +36,9 @@ export function CollapsibleObjectField(props: ObjectFieldTemplateProps) {
         {/* same required convention as FieldTemplate (object fields skip its
             label). Array items get no mark — requiredness belongs to the array. */}
         {!/_\d+$/.test(fieldPathId.$id) && (required ? (
-          <span className="ml-1 text-red-500" title="필수">*</span>
+          <span className="ml-1 text-red-500" title={t('form.required')}>*</span>
         ) : (
-          <span className="ml-1 text-[10px] font-normal text-faint">(선택)</span>
+          <span className="ml-1 text-[10px] font-normal text-faint">{t('form.optional')}</span>
         ))}
       </summary>
       {open && fields}

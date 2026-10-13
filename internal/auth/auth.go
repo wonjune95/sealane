@@ -167,7 +167,7 @@ func (s *Sessions) ParseState(value string) (state, nonce, verifier string, err 
 		return "", "", "", ErrStateInvalid
 	}
 	exp, err := strconv.ParseInt(parts[3], 10, 64)
-	if err != nil || time.Now().Unix() > exp {
+	if err != nil || time.Now().Unix() > exp || parts[0] == "" {
 		return "", "", "", ErrStateInvalid
 	}
 	return parts[0], parts[1], parts[2], nil

@@ -42,6 +42,9 @@ func TestStateCookieRoundTripAndTamper(t *testing.T) {
 	if _, _, _, err := s.ParseState(s.SignState("a", "b", "c", -time.Second)); err == nil {
 		t.Fatal("expired state must fail")
 	}
+	if _, _, _, err := s.ParseState(s.SignState("", "b", "c", time.Minute)); err == nil {
+		t.Fatal("empty state must fail")
+	}
 	if _, _, _, err := NewSessions("other").ParseState(v); err == nil {
 		t.Fatal("different key must fail")
 	}

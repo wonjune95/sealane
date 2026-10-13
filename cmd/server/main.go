@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -79,6 +80,7 @@ func main() {
 		os.Exit(1)
 	case cfg != nil:
 		srv.SetOIDC(auth.NewOIDC(*cfg))
+		api.SecureCookies = strings.HasPrefix(cfg.RedirectURL, "https://")
 		slog.Info("oidc enabled", "issuer", cfg.IssuerURL, "displayName", cfg.DisplayName)
 	}
 	// If there is no admin account, create the initial admin/admin account.
@@ -118,7 +120,16 @@ func main() {
 	defer stop()
 	<-ctx.Done()
 
-	slog.Info("shutting down")
+	delay := 5 * time.Second
+	if v := os.Getenv("SHUTDOWN_DELAY"); v != "" {
+		if d, err := time.ParseDuration(v); err == nil {
+			delay = d
+		} else {
+			slog.Warn("ignoring invalid SHUTDOWN_DELAY", "value", v)
+		}
+	}
+	slog.Info("shutting down", "delay", delay)
+	time.Sleep(delay) // ponytail: fixed sleep so endpoint removal reaches ingress/sidecars before the listener closes; readiness flip if 5s proves short
 	shCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	if err := httpServer.Shutdown(shCtx); err != nil {

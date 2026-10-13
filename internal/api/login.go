@@ -15,6 +15,9 @@ const (
 	sessionTTL    = 12 * time.Hour
 )
 
+// SecureCookies marks every cookie Secure; main sets it when OIDC_REDIRECT_URL is https.
+var SecureCookies bool
+
 // handleLogin verifies a local account (ConfigMap-backed) and sets the session cookie.
 func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 	if s.dev {
@@ -53,10 +56,10 @@ func (s *Server) handleLogout(w http.ResponseWriter, _ *http.Request) {
 func setSessionCookie(w http.ResponseWriter, value string) {
 	http.SetCookie(w, &http.Cookie{
 		Name: sessionCookie, Value: value, Path: "/", HttpOnly: true, SameSite: http.SameSiteLaxMode,
-		MaxAge: int(sessionTTL.Seconds()),
+		MaxAge: int(sessionTTL.Seconds()), Secure: SecureCookies,
 	})
 }
 
 func clearCookie(w http.ResponseWriter, name, path string) {
-	http.SetCookie(w, &http.Cookie{Name: name, Value: "", Path: path, HttpOnly: true, SameSite: http.SameSiteLaxMode, MaxAge: -1})
+	http.SetCookie(w, &http.Cookie{Name: name, Value: "", Path: path, HttpOnly: true, SameSite: http.SameSiteLaxMode, MaxAge: -1, Secure: SecureCookies})
 }

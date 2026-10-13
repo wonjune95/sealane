@@ -232,6 +232,9 @@ func TestOIDCCallbackRejectsBadState(t *testing.T) {
 	if rec.Header().Get("Location") != "/?oidc_error=state" || issuedSession(rec) != nil {
 		t.Fatalf("forged state: %d %s", rec.Code, rec.Header().Get("Location"))
 	}
+	if len(rec.Result().Cookies()) != 0 {
+		t.Fatal("a forged callback must not clear the state cookie of a sign-in in progress")
+	}
 	rec = callback(t, mux, "code=good-code&state=whatever", nil)
 	if rec.Header().Get("Location") != "/?oidc_error=state" {
 		t.Fatalf("missing cookie: %s", rec.Header().Get("Location"))
@@ -304,6 +307,23 @@ func TestOIDCCallbackRejectsBadIDToken(t *testing.T) {
 				t.Fatal("state cookie not cleared")
 			}
 		})
+	}
+}
+
+func TestCookiesSecureWhenRedirectIsHTTPS(t *testing.T) {
+	mux, _ := newOIDCMux(t, newFakeIdP(t), "viewer")
+	if _, c := startLogin(t, mux); c.Secure {
+		t.Fatal("state cookie must not be Secure by default (http redirect)")
+	}
+	SecureCookies = true // what main sets for an https:// OIDC_REDIRECT_URL
+	t.Cleanup(func() { SecureCookies = false })
+	if _, c := startLogin(t, mux); !c.Secure {
+		t.Fatal("state cookie must be Secure behind https")
+	}
+	rec := httptest.NewRecorder()
+	mux.ServeHTTP(rec, httptest.NewRequest("POST", "/api/logout", nil))
+	if c := rec.Result().Cookies(); len(c) != 1 || !c[0].Secure {
+		t.Fatalf("session cookie must be Secure behind https: %v", c)
 	}
 }
 

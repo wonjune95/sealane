@@ -56,6 +56,7 @@ func (s *Server) handleOIDCLogin(w http.ResponseWriter, r *http.Request) {
 	http.SetCookie(w, &http.Cookie{
 		Name: oidcStateCookie, Value: s.sessions.SignState(state, nonce, verifier, oidcStateTTL),
 		Path: oidcStatePath, HttpOnly: true, SameSite: http.SameSiteLaxMode, MaxAge: int(oidcStateTTL.Seconds()),
+		Secure: SecureCookies,
 	})
 	http.Redirect(w, r, target, http.StatusFound)
 }
@@ -78,9 +79,11 @@ func (s *Server) handleOIDCCallback(w http.ResponseWriter, r *http.Request) {
 		fail("state", err)
 		return
 	}
+	// A state failure keeps the cookie: a forged callback link must not abort a real sign-in in progress.
 	state, nonce, verifier, err := s.sessions.ParseState(c.Value)
-	if err != nil || state == "" || state != q.Get("state") {
-		fail("state", errors.New("state mismatch or expired"))
+	if err != nil || state != q.Get("state") {
+		slog.Warn("oidc callback failed", "reason", "state", "err", err)
+		http.Redirect(w, r, "/?oidc_error=state", http.StatusFound)
 		return
 	}
 	// Only after the state check: a crafted ?error= link without our state is a state failure, not an IdP one.

@@ -413,8 +413,8 @@ function SourcePicker({
               <p className="text-xs text-muted">{t('rt.testerDisabledHint')}</p>
               <pre className="panel-soft overflow-x-auto rounded-lg p-3 text-xs">
                 <code>
-                  helm upgrade sealane charts/sealane -n sealane --reuse-values --set
-                  requestTester.enabled=true
+                  helm upgrade sealane oci://ghcr.io/wonjune95/charts/sealane --version 0.8.0 -n sealane
+                  --reuse-values --set requestTester.enabled=true
                 </code>
               </pre>
             </div>

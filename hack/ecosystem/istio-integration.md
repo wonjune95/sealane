@@ -3,7 +3,7 @@ title: Sealane
 description: Routing console for Istio and Gateway API.
 weight: 70
 keywords: [integration, routing, gateway-api]
-owner: istio/wg-docs-maintainers
+owner: istio/wg-environments-maintainers
 test: n/a
 ---
 
@@ -15,7 +15,7 @@ the object's `resourceVersion` before it is applied. A traffic flow map and a ro
 rule a request would match, using only the routing configuration.
 
 Sealane runs as a single binary with no CRDs, operators or database. It reads the resources already in
-the cluster, acts as its pod's ServiceAccount, and maps local or OpenID Connect users to `admin`,
+the cluster, acts as its pod's ServiceAccount (or as the kubeconfigs it is given for remote clusters), and maps local or OpenID Connect users to `admin`,
 `editor` and `viewer` roles. Sealane is a third-party project; it is not maintained by the Istio project.
 
 ## Install

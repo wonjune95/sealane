@@ -21,6 +21,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - id: meta
         run: echo "tag=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+      - run: test -f docs/releases/v${{ steps.meta.outputs.tag }}.md   # release notes gate, before anything is pushed
       - uses: docker/setup-qemu-action@99012661954931238ded8c8b007157a8430204e1 # v4.4.0
       - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
       - uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
@@ -74,7 +75,6 @@ jobs:
               --set image.tag="$TAG" --set sessionSecret.create=false
           } > install.yaml
           grep -c '^kind:' install.yaml
-      - run: test -f docs/releases/v${{ steps.meta.outputs.tag }}.md
       - name: GitHub Release
         uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3.0.3
         with:

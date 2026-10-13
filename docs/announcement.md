@@ -6,7 +6,7 @@ Post from your own account. Each section links the docs site and the repository;
 ## 1. Istio Slack (`#general` or `#show-and-tell`)
 
 > Sealane 1.0 is out: a routing console for Istio and the Kubernetes Gateway API. It is a single Go binary with the React UI embedded, installs no CRDs or operators, and edits VirtualService, HTTPRoute, DestinationRule and friends with dry-run validation, a diff preview and role-based accounts.
-> New in 1.0: a written stability policy (Helm values, env vars and account formats stay compatible across 1.x), OIDC single sign-on, multi-arch images (amd64/arm64), and signed images and charts.
+> New in 1.0: a written stability policy (Helm values, env vars and account formats stay compatible across 1.x). Since the first public release it has also gained OIDC single sign-on, multi-arch images (amd64/arm64) and signed images and charts.
 > Docs: https://wonjune95.github.io/sealane/ · Repo: https://github.com/wonjune95/sealane
 > `helm install sealane oci://ghcr.io/wonjune95/charts/sealane --version 1.0.0 -n sealane --create-namespace`
 > `kubectl -n sealane port-forward svc/sealane 8080:8080` (log in as admin / admin, you are asked to change it)
@@ -30,7 +30,7 @@ What it does:
 
 Install: `helm install sealane oci://ghcr.io/wonjune95/charts/sealane --version 1.0.0 -n sealane --create-namespace`, or `kubectl apply -f` the `install.yaml` from the latest release.
 
-What it is not: it is not Kiali and has no metrics, tracing or topology from telemetry. It only reads and writes Kubernetes resources, as the pod's ServiceAccount.
+What it is not: it is not Kiali and has no metrics, tracing or topology from telemetry. It only reads and writes Kubernetes resources, as the pod's ServiceAccount (or the kubeconfigs you give it for remote clusters).
 
 Docs: https://wonjune95.github.io/sealane/ · Repo: https://github.com/wonjune95/sealane (MIT). Third-party tool, not affiliated with Istio or the CNCF.
 
@@ -55,6 +55,6 @@ It is a third-party project, not affiliated with Istio or the CNCF. I would like
 
 ## 4. Istio Discuss / GitHub Discussions
 
-> Sealane 1.0.0 is released: a routing console for Istio and the Kubernetes Gateway API (single binary, no CRDs, dry-run and diff before every write). 1.0 adds a stability and support policy, OIDC sign-on and signed multi-arch images.
+> Sealane 1.0.0 is released: a routing console for Istio and the Kubernetes Gateway API (single binary, no CRDs, dry-run and diff before every write). 1.0 adds a stability and support policy; OIDC sign-on and signed multi-arch images arrived in the 0.9/0.10 releases.
 > Docs: https://wonjune95.github.io/sealane/ · Release notes and code: https://github.com/wonjune95/sealane
 > Sealane is a third-party tool, not affiliated with Istio or the CNCF; questions and bug reports go to GitHub issues.

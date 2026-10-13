@@ -67,5 +67,5 @@ helm upgrade sealane oci://ghcr.io/wonjune95/charts/sealane --version 1.0.0 -n <
 
 Two behaviors change:
 
-- The new `SHUTDOWN_DELAY` (default `5s`) makes the pod wait before it closes the listener on SIGTERM, so termination takes 5 seconds longer. Set `SHUTDOWN_DELAY=0s` to turn it off.
+- The new `SHUTDOWN_DELAY` (default `5s`) makes the pod wait before it closes the listener on SIGTERM, so termination takes 5 seconds longer. Set `SHUTDOWN_DELAY=0s` to turn it off (no Helm value in 1.0: `kubectl -n <namespace> set env deploy/sealane SHUTDOWN_DELAY=0s`).
 - Cookies are marked `Secure` automatically when `OIDC_REDIRECT_URL` is `https://`. If TLS terminates elsewhere and Sealane is still reached over plain http on that URL, logins would fail. Keep the redirect URL on the scheme users actually use.

@@ -9,7 +9,6 @@ permissions:
   contents: read
 
 env:
-  ISTIO_VERSION: "1.31.1"
   GATEWAY_API_VERSION: "v1.5.1"
   KIND_CLUSTER: sealane-e2e
 
@@ -17,6 +16,12 @@ jobs:
   kind-istio:
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        istio: ["1.30.5", "1.31.1"]
+    env:
+      ISTIO_VERSION: ${{ matrix.istio }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Build image
@@ -49,3 +54,42 @@ jobs:
           kubectl -n sealane logs deploy/sealane --tail=100 || true
           cat /tmp/pf.log || true
           kubectl get pods -A
+
+  upgrade-from-0.8:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Build image
+        run: docker build -t sealane:ci .
+      - uses: helm/kind-action@1544676c07bb3570fcb70166beaa07c4528fd4aa # v1.15.1
+        with:
+          cluster_name: sealane-upgrade
+          node_image: kindest/node:v1.35.0@sha256:452d707d4862f52530247495d180205e029056831160e22870e37e3f6c1ac31f
+      - name: Install 0.8.0 from GHCR
+        run: |
+          kubectl create ns istio-system   # the 0.8.0 chart puts a Role there unconditionally
+          helm install sealane oci://ghcr.io/wonjune95/charts/sealane --version 0.8.0 -n sealane --create-namespace --wait --timeout 180s
+      - name: Seed accounts on 0.8.0
+        run: |
+          kubectl -n sealane port-forward svc/sealane 8080:8080 >/tmp/pf1.log 2>&1 &
+          for i in $(seq 1 30); do curl -sf http://localhost:8080/healthz >/dev/null && break; sleep 1; done
+          ./hack/upgrade-check.sh pre http://localhost:8080 /tmp/state
+          kill %1
+      - name: Upgrade to the local chart
+        run: |
+          kind load docker-image sealane:ci --name sealane-upgrade
+          helm upgrade sealane charts/sealane -n sealane --reset-then-reuse-values \
+            --set image.repository=sealane --set image.tag=ci --set image.pullPolicy=Never --wait --timeout 180s
+          helm history sealane -n sealane
+      - name: Verify after upgrade
+        run: |
+          kubectl -n sealane port-forward svc/sealane 8080:8080 >/tmp/pf2.log 2>&1 &
+          for i in $(seq 1 30); do curl -sf http://localhost:8080/healthz >/dev/null && break; sleep 1; done
+          ./hack/upgrade-check.sh post http://localhost:8080 /tmp/state
+      - name: Logs on failure
+        if: failure()
+        run: |
+          kubectl -n sealane logs deploy/sealane --tail=100 || true
+          kubectl -n sealane get cm,secret,deploy,svc || true
+          cat /tmp/pf1.log /tmp/pf2.log 2>/dev/null || true

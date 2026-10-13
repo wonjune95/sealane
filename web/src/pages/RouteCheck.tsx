@@ -413,7 +413,7 @@ function SourcePicker({
                 추가됩니다.
               </p>
               <pre className="panel-soft overflow-x-auto rounded-lg p-3 text-xs">
-                helm upgrade istio-dashboard deploy/helm -n istio-dashboard --reuse-values --set
+                helm upgrade sealane charts/sealane -n sealane --reuse-values --set
                 requestTester.enabled=true
               </pre>
             </div>

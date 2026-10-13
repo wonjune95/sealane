@@ -8,7 +8,7 @@ interface NamespaceCtx {
 }
 
 const Ctx = createContext<NamespaceCtx>({ ns: '', setNs: () => {} })
-const KEY = 'istio-dash-ns'
+const KEY = 'sealane-ns'
 
 export function NamespaceProvider({ children }: { children: ReactNode }) {
   const [ns, setNsState] = useState<string>(() => localStorage.getItem(KEY) ?? '')

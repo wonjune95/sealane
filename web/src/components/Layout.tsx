@@ -34,7 +34,7 @@ export function Layout({ children }: { children: ReactNode }) {
     else drawer.current?.close()
   }, [menuOpen])
   useEffect(() => {
-    document.title = `${page} · Istio Dashboard`
+    document.title = `${page} · Sealane`
   }, [page])
 
   function closeMenu() {
@@ -61,9 +61,9 @@ export function Layout({ children }: { children: ReactNode }) {
         >
           <Icon name="list" />
         </button>
-        <Link to="/" className="app-brand" aria-label="Istio Dashboard 홈">
+        <Link to="/" className="app-brand" aria-label="Sealane home">
           <img src="/favicon.svg" alt="" className="h-8 w-8 shrink-0" />
-          <span className="text-[15px] font-semibold tracking-tight text-strong">Istio Dashboard</span>
+          <span className="text-[15px] font-semibold tracking-tight text-strong">Sealane</span>
         </Link>
         <div className="hidden min-w-0 items-center gap-2.5 px-6 text-xs md:flex">
           <Icon name="globe" className="h-4 w-4 text-faint" />

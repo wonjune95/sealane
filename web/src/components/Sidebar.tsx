@@ -29,7 +29,7 @@ export function Sidebar({ onNavigate, onClose }: { onNavigate?: () => void; onCl
     <nav className="app-sidebar" aria-label="주요 탐색">
       {onClose && (
         <div className="flex items-center justify-between border-b border-base px-4 py-3">
-          <span className="text-sm font-semibold text-strong">Istio Dashboard</span>
+          <span className="text-sm font-semibold text-strong">Sealane</span>
           <button onClick={onClose} className="icon-button" aria-label="탐색 메뉴 닫기">
             <Icon name="close" />
           </button>

@@ -28,7 +28,7 @@ export function Login() {
       <section className="login-story">
         <div className="relative flex items-center gap-3">
           <img src="/favicon.svg" alt="" className="h-9 w-9" />
-          <span className="text-lg font-semibold tracking-tight">Istio Dashboard</span>
+          <span className="text-lg font-semibold tracking-tight">Sealane</span>
         </div>
         <div className="relative my-auto py-16">
           <p className="mb-5 text-[11px] font-semibold uppercase tracking-[.2em] text-blue-300">
@@ -74,7 +74,7 @@ export function Login() {
         <div className="w-full max-w-[360px]">
           <div className="mb-10 flex items-center gap-3 lg:hidden">
             <img src="/favicon.svg" alt="" className="h-9 w-9" />
-            <span className="font-semibold text-strong">Istio Dashboard</span>
+            <span className="font-semibold text-strong">Sealane</span>
           </div>
           <span className="mb-6 flex h-12 w-12 items-center justify-center rounded-2xl border border-blue-100 bg-blue-50 text-blue-600 dark:border-blue-500/20 dark:bg-blue-500/10 dark:text-blue-300">
             <Icon name="lock" className="h-5 w-5" />

@@ -1,10 +1,10 @@
 {
-  "name": "istio-dashboard-web",
+  "name": "sealane-web",
   "private": true,
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc --noEmit && vite build",
+    "build": "tsc --noEmit && node -e \"require('fs').rmSync('../internal/assets/dist/assets',{recursive:true,force:true})\" && vite build",
     "preview": "vite preview",
     "lint": "eslint .",
     "test:cluster-selection": "node tests/cluster-selection.mjs",

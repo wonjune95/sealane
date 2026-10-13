@@ -1,8 +1,8 @@
 import { useSyncExternalStore } from 'react'
 
 export type Theme = 'dark' | 'light'
-const KEY = 'istio-dash-theme'
-const EVENT = 'istio-dash-theme-change'
+const KEY = 'sealane-theme'
+const EVENT = 'sealane-theme-change'
 
 export function initialTheme(): Theme {
   return localStorage.getItem(KEY) === 'dark' ? 'dark' : 'light'

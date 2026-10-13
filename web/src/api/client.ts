@@ -11,7 +11,7 @@ export class ApiError extends Error {
 
 // 멀티클러스터: 선택된 클러스터가 모든 API 호출에 ?cluster=로 붙는다.
 // 전환은 전체 리로드 — react-query 캐시가 클러스터별 키 없이 통째로 리셋된다.
-const CLUSTER_KEY = 'istio-dash-cluster'
+const CLUSTER_KEY = 'sealane-cluster'
 export const getCluster = () => localStorage.getItem(CLUSTER_KEY) ?? ''
 export function setCluster(name: string, redirectTo?: string) {
   if (name && name !== 'local') localStorage.setItem(CLUSTER_KEY, name)

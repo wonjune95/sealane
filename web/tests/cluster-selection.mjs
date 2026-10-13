@@ -8,7 +8,7 @@ const browser = await chromium.launch({
     ? { executablePath: process.env.SEALANE_CHROMIUM_PATH }
     : {}),
 })
-const key = 'istio-dash-cluster'
+const key = 'sealane-cluster'
 const capabilities = {
   httpRouteInstalled: true,
   virtualServiceInstalled: true,

@@ -98,7 +98,7 @@ export function Layout({ children }: { children: ReactNode }) {
             onClick={() => setLocale(locale === 'ko' ? 'en' : 'ko')}
             title={t('lang.switchLabel')}
             lang={locale === 'ko' ? 'en' : 'ko'}
-            className="icon-button px-2 text-xs font-semibold"
+            className="icon-button w-auto whitespace-nowrap px-2 text-xs font-semibold"
           >
             {t('lang.switch')}
           </button>

@@ -68,7 +68,7 @@ export function Login() {
           onClick={() => setLocale(locale === 'ko' ? 'en' : 'ko')}
           title={t('lang.switchLabel')}
           lang={locale === 'ko' ? 'en' : 'ko'}
-          className="icon-button absolute right-16 top-5 px-2 text-xs font-semibold"
+          className="icon-button absolute right-16 top-5 w-auto whitespace-nowrap px-2 text-xs font-semibold"
         >
           {t('lang.switch')}
         </button>

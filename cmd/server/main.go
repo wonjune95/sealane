@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"flag"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"os"
@@ -20,11 +21,18 @@ import (
 	"github.com/wonjune95/sealane/internal/observability"
 )
 
+var version = "dev" // set with -ldflags "-X main.version=..."
+
 func main() {
 	addr := flag.String("addr", ":8080", "listen address")
 	dev := flag.Bool("dev", false, "dev mode: skip OIDC verification, use local kubeconfig")
 	kubeconfig := flag.String("kubeconfig", "", "path to kubeconfig (dev only; default loading rules if empty)")
+	showVersion := flag.Bool("version", false, "print the version and exit")
 	flag.Parse()
+	if *showVersion {
+		fmt.Println("sealane " + version)
+		return
+	}
 
 	slog.SetDefault(slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelInfo})))
 
@@ -53,6 +61,7 @@ func main() {
 			slog.Warn("accounts dir not readable — no one can log in until the ConfigMap is mounted", "dir", accountsDir, "err", err)
 		}
 	}
+	api.AppVersion = version
 	srv := api.NewServer(*dev, factory, auth.NewStore(accountsDir), auth.NewSessions(os.Getenv("SESSION_SECRET")),
 		api.AccountsCMRef{Namespace: os.Getenv("POD_NAMESPACE"), Name: os.Getenv("ACCOUNTS_CONFIGMAP")},
 		// Multi-cluster: Secret holding remote-cluster kubeconfigs (unset = local only)
@@ -70,7 +79,10 @@ func main() {
 		writeText(w, http.StatusOK, "ok")
 	})
 	mux.HandleFunc("GET /readyz", func(w http.ResponseWriter, _ *http.Request) {
-		// P2: verify API-server reachability + CRD discovery before reporting ready.
+		if err := factory.Ready(); err != nil {
+			writeText(w, http.StatusServiceUnavailable, "not ready: "+err.Error())
+			return
+		}
 		writeText(w, http.StatusOK, "ready")
 	})
 	mux.Handle("GET /metrics", observability.MetricsHandler())
@@ -84,7 +96,7 @@ func main() {
 	}
 
 	go func() {
-		slog.Info("server starting", "addr", *addr, "dev", *dev)
+		slog.Info("server starting", "addr", *addr, "dev", *dev, "version", version)
 		if err := httpServer.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			slog.Error("server failed", "err", err)
 			os.Exit(1)

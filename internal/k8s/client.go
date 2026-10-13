@@ -112,6 +112,19 @@ func (f *ClientFactory) Ping() (string, error) {
 	return v.GitVersion, nil
 }
 
+// Ready is the readiness probe: the local API server must answer a version request
+// within 2s, so a pod that cannot reach the cluster never receives traffic.
+func (f *ClientFactory) Ready() error {
+	cfg := rest.CopyConfig(f.baseCfg)
+	cfg.Timeout = 2 * time.Second
+	disc, err := discovery.NewDiscoveryClientForConfig(cfg)
+	if err != nil {
+		return err
+	}
+	_, err = disc.ServerVersion()
+	return err
+}
+
 // Base returns the shared clients built from the base config (SA in prod,
 // kubeconfig in dev). App-level roles authorize users; this single identity
 // performs all cluster operations.

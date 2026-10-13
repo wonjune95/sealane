@@ -437,5 +437,6 @@
   "settings.account.updated": "Updated account {name}. (takes effect within a minute)",
   "settings.account.added": "Added account {name}. (takes effect within a minute)",
   "settings.account.confirmDelete": "Delete account {name}?",
+  "settings.version": "Sealane {version}",
   "settings.account.deleted": "Deleted account {name}."
 }

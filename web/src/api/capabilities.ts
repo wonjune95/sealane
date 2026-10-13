@@ -3,6 +3,7 @@ import { apiGet } from './client'
 
 // Matches the backend capabilities contract.
 export interface Capabilities {
+  appVersion?: string // build version, "dev" for local builds
   httpRouteInstalled: boolean
   virtualServiceInstalled: boolean
   gatewayAPIVersion?: string

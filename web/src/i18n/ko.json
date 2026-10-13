@@ -437,5 +437,6 @@
   "settings.account.updated": "{name} 계정을 변경했습니다. (로그인 반영까지 최대 1분)",
   "settings.account.added": "{name} 계정을 추가했습니다. (로그인 반영까지 최대 1분)",
   "settings.account.confirmDelete": "{name} 계정을 삭제할까요?",
+  "settings.version": "Sealane {version}",
   "settings.account.deleted": "{name} 계정을 삭제했습니다."
 }

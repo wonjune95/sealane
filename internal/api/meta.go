@@ -10,7 +10,11 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+// AppVersion is the build version injected by main (-X main.version); "dev" when unset.
+var AppVersion = "dev"
+
 type capabilities struct {
+	AppVersion              string `json:"appVersion"`
 	HTTPRouteInstalled      bool   `json:"httpRouteInstalled"`
 	VirtualServiceInstalled bool   `json:"virtualServiceInstalled"`
 	GatewayAPIVersion       string `json:"gatewayAPIVersion,omitempty"`
@@ -40,6 +44,7 @@ func (s *Server) handleCapabilities(w http.ResponseWriter, r *http.Request) {
 	}
 	// Other SSAR errors (transient, RBAC on SSAR itself) degrade to "not allowed".
 	writeJSON(w, http.StatusOK, capabilities{
+		AppVersion:              AppVersion,
 		HTTPRouteInstalled:      crd.HTTPRoute,
 		VirtualServiceInstalled: crd.VirtualService,
 		GatewayAPIVersion:       crd.GatewayAPIVersion,

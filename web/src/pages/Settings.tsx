@@ -110,6 +110,7 @@ export function Settings() {
           <p className="text-xs text-muted">{t('settings.askAdmin')}</p>
         )}
       </div>
+      <p className="text-xs text-faint">{t('settings.version', { version: caps.data?.appVersion ?? 'dev' })}</p>
     </div>
   )
 }

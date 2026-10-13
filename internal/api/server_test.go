@@ -309,6 +309,12 @@ func TestCapabilities_WithSessionIs200(t *testing.T) {
 	if rec.Code != http.StatusOK {
 		t.Fatalf("status = %d, want 200: %s", rec.Code, rec.Body.String())
 	}
+	AppVersion = "9.9.9-test"
+	rec2 := httptest.NewRecorder()
+	mux.ServeHTTP(rec2, authedReq("GET", "/api/capabilities", nil))
+	if !strings.Contains(rec2.Body.String(), `"appVersion":"9.9.9-test"`) {
+		t.Fatalf("capabilities must carry appVersion: %s", rec2.Body.String())
+	}
 }
 
 func TestCreateResource_DryRunIsNotAudited(t *testing.T) {

@@ -1,5 +1,5 @@
-# On a v* tag push, publish the container image and the Helm chart to GHCR.
-# e.g. git tag v0.8.0 && git push origin v0.8.0 → ghcr.io/<owner>/sealane:0.8.0, :latest
+# On a v* tag push: build a multi-arch image, sign it (cosign keyless), attach an SBOM,
+# publish the Helm chart to GHCR, render install.yaml and create the GitHub Release.
 name: release
 
 on:
@@ -7,25 +7,75 @@ on:
     tags: ["v*"]
 
 permissions:
-  contents: read
-  packages: write
+  contents: write    # GitHub Release + assets
+  packages: write    # GHCR image + chart
+  id-token: write    # cosign keyless signing (Sigstore OIDC)
+
+env:
+  IMAGE: ghcr.io/${{ github.repository_owner }}/sealane
 
 jobs:
-  image:
+  release:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - name: Build & push
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - id: meta
+        run: echo "tag=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+      - uses: docker/setup-qemu-action@c7c53464625b32c7a7e944ae62b3e17d2b600130 # v3
+      - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
+      - uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - id: build
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: true
+          build-args: VERSION=${{ steps.meta.outputs.tag }}
+          tags: |
+            ${{ env.IMAGE }}:${{ steps.meta.outputs.tag }}
+            ${{ env.IMAGE }}:latest
+      - uses: sigstore/cosign-installer@398d4b0eeef1380460a10c8013a76f728fb906ac # v3
+      - name: Sign the image (keyless)
+        run: cosign sign --yes "${IMAGE}@${{ steps.build.outputs.digest }}"
+      - name: SBOM (SPDX)
+        uses: anchore/sbom-action@e22c389904149dbc22b58101806040fa8d37a610 # v0
+        with:
+          image: ${{ env.IMAGE }}@${{ steps.build.outputs.digest }}
+          format: spdx-json
+          output-file: sbom.spdx.json
+          upload-artifact: false
+      - name: Vulnerability scan (informational)
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: ${{ env.IMAGE }}@${{ steps.build.outputs.digest }}
+          severity: HIGH,CRITICAL
+          exit-code: "0"
+      - name: Package and push the chart
         run: |
-          TAG=${GITHUB_REF_NAME#v}
-          IMG=ghcr.io/${{ github.repository_owner }}/sealane
-          docker build -t "$IMG:$TAG" -t "$IMG:latest" .
-          echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
-          docker push "$IMG:$TAG"
-          docker push "$IMG:latest"
-      - name: Push Helm chart (OCI)
-        run: |
-          TAG=${GITHUB_REF_NAME#v}
+          TAG=${{ steps.meta.outputs.tag }}
           echo "${{ secrets.GITHUB_TOKEN }}" | helm registry login ghcr.io -u ${{ github.actor }} --password-stdin
           helm package charts/sealane --version "$TAG" --app-version "$TAG"
           helm push "sealane-$TAG.tgz" "oci://ghcr.io/${{ github.repository_owner }}/charts"
+      - name: Render install.yaml
+        run: |
+          TAG=${{ steps.meta.outputs.tag }}
+          {
+            printf '# Sealane %s — rendered from charts/sealane with default values.\n' "$TAG"
+            printf '# kubectl apply -f install.yaml   (installs into namespace "sealane")\n'
+            printf 'apiVersion: v1\nkind: Namespace\nmetadata:\n  name: sealane\n---\n'
+            helm template sealane charts/sealane --namespace sealane \
+              --set image.tag="$TAG" --set sessionSecret.create=false
+          } > install.yaml
+          grep -c '^kind:' install.yaml
+      - name: GitHub Release
+        uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2
+        with:
+          generate_release_notes: true
+          files: |
+            install.yaml
+            sbom.spdx.json
+            sealane-${{ steps.meta.outputs.tag }}.tgz

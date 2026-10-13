@@ -4,6 +4,7 @@
 #   curl pod ──(sidecar)──> echo service ──> echo-v1 | echo-v2
 #
 # Defaults to v1; adding the header x-user: beta routes to v2.
+# Also adds an ingress Gateway (echo-gateway, host echo.example.test) so the flow map has a path.
 # Clean up: kubectl delete namespace sealane-demo
 apiVersion: v1
 kind: Namespace
@@ -118,6 +119,49 @@ spec:
             host: echo.sealane-demo.svc.cluster.local
             subset: v2
     # Default route
+    - route:
+        - destination:
+            host: echo.sealane-demo.svc.cluster.local
+            subset: v1
+---
+# Ingress path (shown in the traffic flow map): External → echo-gateway → echo-ingress → echo.
+# The selector targets the standard istio-ingressgateway; without that workload the route is
+# config-only, which is fine for the flow map and the route check.
+apiVersion: networking.istio.io/v1
+kind: Gateway
+metadata:
+  name: echo-gateway
+  namespace: sealane-demo
+spec:
+  selector:
+    istio: ingressgateway
+  servers:
+    - port:
+        number: 80
+        name: http
+        protocol: HTTP
+      hosts:
+        - echo.example.test
+---
+apiVersion: networking.istio.io/v1
+kind: VirtualService
+metadata:
+  name: echo-ingress
+  namespace: sealane-demo
+spec:
+  hosts:
+    - echo.example.test
+  gateways:
+    - echo-gateway
+  http:
+    - match:
+        - headers:
+            x-user:
+              exact: beta
+      route:
+        - destination:
+            host: echo.sealane-demo.svc.cluster.local
+            subset: v2
     - route:
         - destination:
             host: echo.sealane-demo.svc.cluster.local

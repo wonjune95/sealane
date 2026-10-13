@@ -120,7 +120,7 @@ Postman처럼 메서드·URL·헤더·본문을 한 화면에서 작성하고, �
 - **3중 잠금** — ① 헬름 opt-in(`requestTester.enabled=true`, 기본 꺼짐) ② admin 전용 ③ 셸을 거치지 않는 argv 구성 + 입력 검증(스킴·메서드·헤더 개행) + 타임아웃·응답 크기 상한. 누가 어느 파드에서 어디로 보냈는지 감사 로그에 남는다.
 - **켤 때의 대가** — SA에 `pods` 읽기와 `pods/exec` 권한이 붙는다(사실상 모든 파드에서 명령 실행). 그래서 기본값은 꺼짐이고, 필요할 때만 의식적으로 켜는 구조다. 대상 컨테이너에 `curl`이 없으면(distroless) 그 사실을 안내한다.
 
-직접 해보려면 `kubectl apply -f examples/demo-mesh.yaml` — 사이드카가 주입된 `echo` v1/v2와 curl 클라이언트가 뜨고, 헤더 `x-user: beta`로 카나리가 갈리는 걸 두 방식으로 대조해 볼 수 있다 (정리는 `kubectl delete namespace sealane-demo`).
+직접 해보려면 `kubectl apply -f examples/demo-mesh.yaml` — 사이드카가 주입된 `echo` v1/v2와 curl 클라이언트, 흐름 맵용 인그레스 Gateway 경로가 생기고, 헤더 `x-user: beta`로 카나리가 갈리는 걸 두 방식으로 대조해 볼 수 있다 (정리는 `kubectl delete namespace sealane-demo`).
 
 ![요청 콘솔 — 파드 안에서 보낸 실제 요청의 응답](docs/img/screenshot-requesttest.png)
 

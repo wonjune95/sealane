@@ -16,7 +16,7 @@ kubectl -n sealane port-forward svc/sealane 8080:8080   # http://localhost:8080 
 | `image.pullPolicy` | `IfNotPresent` | |
 | `imagePullSecrets` | `[]` | For private registries |
 | `replicaCount` | `1` | Stateless — raise for HA |
-| `istioNamespace` | `istio-system` | Where istiod runs (home-page control-plane version) |
+| `istioNamespace` | `istio-system` | Where istiod runs (home-page control-plane version); `""` skips the istiod-reader Role (no version shown) |
 | `service.type` / `service.port` | `ClusterIP` / `8080` | |
 | `accountsConfigMap` | `sealane-accounts` | Local accounts ConfigMap (not managed by the chart) |
 | `clustersSecret` | `sealane-clusters` | Remote kubeconfigs Secret (not managed by the chart) |

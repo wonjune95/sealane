@@ -35,7 +35,7 @@
       "items": { "type": "object", "properties": { "name": { "type": "string" } }, "required": ["name"] }
     },
     "replicaCount": { "type": "integer", "minimum": 0 },
-    "istioNamespace": { "type": "string", "minLength": 1 },
+    "istioNamespace": { "type": "string" },
     "service": {
       "type": "object", "additionalProperties": false,
       "properties": {

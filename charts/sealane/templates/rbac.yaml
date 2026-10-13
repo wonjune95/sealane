@@ -95,6 +95,8 @@ subjects:
   - kind: ServiceAccount
     name: {{ include "sealane.fullname" . }}
     namespace: {{ .Release.Namespace }}
+{{- /* Live-detect: skip only on a live install (kube-system visible) whose Istio namespace is missing; helm template / GitOps renders keep it. */}}
+{{- if and .Values.istioNamespace (or (not (lookup "v1" "Namespace" "" "kube-system")) (lookup "v1" "Namespace" "" .Values.istioNamespace)) }}
 ---
 # Read istiod's Deployment (image tag → control-plane version on the home page). Scoped to the istiod namespace; failure just hides the version.
 apiVersion: rbac.authorization.k8s.io/v1
@@ -124,3 +126,4 @@ subjects:
   - kind: ServiceAccount
     name: {{ include "sealane.fullname" . }}
     namespace: {{ .Release.Namespace }}
+{{- end }}

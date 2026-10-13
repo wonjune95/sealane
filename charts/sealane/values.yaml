@@ -10,6 +10,7 @@ imagePullSecrets: []
 replicaCount: 1
 
 # Namespace where istiod runs — used to show the control-plane version on the home page.
+# "" skips the istiod-reader Role (no version shown); a live helm install also skips it when this namespace is absent.
 istioNamespace: istio-system
 
 service:

@@ -1,0 +1,49 @@
+site_name: Sealane
+site_description: Routing console for Istio and Gateway API
+site_url: https://wonjune95.github.io/sealane/
+repo_url: https://github.com/wonjune95/sealane
+repo_name: wonjune95/sealane
+edit_uri: edit/main/docs/
+docs_dir: docs
+exclude_docs: |
+  superpowers/**
+theme:
+  name: material
+  logo: img/favicon.svg
+  favicon: img/favicon.svg
+  features: [navigation.sections, navigation.top, content.code.copy, search.suggest]
+  palette:
+    - scheme: default
+      primary: blue
+      toggle: { icon: material/weather-night, name: Dark mode }
+    - scheme: slate
+      primary: blue
+      toggle: { icon: material/weather-sunny, name: Light mode }
+markdown_extensions:
+  - admonition
+  - tables
+  - toc: { permalink: true }
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+  - pymdownx.tabbed: { alternate_style: true }
+nav:
+  - Home: index.md
+  - Getting started: getting-started.md
+  - Concepts:
+      - Architecture & security model: architecture.md
+      - Authentication: authentication.md
+      - Multi-cluster: multi-cluster.md
+  - Features: features.md
+  - Reference:
+      - Configuration: configuration.md
+      - Operations: operations.md
+      - Compatibility: compatibility.md
+      - Security policy: security.md
+  - Project:
+      - Contributing: contributing.md
+      - Releasing: releasing.md
+      - Upgrading: upgrading.md
+      - FAQ: faq.md

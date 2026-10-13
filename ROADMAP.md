@@ -5,17 +5,17 @@ Sealane is moving from an internal tool to a public project in four releases. Da
 ## v0.8 — Sealane (shipped in 0.8.0)
 - Rename from Istio Dashboard, English UI with a Korean locale, contributor files.
 
-## v0.9 — Install anywhere (shipped in 0.9.0, this release)
+## v0.9 — Install anywhere (shipped in 0.9.0)
 - Multi-arch images (amd64/arm64), signed with cosign, SBOM attached.
 - `kubectl apply -f install.yaml` from GitHub Releases, Artifact Hub listing.
 - Chart: values schema, README, NOTES, optional Ingress/HTTPRoute, stable session secret.
 - Real `/readyz`, app version in the UI, lint/vulnerability checks, end-to-end test on kind + Istio.
 
-## v0.10 — SSO (next)
+## v0.10 — SSO (shipped in 0.10.0, this release)
 - OIDC login (any provider; Keycloak, Dex and Google examples) with group-to-role mapping. Local accounts stay.
-- Documentation site.
+- Documentation site at https://wonjune95.github.io/sealane/.
 
-## v1.0 — Policy and ecosystem
+## v1.0 — Policy and ecosystem (next)
 - Versioning and support policy, compatibility matrix, governance and adopters files.
 - Ecosystem listings and announcement.
 

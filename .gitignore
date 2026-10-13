@@ -24,3 +24,6 @@ bin/
 
 # Subagent-driven-development scratch (ledger, briefs, review packages)
 .superpowers/
+
+# mkdocs build output
+site/

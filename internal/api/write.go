@@ -6,7 +6,7 @@ import (
 	"io"
 	"net/http"
 
-	"istio-dashboard/internal/k8s"
+	"github.com/wonjune95/sealane/internal/k8s"
 )
 
 const maxBodyBytes = 1 << 20 // 1 MiB; route objects are small.

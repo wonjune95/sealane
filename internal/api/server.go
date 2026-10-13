@@ -6,8 +6,8 @@ import (
 	"net/http"
 	"sync"
 
-	"istio-dashboard/internal/auth"
-	"istio-dashboard/internal/k8s"
+	"github.com/wonjune95/sealane/internal/auth"
+	"github.com/wonjune95/sealane/internal/k8s"
 )
 
 // ClientSource is the k8s.ClientFactory surface the handlers depend on,

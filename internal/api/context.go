@@ -3,8 +3,8 @@ package api
 import (
 	"context"
 
-	"istio-dashboard/internal/auth"
-	"istio-dashboard/internal/k8s"
+	"github.com/wonjune95/sealane/internal/auth"
+	"github.com/wonjune95/sealane/internal/k8s"
 )
 
 // Per-request values injected by withK8s so handlers never touch auth/client

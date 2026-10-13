@@ -14,7 +14,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 
-	"istio-dashboard/internal/k8s"
+	"github.com/wonjune95/sealane/internal/k8s"
 )
 
 // ClustersSecretRef locates the Secret holding remote-cluster kubeconfigs

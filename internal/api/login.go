@@ -7,11 +7,11 @@ import (
 	"net/http"
 	"time"
 
-	"istio-dashboard/internal/auth"
+	"github.com/wonjune95/sealane/internal/auth"
 )
 
 const (
-	sessionCookie = "istio_dash_session"
+	sessionCookie = "sealane_session"
 	sessionTTL    = 12 * time.Hour
 )
 

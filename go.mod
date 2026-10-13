@@ -1,4 +1,4 @@
-module istio-dashboard
+module github.com/wonjune95/sealane
 
 go 1.26.4
 

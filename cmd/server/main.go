@@ -1,5 +1,5 @@
-// Command server runs Istio Dashboard — a dashboard for Istio · Gateway API: a single binary serving the
-// embedded React SPA and a JSON API over the Kubernetes API (HTTPRoute/VirtualService).
+// Command server runs Sealane — a routing console for Istio and Gateway API: a
+// single binary serving the embedded React SPA and a JSON API over the Kubernetes API.
 package main
 
 import (
@@ -13,11 +13,11 @@ import (
 	"syscall"
 	"time"
 
-	"istio-dashboard/internal/api"
-	"istio-dashboard/internal/assets"
-	"istio-dashboard/internal/auth"
-	"istio-dashboard/internal/k8s"
-	"istio-dashboard/internal/observability"
+	"github.com/wonjune95/sealane/internal/api"
+	"github.com/wonjune95/sealane/internal/assets"
+	"github.com/wonjune95/sealane/internal/auth"
+	"github.com/wonjune95/sealane/internal/k8s"
+	"github.com/wonjune95/sealane/internal/observability"
 )
 
 func main() {
@@ -46,7 +46,7 @@ func main() {
 	// per-boot random key (restart = re-login).
 	accountsDir := os.Getenv("ACCOUNTS_DIR")
 	if accountsDir == "" {
-		accountsDir = "/etc/istio-dashboard/accounts"
+		accountsDir = "/etc/sealane/accounts"
 	}
 	if !*dev {
 		if _, err := os.Stat(accountsDir); err != nil {

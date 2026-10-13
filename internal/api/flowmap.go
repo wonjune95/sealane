@@ -9,7 +9,7 @@ import (
 	istioapi "istio.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"istio-dashboard/internal/k8s"
+	"github.com/wonjune95/sealane/internal/k8s"
 )
 
 // 설정 기반 인그레스 트래픽 흐름도: Gateway → Route(VS/HTTPRoute) → Service.

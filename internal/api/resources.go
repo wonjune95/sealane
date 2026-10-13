@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"istio-dashboard/internal/k8s"
+	"github.com/wonjune95/sealane/internal/k8s"
 )
 
 // resourceProvider resolves the typeID (resource.group) to an installed type and

@@ -1,5 +1,6 @@
 # Go
 /server
+/sealane
 *.exe
 *.test
 *.out

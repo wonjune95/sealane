@@ -13,11 +13,11 @@ COPY go.mod go.sum ./
 RUN go mod download
 COPY . .
 COPY --from=web /src/internal/assets/dist ./internal/assets/dist
-RUN CGO_ENABLED=0 go build -ldflags="-s -w" -o /istiod ./cmd/server
+RUN CGO_ENABLED=0 go build -ldflags="-s -w" -o /sealane ./cmd/server
 
 # Stage 3 — minimal non-root runtime.
 FROM gcr.io/distroless/static:nonroot
-COPY --from=go /istiod /istiod
+COPY --from=go /sealane /sealane
 USER nonroot:nonroot
 EXPOSE 8080
-ENTRYPOINT ["/istiod"]
+ENTRYPOINT ["/sealane"]

@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"time"
 
-	"istio-dashboard/internal/k8s"
+	"github.com/wonjune95/sealane/internal/k8s"
 )
 
 // AuditEntry is one non-dry-run mutation performed through the dashboard.

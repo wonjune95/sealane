@@ -27,3 +27,4 @@ bin/
 
 # mkdocs build output
 site/
+.claude/worktrees/

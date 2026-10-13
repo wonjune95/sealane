@@ -17,3 +17,5 @@ The flow map checks cover mixed ingress/egress parents, missing gateways, search
 Set `SEALANE_TEST_URL` to change the frontend URL. Set `SEALANE_CHROMIUM_PATH` to use an existing Chromium executable.
 
 `node tests/screenshots.mjs` regenerates the README screenshots against a running instance (`SEALANE_URL`, `SEALANE_USER`, `SEALANE_PASS`); deploy `examples/demo-mesh.yaml` first so the request console has a target.
+
+`node tests/oidc-dex.mjs` runs a real OIDC round trip (SSO login, settings page, sign-out) against a running instance with `oidc.enabled=true` and the Dex demo from `examples/dex-demo.yaml` (`SEALANE_URL`, `SEALANE_SSO_NAME`, default `Dex`). The cluster needs Gateway API or Istio CRDs, otherwise every page redirects to the install guide. It is not part of CI.

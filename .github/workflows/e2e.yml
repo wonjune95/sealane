@@ -55,7 +55,8 @@ jobs:
           cat /tmp/pf.log || true
           kubectl get pods -A
 
-  upgrade-from-0.8:
+  upgrade-from-0-8:
+    name: upgrade-from-0.8
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:

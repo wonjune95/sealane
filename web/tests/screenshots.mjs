@@ -28,6 +28,9 @@ await shot('screenshot')
 await page.goto(url + '/flowmap')
 await page.getByRole('heading', { name: 'Traffic flow', exact: true }).waitFor()
 await page.waitForTimeout(2500)
+// show only the demo mesh so the shot never leaks other namespaces or hostnames
+await page.getByRole('combobox', { name: 'Flow namespace', exact: true }).selectOption('sealane-demo')
+await page.waitForTimeout(1500)
 await shot('screenshot-flowmap')
 
 await page.goto(url + '/routecheck')

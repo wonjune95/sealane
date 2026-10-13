@@ -21,7 +21,7 @@ export function setCluster(name: string, redirectTo?: string) {
 }
 function withClusterParam(path: string) {
   // Accounts and cluster registrations belong to Sealane's host cluster.
-  if (/^\/api\/(?:clusters|accounts|account|login|logout)(?:\/|\?|$)/.test(path)) return path
+  if (/^\/api\/(?:clusters|accounts|account|auth|login|logout)(?:\/|\?|$)/.test(path)) return path
   const c = getCluster()
   if (!c) return path
   return path + (path.includes('?') ? '&' : '?') + 'cluster=' + encodeURIComponent(c)

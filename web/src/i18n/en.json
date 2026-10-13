@@ -438,5 +438,11 @@
   "settings.account.added": "Added account {name}. (takes effect within a minute)",
   "settings.account.confirmDelete": "Delete account {name}?",
   "settings.version": "Sealane {version}",
-  "settings.account.deleted": "Deleted account {name}."
+  "settings.account.deleted": "Deleted account {name}.",
+  "login.sso": "Sign in with {name}",
+  "login.or": "or",
+  "login.oidcError.state": "The sign-in attempt expired or was tampered with. Please try again.",
+  "login.oidcError.access_denied": "Your account has no role in Sealane. Ask an administrator to map your group to a role.",
+  "login.oidcError.idp": "The identity provider returned an error. Check the server log for details.",
+  "settings.ssoAccount": "You signed in through {name}. Your password is managed by the identity provider."
 }

@@ -8,7 +8,8 @@
     "preview": "vite preview",
     "lint": "eslint .",
     "test:cluster-selection": "node tests/cluster-selection.mjs",
-    "test:flow-map": "node tests/flow-map.mjs"
+    "test:flow-map": "node tests/flow-map.mjs",
+    "test:login-sso": "node tests/login-sso.mjs"
   },
   "dependencies": {
     "@codemirror/lang-yaml": "^6.1.3",

@@ -2,7 +2,16 @@ import { useState } from 'react'
 import { ApiError, apiPost } from '../api/client'
 import { Icon } from '../components/icons'
 import { useTheme } from '../ui/theme'
-import { t, locale, setLocale } from '../i18n'
+import { useAuthMethods } from '../api/auth'
+import { t, locale, setLocale, type Key } from '../i18n'
+
+// Codes the server puts in /?oidc_error= after a failed SSO round trip; anything else is ignored.
+// A Map, not an object literal, so ?oidc_error=toString cannot hit an inherited property.
+const OIDC_ERRORS = new Map<string, Key>([
+  ['state', 'login.oidcError.state'],
+  ['access_denied', 'login.oidcError.access_denied'],
+  ['idp', 'login.oidcError.idp'],
+])
 
 export function Login() {
   const [username, setUsername] = useState('')
@@ -10,6 +19,8 @@ export function Login() {
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
   const { theme, toggle } = useTheme()
+  const methods = useAuthMethods().data
+  const [oidcError] = useState(() => OIDC_ERRORS.get(new URLSearchParams(window.location.search).get('oidc_error') ?? ''))
   const submit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!username.trim() || !password) return
@@ -92,6 +103,25 @@ export function Login() {
           <p className="mb-8 mt-3 text-sm leading-6 text-muted">
             {t('login.subtitle')}
           </p>
+          {oidcError && (
+            <div role="alert" className={`mb-4 ${ALERT}`}>
+              <Icon name="warning" className="mt-0.5 h-4 w-4 shrink-0" />
+              {t(oidcError)}
+            </div>
+          )}
+          {methods?.oidc?.enabled && (
+            <>
+              <a href="/api/auth/oidc/login" className="btn-primary mb-4 flex min-h-11 w-full items-center justify-center gap-2">
+                <Icon name="lock" className="h-4 w-4" />
+                {t('login.sso', { name: methods.oidc.displayName })}
+              </a>
+              <div className="mb-4 flex items-center gap-3 text-xs text-muted">
+                <span className="flex-1 border-t border-base" />
+                {t('login.or')}
+                <span className="flex-1 border-t border-base" />
+              </div>
+            </>
+          )}
           <form onSubmit={submit} className="space-y-5">
             <label className="block">
               <span className="mb-2 block text-xs font-medium text-strong">{t('login.username')}</span>
@@ -118,10 +148,7 @@ export function Login() {
               />
             </label>
             {error && (
-              <div
-                role="alert"
-                className="flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 p-3 text-xs leading-5 text-red-700 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-300"
-              >
+              <div role="alert" className={ALERT}>
                 <Icon name="warning" className="mt-0.5 h-4 w-4 shrink-0" />
                 {error}
               </div>
@@ -147,6 +174,9 @@ export function Login() {
     </div>
   )
 }
+
+const ALERT =
+  'flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 p-3 text-xs leading-5 text-red-700 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-300'
 
 function MeshIllustration() {
   return (

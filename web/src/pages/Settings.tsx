@@ -57,6 +57,11 @@ export function Settings() {
           </dl>
         </div>
 
+        {caps.data?.authProvider === 'oidc' ? (
+          <div className="panel rounded-xl p-5">
+            <p className="text-sm text-muted">{t('settings.ssoAccount', { name: caps.data.authProviderName ?? 'SSO' })}</p>
+          </div>
+        ) : (
         <form onSubmit={submit} className="panel space-y-3 rounded-xl p-5">
           <h3 className="flex items-center gap-2 text-sm font-semibold text-strong">
             <Icon name="lock" className="h-4 w-4 text-accent" />
@@ -99,6 +104,7 @@ export function Settings() {
             {busy ? t('pw.busy') : t('pw.submit')}
           </button>
         </form>
+        )}
       </div>
       <div className="grid items-start gap-5 xl:grid-cols-2">
         {caps.data?.role === 'admin' ? (

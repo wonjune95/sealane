@@ -15,6 +15,8 @@ export interface Capabilities {
   role?: string // admin | editor | viewer
   mustChangePassword?: boolean // still on the initial (admin) password; the UI is locked until it is changed
   requestTester?: boolean // real request tester enabled (Helm opt-in, admin only)
+  authProvider?: 'local' | 'oidc'
+  authProviderName?: string // IdP display name for SSO sessions
 }
 
 export function useCapabilities(enabled = true) {

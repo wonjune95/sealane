@@ -82,6 +82,10 @@ func (s *Server) handlePasswordChange(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusUnauthorized, "Unauthorized", err.Error())
 		return
 	}
+	if id.Provider == auth.ProviderOIDC {
+		writeError(w, http.StatusBadRequest, "BadRequest", "password change is not available for single sign-on accounts")
+		return
+	}
 	var in struct {
 		CurrentPassword string `json:"currentPassword"`
 		NewPassword     string `json:"newPassword"`

@@ -3,8 +3,10 @@ module github.com/wonjune95/sealane
 go 1.26.4
 
 require (
+	github.com/coreos/go-oidc/v3 v3.21.0
 	github.com/prometheus/client_golang v1.23.2
 	golang.org/x/crypto v0.57.0
+	golang.org/x/oauth2 v0.36.0
 	istio.io/api v1.30.1-0.20260529120535-23c54ad84d6e
 	istio.io/client-go v1.30.2
 	k8s.io/api v0.36.2
@@ -19,6 +21,7 @@ require (
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
 	github.com/emicklei/go-restful/v3 v3.13.0 // indirect
 	github.com/fxamacker/cbor/v2 v2.9.0 // indirect
+	github.com/go-jose/go-jose/v4 v4.1.4 // indirect
 	github.com/go-logr/logr v1.4.3 // indirect
 	github.com/go-openapi/jsonpointer v0.22.4 // indirect
 	github.com/go-openapi/jsonreference v0.21.4 // indirect
@@ -51,7 +54,6 @@ require (
 	go.yaml.in/yaml/v2 v2.4.3 // indirect
 	go.yaml.in/yaml/v3 v3.0.4 // indirect
 	golang.org/x/net v0.60.0 // indirect
-	golang.org/x/oauth2 v0.36.0 // indirect
 	golang.org/x/sys v0.48.0 // indirect
 	golang.org/x/term v0.46.0 // indirect
 	golang.org/x/text v0.42.0 // indirect

@@ -40,21 +40,23 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	id := auth.Identity{Name: in.Username, Role: role, Provider: auth.ProviderLocal}
-	http.SetCookie(w, &http.Cookie{
-		Name:     sessionCookie,
-		Value:    s.sessions.Sign(id, sessionTTL),
-		Path:     "/",
-		HttpOnly: true,
-		SameSite: http.SameSiteLaxMode,
-		MaxAge:   int(sessionTTL.Seconds()),
-	})
+	setSessionCookie(w, s.sessions.Sign(id, sessionTTL))
 	slog.Info("login", "user", in.Username, "role", role)
 	writeJSON(w, http.StatusOK, map[string]string{"user": id.Name, "role": id.Role})
 }
 
 func (s *Server) handleLogout(w http.ResponseWriter, _ *http.Request) {
-	http.SetCookie(w, &http.Cookie{
-		Name: sessionCookie, Value: "", Path: "/", HttpOnly: true, SameSite: http.SameSiteLaxMode, MaxAge: -1,
-	})
+	clearCookie(w, sessionCookie, "/")
 	w.WriteHeader(http.StatusNoContent)
+}
+
+func setSessionCookie(w http.ResponseWriter, value string) {
+	http.SetCookie(w, &http.Cookie{
+		Name: sessionCookie, Value: value, Path: "/", HttpOnly: true, SameSite: http.SameSiteLaxMode,
+		MaxAge: int(sessionTTL.Seconds()),
+	})
+}
+
+func clearCookie(w http.ResponseWriter, name, path string) {
+	http.SetCookie(w, &http.Cookie{Name: name, Value: "", Path: path, HttpOnly: true, SameSite: http.SameSiteLaxMode, MaxAge: -1})
 }

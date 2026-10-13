@@ -46,6 +46,8 @@ type Server struct {
 	pwChanged   map[string]bool
 
 	requestTester bool // live request tester (Helm opt-in) — needs pods/exec
+
+	oidc *auth.OIDC // nil = local accounts only
 }
 
 func NewServer(dev bool, factory ClientSource, accounts *auth.Store, sessions *auth.Sessions, accountsCM AccountsCMRef, clustersSecret ClustersSecretRef) *Server {
@@ -60,6 +62,9 @@ func (s *Server) EnableRequestTester() { s.requestTester = true }
 func (s *Server) Routes(mux *http.ServeMux) {
 	mux.HandleFunc("POST /api/login", s.handleLogin)
 	mux.HandleFunc("POST /api/logout", s.handleLogout)
+	mux.HandleFunc("GET /api/auth/methods", s.handleAuthMethods)
+	mux.HandleFunc("GET /api/auth/oidc/login", s.handleOIDCLogin)
+	mux.HandleFunc("GET /api/auth/oidc/callback", s.handleOIDCCallback)
 	// Session check only, no role gate — viewers can change their own password too.
 	mux.HandleFunc("POST /api/account/password", s.handlePasswordChange)
 	// Account management — the handlers enforce the admin role.

@@ -71,6 +71,16 @@ func main() {
 		srv.EnableRequestTester()
 		slog.Info("request tester enabled (admin only, uses pods/exec)")
 	}
+	// Single sign-on (optional): OIDC_* env from the chart. Discovery is lazy, so a
+	// misconfigured issuer shows up on first use, not at boot.
+	switch cfg, err := auth.OIDCConfigFromEnv(); {
+	case err != nil:
+		slog.Error("oidc config invalid", "err", err)
+		os.Exit(1)
+	case cfg != nil:
+		srv.SetOIDC(auth.NewOIDC(*cfg))
+		slog.Info("oidc enabled", "issuer", cfg.IssuerURL, "displayName", cfg.DisplayName)
+	}
 	// If there is no admin account, create the initial admin/admin account.
 	srv.EnsureInitialAdmin(context.Background())
 

@@ -5,6 +5,8 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/wonjune95/sealane/internal/auth"
+
 	authzv1 "k8s.io/api/authorization/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -26,6 +28,8 @@ type capabilities struct {
 	Role                    string `json:"role,omitempty"`
 	MustChangePassword      bool   `json:"mustChangePassword,omitempty"` // still the initial password (admin) — the UI forces a change
 	RequestTester           bool   `json:"requestTester,omitempty"`      // whether the live request tester is enabled
+	AuthProvider            string `json:"authProvider,omitempty"`       // local | oidc
+	AuthProviderName        string `json:"authProviderName,omitempty"`   // IdP display name for oidc sessions
 }
 
 // handleCapabilities reports CRD availability plus the session's identity/role.
@@ -43,6 +47,11 @@ func (s *Server) handleCapabilities(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	// Other SSAR errors (transient, RBAC on SSAR itself) degrade to "not allowed".
+	id := identityFrom(r.Context())
+	var providerName string
+	if id.Provider == auth.ProviderOIDC && s.oidc != nil {
+		providerName = s.oidc.DisplayName()
+	}
 	writeJSON(w, http.StatusOK, capabilities{
 		AppVersion:              AppVersion,
 		HTTPRouteInstalled:      crd.HTTPRoute,
@@ -52,10 +61,12 @@ func (s *Server) handleCapabilities(w http.ResponseWriter, r *http.Request) {
 		IstiodVersion:           factoryFrom(r.Context()).IstiodVersion(r.Context()),
 		NamespaceListAllowed:    nsAllowed,
 		DevMode:                 s.dev,
-		User:                    identityFrom(r.Context()).User(),
-		Role:                    identityFrom(r.Context()).Role,
-		MustChangePassword:      s.mustChangePassword(identityFrom(r.Context()).Name),
+		User:                    id.User(),
+		Role:                    id.Role,
+		MustChangePassword:      id.Provider == auth.ProviderLocal && s.mustChangePassword(id.Name),
 		RequestTester:           s.requestTester,
+		AuthProvider:            id.Provider,
+		AuthProviderName:        providerName,
 	})
 }
 

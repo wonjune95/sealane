@@ -1,4 +1,4 @@
-// Package observability provides Prometheus metrics for the dashboard.
+// Package observability provides Prometheus metrics for Sealane.
 package observability
 
 import (

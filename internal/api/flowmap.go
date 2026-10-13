@@ -12,17 +12,17 @@ import (
 	"github.com/wonjune95/sealane/internal/k8s"
 )
 
-// 설정 기반 인그레스 트래픽 흐름도: Gateway → Route(VS/HTTPRoute) → Service.
-// 메트릭 없이 라우팅 리소스만으로 "이 호스트로 들어온 트래픽이 어디로 가나"를 그린다.
+// Config-based ingress traffic flow map: Gateway → Route (VS/HTTPRoute) → Service.
+// Draws "where does traffic for this host go" from routing resources alone, without metrics.
 
 type flowBackend struct {
 	Namespace    string `json:"namespace,omitempty"`
 	Name         string `json:"name"`
 	Port         int32  `json:"port,omitempty"`
-	External     bool   `json:"external,omitempty"` // 클러스터 서비스로 안 풀리는 호스트
+	External     bool   `json:"external,omitempty"` // host that does not resolve to a cluster service
 	Exists       bool   `json:"exists"`
-	Endpoints    int    `json:"endpoints"`              // ready 엔드포인트(대략 파드) 수
-	ServiceEntry string `json:"serviceEntry,omitempty"` // 외부 호스트를 커버하는 SE 이름
+	Endpoints    int    `json:"endpoints"`              // number of ready endpoints (roughly pods)
+	ServiceEntry string `json:"serviceEntry,omitempty"` // name of the SE covering the external host
 }
 
 type flowRoute struct {
@@ -31,7 +31,7 @@ type flowRoute struct {
 	Namespace string        `json:"namespace"`
 	Name      string        `json:"name"`
 	Hosts     []string      `json:"hosts"`
-	Gateways  []string      `json:"gateways"` // 게이트웨이 노드 id ("ns/name")
+	Gateways  []string      `json:"gateways"` // gateway node ids ("ns/name")
 	Backends  []flowBackend `json:"backends"`
 }
 
@@ -41,7 +41,7 @@ type flowGateway struct {
 	Namespace string   `json:"namespace"`
 	Name      string   `json:"name"`
 	Hosts     []string `json:"hosts"`
-	Egress    bool     `json:"egress,omitempty"` // 이그레스 게이트웨이 (selector istio=egressgateway 휴리스틱)
+	Egress    bool     `json:"egress,omitempty"` // egress gateway (selector istio=egressgateway heuristic)
 }
 
 type flowServiceEntry struct {
@@ -57,14 +57,14 @@ type flowMap struct {
 	ServiceEntries []flowServiceEntry `json:"serviceEntries"`
 }
 
-// handleFlowMap builds the graph from live resources. CRD가 없는 소스는 조용히
-// 건너뛴다(멀티클러스터: 클러스터마다 설치가 다르다).
+// handleFlowMap builds the graph from live resources. Sources whose CRD is missing
+// are skipped silently (multi-cluster: each cluster has a different install).
 func (s *Server) handleFlowMap(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	c := clientFrom(ctx)
 	out := flowMap{Gateways: []flowGateway{}, Routes: []flowRoute{}, ServiceEntries: []flowServiceEntry{}}
 
-	// 게이트웨이 (Gateway API + Istio)
+	// Gateways (Gateway API + Istio)
 	if gws, err := c.Gateway.GatewayV1().Gateways("").List(ctx, metav1.ListOptions{}); err == nil {
 		for i := range gws.Items {
 			g := &gws.Items[i]
@@ -85,7 +85,7 @@ func (s *Server) handleFlowMap(w http.ResponseWriter, r *http.Request) {
 			hosts := []string{}
 			for _, srv := range g.Spec.Servers {
 				for _, h := range srv.Hosts {
-					// "ns/host" 형식이면 host만
+					// for "ns/host", keep only host
 					if _, after, found := strings.Cut(h, "/"); found {
 						h = after
 					}
@@ -102,7 +102,7 @@ func (s *Server) handleFlowMap(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// ServiceEntry — 메시에서 나가는 외부 목적지 등록부 (이그레스 흐름)
+	// ServiceEntry — registry of external destinations leaving the mesh (egress flow)
 	if ses, err := c.Istio.NetworkingV1().ServiceEntries("").List(ctx, metav1.ListOptions{}); err == nil {
 		for _, se := range ses.Items {
 			out.ServiceEntries = append(out.ServiceEntries, flowServiceEntry{
@@ -113,7 +113,7 @@ func (s *Server) handleFlowMap(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// 서비스 존재 확인용 인덱스
+	// index for checking that services exist
 	svcExists := map[string]bool{}
 	if svcs, err := c.Kube.CoreV1().Services("").List(ctx, metav1.ListOptions{}); err == nil {
 		for i := range svcs.Items {
@@ -121,7 +121,7 @@ func (s *Server) handleFlowMap(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// HTTPRoute → Gateway API 게이트웨이
+	// HTTPRoute → Gateway API gateways
 	if hrs, err := c.Gateway.GatewayV1().HTTPRoutes("").List(ctx, metav1.ListOptions{}); err == nil {
 		for i := range hrs.Items {
 			hr := &hrs.Items[i]
@@ -163,7 +163,7 @@ func (s *Server) handleFlowMap(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// VirtualService → Istio 게이트웨이 (mesh 전용 VS는 인그레스 흐름이 아니므로 제외)
+	// VirtualService → Istio gateways (mesh-only VSs are skipped since they are not ingress flow)
 	if vss, err := c.Istio.NetworkingV1().VirtualServices("").List(ctx, metav1.ListOptions{}); err == nil {
 		for _, vs := range vss.Items {
 			fr := flowRoute{
@@ -212,7 +212,7 @@ func (s *Server) handleFlowMap(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// 백엔드 존재 여부 + ready 엔드포인트 수 채우기 (서비스당 1회)
+	// fill in backend existence + ready endpoint count (once per service)
 	epCount := map[string]int{}
 	for i := range out.Routes {
 		for j := range out.Routes[i].Backends {
@@ -247,8 +247,8 @@ func (s *Server) handleFlowMap(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, out)
 }
 
-// serviceEntryFor returns the SE covering an external host (정확히 일치 또는
-// "*.suffix" 와일드카드 매치).
+// serviceEntryFor returns the SE covering an external host (exact match or
+// "*.suffix" wildcard match).
 func serviceEntryFor(ses []flowServiceEntry, host string) string {
 	for _, se := range ses {
 		for _, h := range se.Hosts {
@@ -264,7 +264,7 @@ func serviceEntryFor(ses []flowServiceEntry, host string) string {
 }
 
 // resolveDestination maps a VS destination host to a service or external host.
-// "x.ns.svc.cluster.local" → ns/x, 점 없는 짧은 이름 → 같은 NS 서비스, 그 외 → 외부.
+// "x.ns.svc.cluster.local" → ns/x, short name without dots → service in the same NS, anything else → external.
 func resolveDestination(host, ns string, port int32) flowBackend {
 	if name, rest, found := strings.Cut(host, "."); found {
 		if ns2, ok := strings.CutSuffix(rest, ".svc.cluster.local"); ok {

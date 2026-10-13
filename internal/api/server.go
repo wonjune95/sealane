@@ -19,7 +19,7 @@ type ClientSource interface {
 	DetectCRDs() (k8s.CRDInfo, error)
 	SpecSchema(typeID string) (json.RawMessage, error)
 	IstiodVersion(ctx context.Context) string
-	// 요청 테스터 전용: 파드 안에서 argv를 실행한다 (셸 없음).
+	// Request tester only: runs argv inside a pod (no shell).
 	ExecInPod(ctx context.Context, ns, pod, container string, argv []string, maxBytes int) (string, string, error)
 }
 
@@ -29,29 +29,30 @@ type Server struct {
 	factory    ClientSource
 	accounts   *auth.Store
 	sessions   *auth.Sessions
-	accountsCM AccountsCMRef // 비밀번호 변경이 patch할 계정 ConfigMap (빈 값이면 변경 불가)
+	accountsCM AccountsCMRef // accounts ConfigMap that password changes patch (empty = changes disabled)
 
-	clustersSecret ClustersSecretRef        // 원격 클러스터 kubeconfig Secret (빈 값이면 local만)
-	clusterMu      sync.Mutex               // clusterCache 보호
-	clusterCache   map[string]ClientSource  // 클러스터명 → 팩토리 (지연 생성)
+	clustersSecret ClustersSecretRef        // remote-cluster kubeconfig Secret (empty = local only)
+	clusterMu      sync.Mutex               // guards clusterCache
+	clusterCache   map[string]ClientSource  // cluster name → factory (created lazily)
 
 	auditMu  sync.Mutex
 	auditLog []AuditEntry // newest first, capped at auditKeep
 
-	// 이번 부팅에서 비밀번호를 바꾼 사용자 — 마운트 CM 동기화(~1분)를 기다리지 않고
-	// 강제 변경 화면을 풀어준다. ponytail: 파드별 상태라 다중 복제본에선 다른 파드가
-	// 최대 1분 늦게 풀린다; replicaCount>1이 기본이 되면 세션에 실어야 한다.
+	// Users who changed their password since this boot — releases the forced change
+	// screen without waiting for the mounted CM sync (~1 min). ponytail: per-pod state, so
+	// with multiple replicas other pods release it up to 1 min later; move it into the
+	// session if replicaCount>1 becomes the default.
 	pwChangedMu sync.Mutex
 	pwChanged   map[string]bool
 
-	requestTester bool // 실제 요청 테스터 (헬름 opt-in) — pods/exec 권한이 필요하다
+	requestTester bool // live request tester (Helm opt-in) — needs pods/exec
 }
 
 func NewServer(dev bool, factory ClientSource, accounts *auth.Store, sessions *auth.Sessions, accountsCM AccountsCMRef, clustersSecret ClustersSecretRef) *Server {
 	return &Server{dev: dev, factory: factory, accounts: accounts, sessions: sessions, accountsCM: accountsCM, clustersSecret: clustersSecret}
 }
 
-// EnableRequestTester turns on the in-pod request tester (admin 전용, 헬름 opt-in).
+// EnableRequestTester turns on the in-pod request tester (admin only, Helm opt-in).
 func (s *Server) EnableRequestTester() { s.requestTester = true }
 
 // Routes registers the /api/* handlers on mux. Probes, /metrics and static assets
@@ -59,13 +60,13 @@ func (s *Server) EnableRequestTester() { s.requestTester = true }
 func (s *Server) Routes(mux *http.ServeMux) {
 	mux.HandleFunc("POST /api/login", s.handleLogin)
 	mux.HandleFunc("POST /api/logout", s.handleLogout)
-	// 세션만 확인하고 역할 게이트는 없다 — viewer도 본인 비밀번호는 바꿀 수 있다.
+	// Session check only, no role gate — viewers can change their own password too.
 	mux.HandleFunc("POST /api/account/password", s.handlePasswordChange)
-	// 계정 관리 — 핸들러 내부에서 admin 역할을 강제한다.
+	// Account management — the handlers enforce the admin role.
 	mux.HandleFunc("GET /api/accounts", s.handleAccountsList)
 	mux.HandleFunc("PUT /api/accounts/{name}", s.handleAccountUpsert)
 	mux.HandleFunc("DELETE /api/accounts/{name}", s.handleAccountDelete)
-	// 멀티클러스터 — 목록은 로그인 사용자 전체, 등록/삭제는 admin 전용.
+	// Multi-cluster — any logged-in user can list; register/delete is admin only.
 	mux.HandleFunc("GET /api/clusters", s.handleClustersList)
 	mux.HandleFunc("PUT /api/clusters/{name}", s.handleClusterUpsert)
 	mux.HandleFunc("DELETE /api/clusters/{name}", s.handleClusterDelete)
@@ -78,11 +79,11 @@ func (s *Server) Routes(mux *http.ServeMux) {
 	mux.Handle("GET /api/services", s.withAuth(http.HandlerFunc(s.handleServices)))
 	mux.Handle("GET /api/subsets", s.withAuth(http.HandlerFunc(s.handleSubsets)))
 	mux.Handle("GET /api/audit", s.withAuth(http.HandlerFunc(s.handleAudit)))
-	// 설정 기반 인그레스 트래픽 흐름도 (Gateway → Route → Service)
+	// Config-based ingress traffic flow map (Gateway → Route → Service)
 	mux.Handle("GET /api/flowmap", s.withAuth(http.HandlerFunc(s.handleFlowMap)))
-	// 경로 시뮬레이터 — 설정만으로 요청이 어느 룰에 매치되는지 계산 (트래픽 없음)
+	// Route simulator — computes from config alone which rule a request matches (no traffic)
 	mux.Handle("GET /api/routematch", s.withAuth(http.HandlerFunc(s.handleRouteMatch)))
-	// 실제 요청 테스터 (opt-in + admin) — 고른 파드 안에서 curl을 실행한다
+	// Live request tester (opt-in + admin) — runs curl inside the chosen pod
 	mux.Handle("GET /api/pods", s.withAuth(http.HandlerFunc(s.handlePods)))
 	mux.Handle("POST /api/requesttest", s.withAuth(http.HandlerFunc(s.handleRequestTest)))
 	// Unmatched /api/* returns JSON 404 (not the SPA index.html fallback).
@@ -121,10 +122,10 @@ func (s *Server) withAuth(next http.Handler) http.Handler {
 			return
 		}
 		if r.Method != http.MethodGet && !id.CanWrite() {
-			writeError(w, http.StatusForbidden, "Forbidden", "viewer 역할은 변경할 수 없습니다")
+			writeError(w, http.StatusForbidden, "Forbidden", "viewer role cannot make changes")
 			return
 		}
-		// ?cluster= 로 대상 클러스터를 고른다 (빈 값/local = 파드가 있는 클러스터).
+		// ?cluster= selects the target cluster (empty/local = the cluster the pod runs in).
 		cluster := r.URL.Query().Get("cluster")
 		factory, err := s.clusterSource(r.Context(), cluster)
 		if err != nil {

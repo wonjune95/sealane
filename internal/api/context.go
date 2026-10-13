@@ -8,7 +8,7 @@ import (
 )
 
 // Per-request values injected by withK8s so handlers never touch auth/client
-// construction directly (keeps P2/P3 handlers decoupled — see DESIGN.md §12 P1).
+// construction directly (keeps P2/P3 handlers decoupled).
 type ctxKey int
 
 const (
@@ -36,8 +36,8 @@ func identityFrom(ctx context.Context) auth.Identity {
 	return id
 }
 
-// withFactory carries the request's per-cluster factory (?cluster= 해석 결과) so
-// 카탈로그/스키마/CRD 조회도 대상 클러스터를 향한다.
+// withFactory carries the request's per-cluster factory (the resolved ?cluster=) so
+// catalog/schema/CRD lookups also target that cluster.
 func withFactory(ctx context.Context, f ClientSource) context.Context {
 	return context.WithValue(ctx, factoryKey, f)
 }

@@ -44,14 +44,15 @@ type Store struct {
 	dir string
 
 	pwMu    sync.Mutex
-	pwCache map[string]bool // "user:hash:plain" → 일치 여부 (capabilities의 초기 비밀번호 검사용)
+	pwCache map[string]bool // "user:hash:plain" → match result (for the initial-password check in capabilities)
 }
 
 func NewStore(dir string) *Store { return &Store{dir: dir, pwCache: map[string]bool{}} }
 
 // PasswordIs reports whether the account's current password equals plain.
-// 매 capabilities 호출마다 불리므로 해시별로 캐시한다(비밀번호가 바뀌면 해시가
-// 바뀌어 새 키가 된다 — 오래된 항목은 무해하고 사용자 수만큼만 쌓인다).
+// It runs on every capabilities call, so results are cached per hash (a new
+// password means a new hash and thus a new key — stale entries are harmless and
+// grow only with the number of users).
 func (s *Store) PasswordIs(username, plain string) bool {
 	if username == "" || strings.ContainsAny(username, "/\\") || strings.HasPrefix(username, ".") {
 		return false
@@ -75,7 +76,7 @@ func (s *Store) PasswordIs(username, plain string) bool {
 	return v
 }
 
-var ErrBadCredentials = errors.New("잘못된 계정 또는 비밀번호입니다")
+var ErrBadCredentials = errors.New("invalid username or password")
 
 // Authenticate verifies username/password and returns the account's role.
 func (s *Store) Authenticate(username, password string) (string, error) {
@@ -91,7 +92,7 @@ func (s *Store) Authenticate(username, password string) (string, error) {
 	}
 	role, hash, ok := strings.Cut(strings.TrimSpace(string(b)), ":")
 	if !ok || !validRoles[role] {
-		return "", fmt.Errorf("계정 %q 설정이 잘못되었습니다 (형식: role:bcryptHash)", username)
+		return "", fmt.Errorf("account %q is misconfigured (expected role:bcryptHash)", username)
 	}
 	if bcrypt.CompareHashAndPassword([]byte(hash), []byte(password)) != nil {
 		return "", ErrBadCredentials
@@ -122,7 +123,7 @@ func (s *Sessions) Sign(id Identity, ttl time.Duration) string {
 	return payload + "|" + s.sig(payload)
 }
 
-var ErrSessionInvalid = errors.New("로그인이 필요합니다")
+var ErrSessionInvalid = errors.New("login required")
 
 func (s *Sessions) Parse(value string) (Identity, error) {
 	i := strings.LastIndexByte(value, '|')

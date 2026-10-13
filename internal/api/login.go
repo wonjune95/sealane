@@ -18,7 +18,7 @@ const (
 // handleLogin verifies a local account (ConfigMap-backed) and sets the session cookie.
 func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 	if s.dev {
-		writeError(w, http.StatusBadRequest, "BadRequest", "dev 모드에서는 로그인이 필요 없습니다")
+		writeError(w, http.StatusBadRequest, "BadRequest", "login is not required in dev mode")
 		return
 	}
 	var in struct {
@@ -26,7 +26,7 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 		Password string `json:"password"`
 	}
 	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 4096)).Decode(&in); err != nil {
-		writeError(w, http.StatusBadRequest, "BadRequest", "잘못된 요청 형식입니다")
+		writeError(w, http.StatusBadRequest, "BadRequest", "invalid request body")
 		return
 	}
 	role, err := s.accounts.Authenticate(in.Username, in.Password)

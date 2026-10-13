@@ -1,4 +1,4 @@
-// Package k8s builds Kubernetes clients for the dashboard.
+// Package k8s builds Kubernetes clients for Sealane.
 //
 // Auth model: users log in with app-local accounts (internal/auth) and
 // the app's role decides what they may do. Every Kubernetes call runs as one
@@ -75,11 +75,11 @@ func NewClientFactory(dev bool, kubeconfig string) (*ClientFactory, error) {
 }
 
 // NewClientFactoryFromKubeconfig builds a factory for a remote cluster from raw
-// kubeconfig bytes (멀티클러스터: clusters Secret에 저장된 값).
+// kubeconfig bytes (multi-cluster: the value stored in the clusters Secret).
 func NewClientFactoryFromKubeconfig(data []byte) (*ClientFactory, error) {
 	cfg, err := clientcmd.RESTConfigFromKubeConfig(data)
 	if err != nil {
-		return nil, fmt.Errorf("kubeconfig 파싱 실패: %w", err)
+		return nil, fmt.Errorf("failed to parse kubeconfig: %w", err)
 	}
 	return newFactory(cfg)
 }
@@ -96,7 +96,7 @@ func newFactory(cfg *rest.Config) (*ClientFactory, error) {
 	return f, nil
 }
 
-// Ping checks API-server reachability (클러스터 등록 시 연결 테스트) and returns
+// Ping checks API-server reachability (connection test when registering a cluster) and returns
 // the server's Kubernetes version.
 func (f *ClientFactory) Ping() (string, error) {
 	cfg := rest.CopyConfig(f.baseCfg)

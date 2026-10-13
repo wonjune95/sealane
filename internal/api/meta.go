@@ -20,8 +20,8 @@ type capabilities struct {
 	DevMode                 bool   `json:"devMode"`
 	User                    string `json:"user,omitempty"`
 	Role                    string `json:"role,omitempty"`
-	MustChangePassword      bool   `json:"mustChangePassword,omitempty"` // 초기 비밀번호(admin) 그대로 — UI가 변경을 강제한다
-	RequestTester           bool   `json:"requestTester,omitempty"`      // 실제 요청 테스터 활성화 여부
+	MustChangePassword      bool   `json:"mustChangePassword,omitempty"` // still the initial password (admin) — the UI forces a change
+	RequestTester           bool   `json:"requestTester,omitempty"`      // whether the live request tester is enabled
 }
 
 // handleCapabilities reports CRD availability plus the session's identity/role.

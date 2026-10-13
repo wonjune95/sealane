@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { apiGet } from './client'
 
-// Matches the backend capabilities contract (DESIGN.md §4.1).
+// Matches the backend capabilities contract.
 export interface Capabilities {
   httpRouteInstalled: boolean
   virtualServiceInstalled: boolean

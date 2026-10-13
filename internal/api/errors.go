@@ -27,7 +27,7 @@ func writeError(w http.ResponseWriter, status int, reason, msg string) {
 	writeJSON(w, status, errEnvelope{errBody{Reason: reason, Message: msg, HTTPStatus: status}})
 }
 
-// writeK8sError maps a Kubernetes API error to the dashboard error envelope.
+// writeK8sError maps a Kubernetes API error to the Sealane error envelope.
 func writeK8sError(w http.ResponseWriter, err error) {
 	switch {
 	case apierrors.IsConflict(err):

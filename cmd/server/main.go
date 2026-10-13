@@ -55,14 +55,14 @@ func main() {
 	}
 	srv := api.NewServer(*dev, factory, auth.NewStore(accountsDir), auth.NewSessions(os.Getenv("SESSION_SECRET")),
 		api.AccountsCMRef{Namespace: os.Getenv("POD_NAMESPACE"), Name: os.Getenv("ACCOUNTS_CONFIGMAP")},
-		// 멀티클러스터: 원격 클러스터 kubeconfig를 담는 Secret (미설정이면 local만)
+		// Multi-cluster: Secret holding remote-cluster kubeconfigs (unset = local only)
 		api.ClustersSecretRef{Namespace: os.Getenv("POD_NAMESPACE"), Name: os.Getenv("CLUSTERS_SECRET")})
-	// 실제 요청 테스터는 pods/exec 권한이 필요해 기본 비활성 — 헬름에서 켠다.
+	// The live request tester needs pods/exec, so it is off by default — enable it via Helm.
 	if os.Getenv("REQUEST_TESTER") == "true" {
 		srv.EnableRequestTester()
-		slog.Info("request tester enabled (admin 전용, pods/exec 사용)")
+		slog.Info("request tester enabled (admin only, uses pods/exec)")
 	}
-	// admin 계정이 없으면 초기 계정 admin/admin을 만든다.
+	// If there is no admin account, create the initial admin/admin account.
 	srv.EnsureInitialAdmin(context.Background())
 
 	mux := http.NewServeMux()

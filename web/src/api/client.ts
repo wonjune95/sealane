@@ -1,4 +1,4 @@
-// Mirrors the backend error envelope (DESIGN.md §4.1).
+// Mirrors the backend error envelope.
 export class ApiError extends Error {
   status: number
   reason: string

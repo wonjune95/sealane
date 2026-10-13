@@ -1,8 +1,7 @@
 import { dump } from 'js-yaml'
 
 // Form-editable subset of an HTTPRoute. Anything outside this subset makes the
-// route "not representable" → the Form tab locks and the user edits via YAML
-// (DESIGN.md §9.3 sync guard).
+// route "not representable" → the Form tab locks and the user edits via YAML.
 export interface BackendRefModel { name: string; port: number; weight?: number }
 export interface RuleModel {
   pathType: 'PathPrefix' | 'Exact'

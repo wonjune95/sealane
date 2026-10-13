@@ -13,8 +13,8 @@ import (
 	gwapi "sigs.k8s.io/gateway-api/apis/v1"
 )
 
-// 경로 시뮬레이터: 요청(호스트·경로·메서드·헤더)이 어느 VirtualService/HTTPRoute
-// 룰에 매치되어 어디로 가는지를 설정만으로 계산한다. 실제 트래픽은 발생하지 않는다.
+// Route simulator: computes from config alone which VirtualService/HTTPRoute rule a
+// request (host, path, method, headers) matches and where it goes. No real traffic is sent.
 
 type routeDest struct {
 	Host      string `json:"host"`
@@ -26,7 +26,7 @@ type routeDest struct {
 	External  bool   `json:"external,omitempty"`
 	Exists    bool   `json:"exists"`
 	Endpoints int    `json:"endpoints"`
-	SubsetOK  bool   `json:"subsetOk,omitempty"` // subset이 DestinationRule에 정의돼 있나
+	SubsetOK  bool   `json:"subsetOk,omitempty"` // whether the subset is defined in a DestinationRule
 	SubsetDR  string `json:"subsetDr,omitempty"`
 }
 
@@ -49,12 +49,12 @@ type routeMatchResult struct {
 }
 
 // handleRouteMatch simulates one request against the cluster's routing config.
-// GET이라 viewer도 쓸 수 있다 — 읽기 전용 계산이다.
+// It is a GET, so viewers can use it too — a read-only computation.
 func (s *Server) handleRouteMatch(w http.ResponseWriter, r *http.Request) {
 	q := r.URL.Query()
 	host := strings.TrimSpace(q.Get("host"))
 	if host == "" {
-		writeError(w, http.StatusBadRequest, "BadRequest", "host는 필수입니다 (예: shop.example.com)")
+		writeError(w, http.StatusBadRequest, "BadRequest", "host is required (example: shop.example.com)")
 		return
 	}
 	method := strings.ToUpper(strings.TrimSpace(q.Get("method")))
@@ -67,7 +67,7 @@ func (s *Server) handleRouteMatch(w http.ResponseWriter, r *http.Request) {
 	}
 	u, err := url.Parse(rawPath)
 	if err != nil {
-		writeError(w, http.StatusBadRequest, "BadRequest", "경로 형식이 잘못되었습니다: "+err.Error())
+		writeError(w, http.StatusBadRequest, "BadRequest", "invalid path: "+err.Error())
 		return
 	}
 	path, query := u.Path, u.Query()
@@ -86,7 +86,7 @@ func (s *Server) handleRouteMatch(w http.ResponseWriter, r *http.Request) {
 	out := routeMatchResult{Destinations: []routeDest{}, Candidates: []routeCandidate{}}
 	winnerFound := false
 
-	// --- VirtualService: hosts 매치 후 http 룰을 선언 순서대로, 첫 매치가 이긴다 ---
+	// --- VirtualService: after the hosts match, http rules are tried in declaration order; first match wins ---
 	if vss, err := c.Istio.NetworkingV1().VirtualServices("").List(ctx, metav1.ListOptions{}); err == nil {
 		for _, vs := range vss.Items {
 			if !hostsMatch(vs.Spec.Hosts, host, vs.Namespace) {
@@ -117,21 +117,21 @@ func (s *Server) handleRouteMatch(w http.ResponseWriter, r *http.Request) {
 						})
 					}
 					if len(h.Route) == 0 {
-						out.Notes = append(out.Notes, "매치된 룰에 route가 없습니다 (redirect/delegate/fault 등은 모델링하지 않습니다)")
+						out.Notes = append(out.Notes, "matched rule has no route (redirect/delegate/fault are not modeled)")
 					}
 				}
 				out.Candidates = append(out.Candidates, cand)
 				if ok {
-					break // 이 VS에서는 첫 매치 이후 룰을 평가하지 않는다
+					break // within this VS, rules after the first match are not evaluated
 				}
 			}
 		}
 	}
 
-	// --- HTTPRoute(Gateway API): 선언 순서가 아니라 명세의 우선순위로 이긴다 ---
+	// --- HTTPRoute (Gateway API): the spec's precedence wins, not declaration order ---
 	type hrHit struct {
 		cand routeCandidate
-		rank [5]int // pathType, pathLen, method, headerCount, queryCount (클수록 우선)
+		rank [5]int // pathType, pathLen, method, headerCount, queryCount (higher wins)
 		rule gwapi.HTTPRouteRule
 		ns   string
 	}
@@ -191,16 +191,16 @@ func (s *Server) handleRouteMatch(w http.ResponseWriter, r *http.Request) {
 					})
 				}
 			} else if i > 0 {
-				cand.Reason += " (우선순위에서 밀림)"
+				cand.Reason += " (lower priority)"
 			}
 			out.Candidates = append(out.Candidates, cand)
 		}
 		if len(hits) > 1 {
-			out.Notes = append(out.Notes, "여러 HTTPRoute 룰이 매치되어 Gateway API 우선순위(경로 타입 → 경로 길이 → 메서드 → 헤더 수)로 골랐습니다")
+			out.Notes = append(out.Notes, "multiple HTTPRoute rules matched; chose by Gateway API precedence (path type → path length → method → header count)")
 		}
 	}
 
-	// --- 목적지 실체 확인: 서비스 존재·엔드포인트 수·subset 정의 여부 ---
+	// --- Verify destinations: service exists, endpoint count, subset defined ---
 	var drs []subsetDef
 	if list, err := c.Istio.NetworkingV1().DestinationRules("").List(ctx, metav1.ListOptions{}); err == nil {
 		for _, dr := range list.Items {
@@ -232,7 +232,7 @@ func (s *Server) handleRouteMatch(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	if !out.Matched {
-		out.Notes = append(out.Notes, "매치되는 라우트가 없습니다 — 요청은 라우팅되지 않거나 기본 동작(직접 서비스 접근)으로 갑니다")
+		out.Notes = append(out.Notes, "no route matched — the request is not routed, or falls back to default behavior (direct service access)")
 	}
 	writeJSON(w, http.StatusOK, out)
 }
@@ -240,10 +240,10 @@ func (s *Server) handleRouteMatch(w http.ResponseWriter, r *http.Request) {
 type subsetDef struct{ DR, Namespace, Host, Subset string }
 
 // hostsMatch reports whether any VS host pattern covers the request host.
-// "*" / "*.suffix" 와일드카드와 짧은 이름(같은 NS 서비스)을 지원한다.
+// Supports "*" / "*.suffix" wildcards and short names (services in the same NS).
 func hostsMatch(patterns []string, host, ns string) bool {
 	for _, p := range patterns {
-		if _, after, found := strings.Cut(p, "/"); found { // "ns/host" 형식
+		if _, after, found := strings.Cut(p, "/"); found { // "ns/host" form
 			p = after
 		}
 		switch {
@@ -254,12 +254,12 @@ func hostsMatch(patterns []string, host, ns string) bool {
 				return true
 			}
 		case !strings.Contains(p, "."):
-			// 짧은 이름 → 같은 네임스페이스 서비스의 FQDN 변형들
+			// short name → FQDN variants of the service in the same namespace
 			if host == p+"."+ns || host == p+"."+ns+".svc" || host == p+"."+ns+".svc.cluster.local" {
 				return true
 			}
 		default:
-			// 요청이 짧은 이름이고 패턴이 FQDN인 경우
+			// request is a short name and the pattern is an FQDN
 			if name, rest, ok := strings.Cut(p, "."); ok && name == host && strings.HasPrefix(rest, ns) {
 				return true
 			}
@@ -270,7 +270,7 @@ func hostsMatch(patterns []string, host, ns string) bool {
 
 func hostnamesMatch(hostnames []gwapi.Hostname, host string) bool {
 	if len(hostnames) == 0 {
-		return true // 호스트 제한 없음
+		return true // no host restriction
 	}
 	for _, h := range hostnames {
 		p := string(h)
@@ -284,16 +284,16 @@ func hostnamesMatch(hostnames []gwapi.Hostname, host string) bool {
 	return false
 }
 
-// matchVSRule evaluates one VirtualService http rule (match는 OR, 항목 내부는 AND).
+// matchVSRule evaluates one VirtualService http rule (match entries are ORed, conditions within an entry are ANDed).
 func matchVSRule(ms []*istioapi.HTTPMatchRequest, path, method string, headers map[string]string, query url.Values, authority string) (bool, string) {
 	if len(ms) == 0 {
-		return true, "match 조건 없음 — 모든 요청이 매치됩니다"
+		return true, "no match conditions — every request matches"
 	}
 	last := ""
 	for i, m := range ms {
 		ok, why := matchVSOne(m, path, method, headers, query, authority)
 		if ok {
-			return true, fmt.Sprintf("match[%d] 일치: %s", i, why)
+			return true, fmt.Sprintf("match[%d] matched: %s", i, why)
 		}
 		last = fmt.Sprintf("match[%d] %s", i, why)
 	}
@@ -326,14 +326,14 @@ func matchVSOne(m *istioapi.HTTPMatchRequest, path, method string, headers map[s
 		v, has := headers[strings.ToLower(k)]
 		ok, desc := stringMatch(m.Headers[k], v)
 		if !has || !ok {
-			return false, fmt.Sprintf("헤더 %s %s ≠ %s", k, desc, quoteEmpty(v))
+			return false, fmt.Sprintf("header %s %s ≠ %s", k, desc, quoteEmpty(v))
 		}
-		parts = append(parts, fmt.Sprintf("헤더 %s %s", k, desc))
+		parts = append(parts, fmt.Sprintf("header %s %s", k, desc))
 	}
 	for _, k := range sortedKeys(m.WithoutHeaders) {
 		if v, has := headers[strings.ToLower(k)]; has {
 			if ok, _ := stringMatch(m.WithoutHeaders[k], v); ok {
-				return false, fmt.Sprintf("withoutHeaders %s 조건에 걸림", k)
+				return false, fmt.Sprintf("withoutHeaders %s excluded", k)
 			}
 		}
 	}
@@ -341,17 +341,17 @@ func matchVSOne(m *istioapi.HTTPMatchRequest, path, method string, headers map[s
 		v := query.Get(k)
 		ok, desc := stringMatch(m.QueryParams[k], v)
 		if !ok {
-			return false, fmt.Sprintf("쿼리 %s %s ≠ %s", k, desc, quoteEmpty(v))
+			return false, fmt.Sprintf("query %s %s ≠ %s", k, desc, quoteEmpty(v))
 		}
-		parts = append(parts, fmt.Sprintf("쿼리 %s %s", k, desc))
+		parts = append(parts, fmt.Sprintf("query %s %s", k, desc))
 	}
 	if len(parts) == 0 {
-		parts = append(parts, "조건 없음")
+		parts = append(parts, "no conditions")
 	}
 	return true, strings.Join(parts, ", ")
 }
 
-// stringMatch returns (일치 여부, 사람이 읽을 조건 설명). 설명이 빈 값이면 조건 미설정.
+// stringMatch returns (matched, human-readable condition description). An empty description means no condition is set.
 func stringMatch(sm *istioapi.StringMatch, v string) (bool, string) {
 	if sm == nil || sm.GetMatchType() == nil {
 		return true, ""
@@ -362,7 +362,7 @@ func stringMatch(sm *istioapi.StringMatch, v string) (bool, string) {
 	if rx := sm.GetRegex(); rx != "" {
 		re, err := regexp.Compile(rx)
 		if err != nil {
-			return false, "regex=" + rx + " (컴파일 실패)"
+			return false, "regex=" + rx + " (compile failed)"
 		}
 		return re.MatchString(v), "regex=" + rx
 	}
@@ -374,14 +374,14 @@ func stringMatch(sm *istioapi.StringMatch, v string) (bool, string) {
 func matchHTTPRouteRule(ms []gwapi.HTTPRouteMatch, path, method string, headers map[string]string, query url.Values) (bool, string, [5]int) {
 	var zero [5]int
 	if len(ms) == 0 {
-		// 명세 기본값: PathPrefix "/"
-		return true, "match 조건 없음 — 기본 PathPrefix=/ 로 모든 요청 매치", [5]int{1, 1, 0, 0, 0}
+		// spec default: PathPrefix "/"
+		return true, "no match conditions — default PathPrefix=/ matches every request", [5]int{1, 1, 0, 0, 0}
 	}
 	last := ""
 	for i, m := range ms {
 		ok, why, rank := matchHTTPRouteOne(m, path, method, headers, query)
 		if ok {
-			return true, fmt.Sprintf("matches[%d] 일치: %s", i, why), rank
+			return true, fmt.Sprintf("matches[%d] matched: %s", i, why), rank
 		}
 		last = fmt.Sprintf("matches[%d] %s", i, why)
 	}
@@ -406,10 +406,10 @@ func matchHTTPRouteOne(m gwapi.HTTPRouteMatch, path, method string, headers map[
 		case gwapi.PathMatchRegularExpression:
 			re, err := regexp.Compile(val)
 			if err != nil || !re.MatchString(path) {
-				return false, "path regex=" + val + " 불일치", rank
+				return false, "path regex=" + val + " did not match", rank
 			}
 			rank[0] = 2
-		default: // PathPrefix — 세그먼트 경계로만 매치된다 (/foo는 /foobar에 안 걸림)
+		default: // PathPrefix — matches only on segment boundaries (/foo does not match /foobar)
 			if !prefixSegmentMatch(path, val) {
 				return false, "path prefix=" + val + " ≠ " + path, rank
 			}
@@ -437,20 +437,20 @@ func matchHTTPRouteOne(m gwapi.HTTPRouteMatch, path, method string, headers map[
 			okH = v == h.Value
 		}
 		if !okH {
-			return false, fmt.Sprintf("헤더 %s=%s ≠ %s", h.Name, h.Value, quoteEmpty(v)), rank
+			return false, fmt.Sprintf("header %s=%s ≠ %s", h.Name, h.Value, quoteEmpty(v)), rank
 		}
-		parts = append(parts, fmt.Sprintf("헤더 %s=%s", h.Name, h.Value))
+		parts = append(parts, fmt.Sprintf("header %s=%s", h.Name, h.Value))
 	}
 	rank[3] = len(m.Headers)
 	for _, qp := range m.QueryParams {
 		if query.Get(string(qp.Name)) != qp.Value {
-			return false, fmt.Sprintf("쿼리 %s=%s 불일치", qp.Name, qp.Value), rank
+			return false, fmt.Sprintf("query %s=%s did not match", qp.Name, qp.Value), rank
 		}
-		parts = append(parts, fmt.Sprintf("쿼리 %s=%s", qp.Name, qp.Value))
+		parts = append(parts, fmt.Sprintf("query %s=%s", qp.Name, qp.Value))
 	}
 	rank[4] = len(m.QueryParams)
 	if len(parts) == 0 {
-		parts = append(parts, "조건 없음")
+		parts = append(parts, "no conditions")
 	}
 	return true, strings.Join(parts, ", "), rank
 }
@@ -475,7 +475,7 @@ func sortedKeys(m map[string]*istioapi.StringMatch) []string {
 
 func quoteEmpty(v string) string {
 	if v == "" {
-		return "(없음)"
+		return "(none)"
 	}
 	return v
 }

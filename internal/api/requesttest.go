@@ -15,16 +15,16 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// 실제 요청 테스터: 사용자가 고른 파드 안에서 curl을 실행해 진짜 HTTP 요청을 보낸다.
-// 그 파드의 사이드카를 통과하므로 VirtualService 라우팅·AuthorizationPolicy·mTLS가
-// 실제로 어떻게 동작하는지 확인할 수 있다.
+// Live request tester: runs curl inside a pod the user picks to send a real HTTP request.
+// The request passes through that pod's sidecar, so you can see how VirtualService
+// routing, AuthorizationPolicy and mTLS actually behave.
 //
-// 위험한 기능이라 3중으로 잠근다: ① REQUEST_TESTER 환경변수(헬름 opt-in)
-// ② admin 역할 ③ argv 직접 구성(셸 없음) + 입력 검증 + 타임아웃·크기 상한.
+// It is a dangerous feature, so it has three locks: (1) the REQUEST_TESTER env var (Helm opt-in)
+// (2) the admin role (3) argv built directly (no shell) + input validation + timeout and size caps.
 
 const (
-	reqTestMaxBody     = 64 << 10  // 요청 본문 상한
-	reqTestMaxResponse = 256 << 10 // 응답 상한 (초과분은 잘림)
+	reqTestMaxBody     = 64 << 10  // request body cap
+	reqTestMaxResponse = 256 << 10 // response cap (excess is truncated)
 	reqTestMaxTimeout  = 30
 )
 
@@ -36,11 +36,11 @@ var reqTestMethods = map[string]bool{
 type podRef struct {
 	Name       string   `json:"name"`
 	Containers []string `json:"containers"`
-	Mesh       bool     `json:"mesh"` // istio-proxy 사이드카 있음 = 라우팅 검증 가능
+	Mesh       bool     `json:"mesh"` // has an istio-proxy sidecar = routing can be verified
 	Ready      bool     `json:"ready"`
 }
 
-// handlePods lists pods for the source-pod picker. 요청 테스터가 켜져 있을 때만 응답한다.
+// handlePods lists pods for the source-pod picker. It responds only when the request tester is enabled.
 func (s *Server) handlePods(w http.ResponseWriter, r *http.Request) {
 	if !s.requestTesterAllowed(w, r) {
 		return
@@ -58,11 +58,11 @@ func (s *Server) handlePods(w http.ResponseWriter, r *http.Request) {
 			continue
 		}
 		ref := podRef{Name: p.Name, Ready: true}
-		// Istio 1.29+는 사이드카를 네이티브 사이드카(restartPolicy=Always인
-		// initContainer)로 주입한다 — 두 목록을 모두 봐야 메시 여부를 안다.
+		// Istio 1.29+ injects the sidecar as a native sidecar (an initContainer with
+		// restartPolicy=Always) — both lists must be checked to tell mesh membership.
 		for _, c := range p.Spec.InitContainers {
 			if c.RestartPolicy == nil || *c.RestartPolicy != corev1.ContainerRestartPolicyAlways {
-				continue // 진짜 init 컨테이너는 이미 종료돼 exec 대상이 아니다
+				continue // real init containers have already exited and cannot be exec'd into
 			}
 			ref.Containers = append(ref.Containers, c.Name)
 			if c.Name == "istio-proxy" {
@@ -90,11 +90,11 @@ func (s *Server) handlePods(w http.ResponseWriter, r *http.Request) {
 func (s *Server) requestTesterAllowed(w http.ResponseWriter, r *http.Request) bool {
 	if !s.requestTester {
 		writeError(w, http.StatusForbidden, "Forbidden",
-			"요청 테스터가 비활성화되어 있습니다 (헬름 값 requestTester.enabled=true 필요)")
+			"request tester is disabled (set Helm value requestTester.enabled=true)")
 		return false
 	}
 	if identityFrom(r.Context()).Role != "admin" {
-		writeError(w, http.StatusForbidden, "Forbidden", "요청 테스터는 admin만 쓸 수 있습니다")
+		writeError(w, http.StatusForbidden, "Forbidden", "request tester is admin only")
 		return false
 	}
 	return true
@@ -119,7 +119,7 @@ type reqTestResult struct {
 	DurationMs int64             `json:"durationMs"`
 	Truncated  bool              `json:"truncated,omitempty"`
 	Error      string            `json:"error,omitempty"`
-	Hint       string            `json:"hint,omitempty"` // Istio 문맥 해석
+	Hint       string            `json:"hint,omitempty"` // interpretation in Istio terms
 }
 
 // handleRequestTest sends one HTTP request from inside the chosen pod.
@@ -130,7 +130,7 @@ func (s *Server) handleRequestTest(w http.ResponseWriter, r *http.Request) {
 	id := identityFrom(r.Context())
 	var in reqTestInput
 	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, reqTestMaxBody+8<<10)).Decode(&in); err != nil {
-		writeError(w, http.StatusBadRequest, "BadRequest", "잘못된 요청 형식입니다")
+		writeError(w, http.StatusBadRequest, "BadRequest", "invalid request body")
 		return
 	}
 	argv, err := buildCurlArgv(&in)
@@ -160,25 +160,25 @@ func (s *Server) handleRequestTest(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, out)
 }
 
-// buildCurlArgv validates the input and builds argv — 셸을 거치지 않으므로
-// 값이 그대로 인자가 되고, 검증만 통과하면 인젝션 여지가 없다.
+// buildCurlArgv validates the input and builds argv — no shell is involved, so
+// values become arguments as-is, and once validated there is no room for injection.
 func buildCurlArgv(in *reqTestInput) ([]string, error) {
 	if in.Namespace == "" || in.Pod == "" {
-		return nil, fmt.Errorf("출발 파드를 선택하세요")
+		return nil, fmt.Errorf("select a source pod")
 	}
 	in.Method = strings.ToUpper(strings.TrimSpace(in.Method))
 	if in.Method == "" {
 		in.Method = "GET"
 	}
 	if !reqTestMethods[in.Method] {
-		return nil, fmt.Errorf("지원하지 않는 메서드입니다: %s", in.Method)
+		return nil, fmt.Errorf("unsupported method: %s", in.Method)
 	}
 	u, err := url.Parse(strings.TrimSpace(in.URL))
 	if err != nil || u.Host == "" {
-		return nil, fmt.Errorf("URL 형식이 잘못되었습니다 (예: http://svc.ns:8080/path)")
+		return nil, fmt.Errorf("invalid URL (example: http://svc.ns:8080/path)")
 	}
 	if u.Scheme != "http" && u.Scheme != "https" {
-		return nil, fmt.Errorf("http/https만 지원합니다")
+		return nil, fmt.Errorf("only http and https are supported")
 	}
 	if in.TimeoutS <= 0 {
 		in.TimeoutS = 10
@@ -187,20 +187,20 @@ func buildCurlArgv(in *reqTestInput) ([]string, error) {
 		in.TimeoutS = reqTestMaxTimeout
 	}
 	if len(in.Body) > reqTestMaxBody {
-		return nil, fmt.Errorf("요청 본문이 너무 큽니다 (최대 %dKB)", reqTestMaxBody>>10)
+		return nil, fmt.Errorf("request body too large (max %dKB)", reqTestMaxBody>>10)
 	}
 	argv := []string{"curl", "-sS", "-i", "--max-time", fmt.Sprint(in.TimeoutS), "-X", in.Method}
 	for _, k := range sortedHeaderKeys(in.Headers) {
 		v := in.Headers[k]
 		if strings.ContainsAny(k, "\r\n: ") || strings.ContainsAny(v, "\r\n") {
-			return nil, fmt.Errorf("헤더 이름/값에 쓸 수 없는 문자가 있습니다: %s", k)
+			return nil, fmt.Errorf("header name or value contains invalid characters: %s", k)
 		}
 		argv = append(argv, "-H", k+": "+v)
 	}
 	if in.Body != "" {
 		argv = append(argv, "--data-binary", in.Body)
 	}
-	argv = append(argv, "--", u.String()) // "--" 이후는 옵션으로 해석되지 않는다
+	argv = append(argv, "--", u.String()) // nothing after "--" is parsed as an option
 	return argv, nil
 }
 
@@ -243,16 +243,16 @@ func parseCurlOutput(raw string, out *reqTestResult) {
 	out.Body = body
 }
 
-// summarizeExecError는 stderr와 exec 에러를 함께 본다 — curl이 없으면 그 사실은
-// stderr가 아니라 kubelet의 exec 에러로 올라온다.
+// summarizeExecError looks at both stderr and the exec error — a missing curl
+// surfaces as kubelet's exec error, not in stderr.
 func summarizeExecError(err error, stderr string) string {
 	msg := strings.TrimSpace(stderr)
 	all := msg + " " + err.Error()
 	switch {
 	case strings.Contains(all, "executable file not found"), strings.Contains(all, "no such file or directory"):
-		return "이 컨테이너에 curl이 없습니다 (distroless 이미지 등). curl이 있는 다른 파드나 컨테이너를 고르세요."
+		return "curl is not available in this container (e.g. distroless image). Pick another pod or container that has curl."
 	case strings.Contains(all, "container not found"):
-		return "그 이름의 컨테이너가 없습니다."
+		return "no container with that name."
 	case msg != "":
 		return msg
 	default:
@@ -264,21 +264,21 @@ func summarizeExecError(err error, stderr string) string {
 func istioHint(status int, body string, headers map[string]string) string {
 	switch {
 	case status == 403 && strings.Contains(body, "RBAC: access denied"):
-		return "AuthorizationPolicy가 요청을 거부했습니다."
+		return "AuthorizationPolicy denied the request."
 	case status == 503 && strings.Contains(body, "upstream connect error"):
-		return "사이드카가 업스트림에 연결하지 못했습니다 — mTLS 설정 불일치이거나 정상 엔드포인트가 없습니다."
+		return "the sidecar could not connect upstream — mTLS mismatch or no healthy endpoints."
 	case status == 404 && viaEnvoy(headers):
-		return "Envoy까지는 갔지만 매치되는 라우트가 없습니다 — 호스트/경로를 확인하세요 (경로 확인 기능으로 대조해 보세요)."
+		return "the request reached Envoy but no route matched — check host/path (compare with the route check)."
 	case status == 0:
 		return ""
 	case !viaEnvoy(headers):
-		return "응답에 Envoy 흔적이 없습니다 — 사이드카를 거치지 않았을 수 있습니다(메시 밖 파드이거나 직접 접근)."
+		return "no Envoy trace in the response — the request may have bypassed the sidecar (pod outside the mesh or direct access)."
 	}
 	return ""
 }
 
 // viaEnvoy reports whether the response came through a sidecar/gateway.
-// server 헤더는 버전·설정에 따라 "istio-envoy" 또는 "envoy"로 온다.
+// The server header arrives as "istio-envoy" or "envoy" depending on version and config.
 func viaEnvoy(headers map[string]string) bool {
 	return strings.Contains(headers["server"], "envoy") || headers["x-envoy-upstream-service-time"] != ""
 }

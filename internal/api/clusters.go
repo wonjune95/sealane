@@ -18,19 +18,20 @@ import (
 )
 
 // ClustersSecretRef locates the Secret holding remote-cluster kubeconfigs
-// (key = 클러스터 이름, value = kubeconfig 원문). 빈 Name이면 멀티클러스터 비활성
-// — "local"만 존재한다. 자격증명은 대시보드가 있는 클러스터의 Secret에만 저장한다.
+// (key = cluster name, value = raw kubeconfig). An empty Name disables multi-cluster
+// — only "local" exists. Credentials are stored only in a Secret on the cluster
+// Sealane runs in.
 type ClustersSecretRef struct{ Namespace, Name string }
 
 // clusterSource resolves the ?cluster= parameter to a per-cluster factory.
-// ""/"local"은 항상 파드의 SA(또는 dev kubeconfig) 팩토리다.
-// ponytail: 캐시는 PUT/DELETE에서만 무효화 — kubectl로 Secret을 직접 고치면 재시작 필요.
+// ""/"local" is always the pod's SA (or dev kubeconfig) factory.
+// ponytail: the cache is invalidated only on PUT/DELETE — editing the Secret directly with kubectl needs a restart.
 func (s *Server) clusterSource(ctx context.Context, name string) (ClientSource, error) {
 	if name == "" || name == "local" {
 		return s.factory, nil
 	}
 	if s.clustersSecret.Name == "" {
-		return nil, fmt.Errorf("멀티클러스터가 설정되지 않았습니다 (CLUSTERS_SECRET)")
+		return nil, fmt.Errorf("multi-cluster is not configured (CLUSTERS_SECRET)")
 	}
 	s.clusterMu.Lock()
 	defer s.clusterMu.Unlock()
@@ -44,15 +45,15 @@ func (s *Server) clusterSource(ctx context.Context, name string) (ClientSource, 
 	sec, err := client.Kube.CoreV1().Secrets(s.clustersSecret.Namespace).
 		Get(ctx, s.clustersSecret.Name, metav1.GetOptions{})
 	if err != nil {
-		return nil, fmt.Errorf("클러스터 Secret 조회 실패: %w", err)
+		return nil, fmt.Errorf("failed to read clusters Secret: %w", err)
 	}
 	kc, ok := sec.Data[name]
 	if !ok {
-		return nil, fmt.Errorf("등록되지 않은 클러스터: %s", name)
+		return nil, fmt.Errorf("unknown cluster: %s", name)
 	}
 	f, err := k8s.NewClientFactoryFromKubeconfig(kc)
 	if err != nil {
-		return nil, fmt.Errorf("클러스터 %s: %w", name, err)
+		return nil, fmt.Errorf("cluster %s: %w", name, err)
 	}
 	if s.clusterCache == nil {
 		s.clusterCache = map[string]ClientSource{}
@@ -67,9 +68,10 @@ func (s *Server) dropClusterCache(name string) {
 	s.clusterMu.Unlock()
 }
 
-// handleClustersList returns "local" + registered clusters. 모든 로그인 사용자가
-// 호출한다(헤더 드롭다운). Secret 조회 실패는 local만 반환으로 degrade한다.
-// ?status=true면 각 클러스터에 병렬 ping해 연결 상태·버전을 채운다(설정 패널용).
+// handleClustersList returns "local" + registered clusters. Every logged-in user
+// calls it (header dropdown). A failed Secret read degrades to returning only local.
+// With ?status=true it pings each cluster in parallel to fill in connectivity and
+// version (for the settings panel).
 func (s *Server) handleClustersList(w http.ResponseWriter, r *http.Request) {
 	if _, err := s.sessionIdentity(r); err != nil {
 		writeError(w, http.StatusUnauthorized, "Unauthorized", err.Error())
@@ -84,7 +86,7 @@ func (s *Server) handleClustersList(w http.ResponseWriter, r *http.Request) {
 	withStatus := r.URL.Query().Get("status") == "true"
 	list := []cluster{{Name: "local"}}
 	if withStatus {
-		t := true // local은 이 응답을 서빙 중이라는 것 자체가 연결 증명
+		t := true // for local, serving this response is itself proof of connectivity
 		list[0].Connected = &t
 	}
 	var kubeconfigs map[string][]byte
@@ -135,23 +137,23 @@ func (s *Server) clustersGuard(w http.ResponseWriter, r *http.Request) (string, 
 		return "", false
 	}
 	if s.clustersSecret.Name == "" {
-		writeError(w, http.StatusInternalServerError, "Internal", "클러스터 Secret 위치가 설정되지 않았습니다 (CLUSTERS_SECRET/POD_NAMESPACE)")
+		writeError(w, http.StatusInternalServerError, "Internal", "clusters Secret location is not configured (CLUSTERS_SECRET/POD_NAMESPACE)")
 		return "", false
 	}
 	name := r.PathValue("name")
 	if name == "local" {
-		writeError(w, http.StatusBadRequest, "BadRequest", "local 클러스터는 변경할 수 없습니다")
+		writeError(w, http.StatusBadRequest, "BadRequest", "the local cluster cannot be modified")
 		return "", false
 	}
 	if !validUsername.MatchString(name) {
-		writeError(w, http.StatusBadRequest, "BadRequest", "클러스터 이름은 영숫자로 시작하는 영숫자·-._ 64자 이내여야 합니다")
+		writeError(w, http.StatusBadRequest, "BadRequest", "cluster name must start with a letter or digit and contain only letters, digits, '-', '.', '_' (max 64 characters)")
 		return "", false
 	}
 	return name, true
 }
 
 // handleClusterUpsert registers/updates a cluster from pasted kubeconfig.
-// 연결 실패해도 저장은 한다(일시적 다운일 수 있음) — 응답에 연결 결과를 담는다.
+// It saves even if the connection fails (the cluster may be briefly down) — the response carries the connection result.
 func (s *Server) handleClusterUpsert(w http.ResponseWriter, r *http.Request) {
 	name, ok := s.clustersGuard(w, r)
 	if !ok {
@@ -161,11 +163,11 @@ func (s *Server) handleClusterUpsert(w http.ResponseWriter, r *http.Request) {
 		Kubeconfig string `json:"kubeconfig"`
 	}
 	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 1<<20)).Decode(&in); err != nil {
-		writeError(w, http.StatusBadRequest, "BadRequest", "잘못된 요청 형식입니다")
+		writeError(w, http.StatusBadRequest, "BadRequest", "invalid request body")
 		return
 	}
 	if in.Kubeconfig == "" {
-		writeError(w, http.StatusBadRequest, "BadRequest", "kubeconfig가 비어 있습니다")
+		writeError(w, http.StatusBadRequest, "BadRequest", "kubeconfig is empty")
 		return
 	}
 	f, err := k8s.NewClientFactoryFromKubeconfig([]byte(in.Kubeconfig))
@@ -174,7 +176,7 @@ func (s *Server) handleClusterUpsert(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := s.patchClusterSecret(r.Context(), name, []byte(in.Kubeconfig)); err != nil {
-		writeError(w, http.StatusInternalServerError, "Internal", "클러스터 Secret 갱신 실패: "+err.Error())
+		writeError(w, http.StatusInternalServerError, "Internal", "failed to update clusters Secret: "+err.Error())
 		return
 	}
 	s.dropClusterCache(name)
@@ -193,7 +195,7 @@ func (s *Server) handleClusterDelete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := s.patchClusterSecret(r.Context(), name, nil); err != nil {
-		writeError(w, http.StatusInternalServerError, "Internal", "클러스터 Secret 갱신 실패: "+err.Error())
+		writeError(w, http.StatusInternalServerError, "Internal", "failed to update clusters Secret: "+err.Error())
 		return
 	}
 	s.dropClusterCache(name)
@@ -202,7 +204,7 @@ func (s *Server) handleClusterDelete(w http.ResponseWriter, r *http.Request) {
 }
 
 // patchClusterSecret merge-patches one Secret key; kubeconfig nil deletes it.
-// ([]byte은 JSON 마샬 시 base64가 되어 Secret data 규약과 일치한다)
+// ([]byte marshals to base64 in JSON, matching the Secret data convention)
 func (s *Server) patchClusterSecret(ctx context.Context, name string, kubeconfig []byte) error {
 	client, err := s.factory.Base()
 	if err != nil {

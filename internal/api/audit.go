@@ -9,13 +9,13 @@ import (
 	"github.com/wonjune95/sealane/internal/k8s"
 )
 
-// AuditEntry is one non-dry-run mutation performed through the dashboard.
+// AuditEntry is one non-dry-run mutation performed through Sealane.
 // Entries live in an in-memory ring (auditKeep) shared by all users — the app is
-// deliberately store-less (DESIGN.md), so this history resets on pod restart;
+// deliberately store-less, so this history resets on pod restart;
 // the structured audit log below is the durable record.
 type AuditEntry struct {
 	Time      time.Time `json:"time"`
-	Cluster   string    `json:"cluster,omitempty"` // 비어 있으면 local
+	Cluster   string    `json:"cluster,omitempty"` // empty means local
 	User      string    `json:"user,omitempty"`
 	Verb      string    `json:"verb"` // create | update | delete
 	TypeID    string    `json:"typeId"`

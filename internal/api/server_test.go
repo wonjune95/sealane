@@ -44,7 +44,7 @@ type stubSource struct {
 	clients *k8s.Clients
 	baseErr error
 
-	// 요청 테스터용: exec 결과를 흉내내고 실제로 만들어진 argv를 캡처한다
+	// For the request tester: fakes the exec result and captures the argv actually built
 	execOut  string
 	execErrS string
 	execErr  error
@@ -440,7 +440,7 @@ func TestAccountsAPI_RoundTrip(t *testing.T) {
 		Value: testSessions.Sign(auth.Identity{Name: "root", Role: "admin"}, time.Hour),
 	}
 	if rec := do("DELETE", "/api/accounts/admin", "", rootCookie); rec.Code != http.StatusBadRequest {
-		t.Fatalf("admin 계정은 누구도 삭제 못해야 함: %d", rec.Code)
+		t.Fatalf("nobody should be able to delete the admin account: %d", rec.Code)
 	}
 	if rec := do("DELETE", "/api/accounts/bob", "", adminCookie); rec.Code != http.StatusNoContent {
 		t.Fatalf("delete: status = %d, want 204: %s", rec.Code, rec.Body.String())
@@ -472,7 +472,7 @@ func TestEnsureInitialAdmin_FreshInstall(t *testing.T) {
 		t.Error("initial admin hash does not verify password \"admin\"")
 	}
 
-	// 이미 admin이 있으면 아무것도 바꾸지 않는다.
+	// If admin already exists, nothing changes.
 	s.EnsureInitialAdmin(context.Background())
 	cm2, _ := kube.CoreV1().ConfigMaps("ns1").Get(context.Background(), "accounts", metav1.GetOptions{})
 	if cm2.Data["admin"] != cm.Data["admin"] {
@@ -481,7 +481,7 @@ func TestEnsureInitialAdmin_FreshInstall(t *testing.T) {
 }
 
 // Cluster registry API: non-admin 403; invalid kubeconfig 400; a valid-but-
-// unreachable kubeconfig is saved (connected=false) and listed; local은 삭제 불가.
+// unreachable kubeconfig is saved (connected=false) and listed; local cannot be deleted.
 func TestClustersAPI_RoundTrip(t *testing.T) {
 	kube := kubefake.NewClientset()
 	mux := http.NewServeMux()
@@ -580,13 +580,13 @@ func TestFlowMap(t *testing.T) {
 		&istionet.VirtualService{ObjectMeta: metav1.ObjectMeta{Name: "mesh-only", Namespace: "dev"},
 			Spec: istioapi.VirtualService{Hosts: []string{"internal"}, Gateways: []string{"mesh"}}},
 	)
-	// istio fake는 시딩 시 Gateway kind를 잘못 버킷팅한다(버전 alias quirk) — typed Create로 넣는다.
+	// The istio fake mis-buckets the Gateway kind when seeding (version alias quirk) — insert via typed Create.
 	if _, err := istio.NetworkingV1().Gateways("istio-system").Create(context.Background(),
 		&istionet.Gateway{ObjectMeta: metav1.ObjectMeta{Name: "ingressgw", Namespace: "istio-system"},
 			Spec: istioapi.Gateway{Servers: []*istioapi.Server{{Hosts: []string{"shop.example.com"}}}}}, metav1.CreateOptions{}); err != nil {
 		t.Fatal(err)
 	}
-	// 이그레스: egressgateway 셀렉터 게이트웨이 + 외부 목적지 VS + 커버하는 SE
+	// Egress: gateway with the egressgateway selector + VS to an external destination + covering SE
 	if _, err := istio.NetworkingV1().Gateways("istio-system").Create(context.Background(),
 		&istionet.Gateway{ObjectMeta: metav1.ObjectMeta{Name: "egressgw", Namespace: "istio-system"},
 			Spec: istioapi.Gateway{Selector: map[string]string{"istio": "egressgateway"}}}, metav1.CreateOptions{}); err != nil {
@@ -677,7 +677,7 @@ func TestFlowMap(t *testing.T) {
 		case "to-ext":
 			b := rt.Backends[0]
 			if !b.External || b.ServiceEntry != "ext-se" {
-				t.Fatalf("to-ext backend = %+v (와일드카드 SE 매치 실패)", b)
+				t.Fatalf("to-ext backend = %+v (wildcard SE match failed)", b)
 			}
 		}
 	}
@@ -685,7 +685,7 @@ func TestFlowMap(t *testing.T) {
 
 // Initial-password guard: capabilities flags mustChangePassword while the
 // account's password is "admin"; changing it clears the flag immediately
-// (마운트 동기화를 기다리지 않는 인메모리 마킹).
+// (in-memory marking that does not wait for the mount sync).
 func TestMustChangePassword_RoundTrip(t *testing.T) {
 	dir := t.TempDir()
 	hash, _ := bcrypt.GenerateFromPassword([]byte("admin"), bcrypt.MinCost)
@@ -711,7 +711,7 @@ func TestMustChangePassword_RoundTrip(t *testing.T) {
 		return rec.Body.String()
 	}
 	if !strings.Contains(caps(), `"mustChangePassword":true`) {
-		t.Fatalf("초기 비밀번호인데 플래그 없음: %s", caps())
+		t.Fatalf("initial password but flag missing: %s", caps())
 	}
 	req := httptest.NewRequest("POST", "/api/account/password",
 		strings.NewReader(`{"currentPassword":"admin","newPassword":"newpass123"}`))
@@ -721,9 +721,9 @@ func TestMustChangePassword_RoundTrip(t *testing.T) {
 	if rec.Code != http.StatusNoContent {
 		t.Fatalf("password change: %d %s", rec.Code, rec.Body.String())
 	}
-	// 마운트 디렉터리는 아직 옛 해시지만(1분 지연 시뮬레이션) 플래그는 즉시 풀려야 한다
+	// The mounted directory still has the old hash (simulating the 1-minute delay), but the flag must clear immediately
 	if strings.Contains(caps(), `"mustChangePassword":true`) {
-		t.Fatal("변경 직후에도 플래그가 남아 있음")
+		t.Fatal("flag still set right after the change")
 	}
 }
 
@@ -760,8 +760,9 @@ func TestClustersList_Status(t *testing.T) {
 	}
 }
 
-// 경로 시뮬레이터: VS는 선언 순서 첫 매치가 이기고(헤더 조건 포함), 매치 실패한
-// 룰은 이유와 함께 남는다. HTTPRoute는 순서가 아니라 우선순위(exact > prefix)로 이긴다.
+// Route simulator: for a VS the first match in declaration order wins (header conditions
+// included), and rules that fail to match are kept with a reason. For HTTPRoute,
+// precedence (exact > prefix) wins, not order.
 func TestRouteMatch(t *testing.T) {
 	kube := kubefake.NewClientset(
 		&corev1.Service{ObjectMeta: metav1.ObjectMeta{Name: "shop", Namespace: "dev"}},
@@ -775,7 +776,7 @@ func TestRouteMatch(t *testing.T) {
 				Hosts:    []string{"shop.example.com"},
 				Gateways: []string{"istio-system/gw"},
 				Http: []*istioapi.HTTPRoute{
-					{ // 카나리: x-user=beta 헤더가 있을 때만 v2
+					{ // canary: v2 only when the x-user=beta header is present
 						Match: []*istioapi.HTTPMatchRequest{{
 							Headers: map[string]*istioapi.StringMatch{
 								"x-user": {MatchType: &istioapi.StringMatch_Exact{Exact: "beta"}},
@@ -784,7 +785,7 @@ func TestRouteMatch(t *testing.T) {
 						Route: []*istioapi.HTTPRouteDestination{
 							{Destination: &istioapi.Destination{Host: "shop", Subset: "v2"}}},
 					},
-					{ // 기본 경로
+					{ // default route
 						Route: []*istioapi.HTTPRouteDestination{
 							{Destination: &istioapi.Destination{Host: "shop", Subset: "v1"}}},
 					},
@@ -825,16 +826,16 @@ func TestRouteMatch(t *testing.T) {
 		return out
 	}
 
-	// 헤더 없음 → 1번 룰 불매치, 2번(기본) 룰이 이긴다
+	// no header → rule 1 does not match, rule 2 (default) wins
 	out := get("host=shop.example.com&path=/cart")
 	if !out.Matched || len(out.Destinations) != 1 || out.Destinations[0].Subset != "v1" {
-		t.Fatalf("기본 경로가 v1이어야 함: %+v", out)
+		t.Fatalf("default route should be v1: %+v", out)
 	}
 	if out.Destinations[0].Endpoints != 1 || !out.Destinations[0].Exists {
-		t.Fatalf("목적지 실체 확인 실패: %+v", out.Destinations[0])
+		t.Fatalf("destination verification failed: %+v", out.Destinations[0])
 	}
 	if !out.Destinations[0].SubsetOK || out.Destinations[0].SubsetDR != "shop-dr" {
-		t.Fatalf("v1 subset은 DR에 정의돼 있어야 함: %+v", out.Destinations[0])
+		t.Fatalf("v1 subset should be defined in the DR: %+v", out.Destinations[0])
 	}
 	var rejected *routeCandidate
 	for i := range out.Candidates {
@@ -843,27 +844,27 @@ func TestRouteMatch(t *testing.T) {
 		}
 	}
 	if rejected == nil || !strings.Contains(rejected.Reason, "x-user") {
-		t.Fatalf("불매치 이유에 헤더가 나와야 함: %+v", out.Candidates)
+		t.Fatalf("non-match reason should mention the header: %+v", out.Candidates)
 	}
 
-	// 헤더 있음 → 1번 룰(v2)이 이긴다. v2는 DR에 없으므로 subsetOk=false
+	// header present → rule 1 (v2) wins. v2 is not in the DR, so subsetOk=false
 	out = get("host=shop.example.com&path=/cart&header=x-user:beta")
 	if !out.Matched || out.Destinations[0].Subset != "v2" {
-		t.Fatalf("헤더가 있으면 v2로 가야 함: %+v", out)
+		t.Fatalf("with the header it should go to v2: %+v", out)
 	}
 	if out.Destinations[0].SubsetOK {
-		t.Fatal("v2 subset은 DR에 없으므로 subsetOk=false여야 함")
+		t.Fatal("v2 subset is not in the DR, so subsetOk should be false")
 	}
 
-	// 호스트 불일치 → 매치 없음
+	// host mismatch → no match
 	if out = get("host=other.example.com&path=/"); out.Matched {
-		t.Fatalf("다른 호스트는 매치되면 안 됨: %+v", out)
+		t.Fatalf("a different host must not match: %+v", out)
 	}
 
-	// HTTPRoute: 선언 순서상 prefix가 먼저지만 exact가 우선순위로 이긴다
+	// HTTPRoute: prefix is declared first, but exact wins by precedence
 	out = get("host=api.example.com&path=/api/users")
 	if !out.Matched {
-		t.Fatalf("HTTPRoute 매치 실패: %+v", out)
+		t.Fatalf("HTTPRoute match failed: %+v", out)
 	}
 	var winner *routeCandidate
 	for i := range out.Candidates {
@@ -872,18 +873,18 @@ func TestRouteMatch(t *testing.T) {
 		}
 	}
 	if winner == nil || winner.RuleIndex != 1 {
-		t.Fatalf("exact 룰(index 1)이 이겨야 함: %+v", out.Candidates)
+		t.Fatalf("exact rule (index 1) should win: %+v", out.Candidates)
 	}
 
-	// PathPrefix는 세그먼트 경계 — /apifoo는 /api prefix에 걸리면 안 된다
+	// PathPrefix uses segment boundaries — /apifoo must not match the /api prefix
 	if out = get("host=api.example.com&path=/apifoo"); out.Matched {
-		t.Fatalf("/apifoo는 /api prefix에 매치되면 안 됨: %+v", out)
+		t.Fatalf("/apifoo must not match the /api prefix: %+v", out)
 	}
 }
 
 
-// 요청 테스터: 비활성 시 403, admin이 아니면 403, 켜면 argv를 셸 없이 구성하고
-// curl 출력을 파싱해 Istio 문맥 힌트까지 붙인다.
+// Request tester: 403 when disabled, 403 for non-admins; when enabled it builds argv
+// without a shell, parses curl output and attaches an Istio-context hint.
 func TestRequestTester(t *testing.T) {
 	src := &stubSource{
 		clients: &k8s.Clients{Kube: kubefake.NewClientset()},
@@ -902,13 +903,13 @@ func TestRequestTester(t *testing.T) {
 		return rec
 	}
 
-	// 기본은 비활성 → 403
+	// disabled by default → 403
 	off := newTestMux(t, src)
 	if rec := send(off, adminCookie, body); rec.Code != http.StatusForbidden {
-		t.Fatalf("비활성 상태에서 403이어야 함: %d %s", rec.Code, rec.Body.String())
+		t.Fatalf("should be 403 while disabled: %d %s", rec.Code, rec.Body.String())
 	}
 
-	// 활성화하되 editor는 거부
+	// enabled, but editor is rejected
 	on := http.NewServeMux()
 	srv := NewServer(false, src, auth.NewStore(t.TempDir()), testSessions, AccountsCMRef{}, ClustersSecretRef{})
 	srv.EnableRequestTester()
@@ -918,10 +919,10 @@ func TestRequestTester(t *testing.T) {
 		Value: testSessions.Sign(auth.Identity{Name: "bob", Role: "editor"}, time.Hour),
 	}
 	if rec := send(on, editorCookie, body); rec.Code != http.StatusForbidden {
-		t.Fatalf("editor는 403이어야 함: %d", rec.Code)
+		t.Fatalf("editor should get 403: %d", rec.Code)
 	}
 
-	// admin은 통과 — 응답 파싱 + 힌트
+	// admin passes — response parsing + hint
 	rec := send(on, adminCookie, body)
 	if rec.Code != http.StatusOK {
 		t.Fatalf("status = %d, body = %s", rec.Code, rec.Body.String())
@@ -931,22 +932,22 @@ func TestRequestTester(t *testing.T) {
 		t.Fatal(err)
 	}
 	if out.Status != 403 || out.Headers["server"] != "istio-envoy" || out.Body != "RBAC: access denied" {
-		t.Fatalf("curl 출력 파싱 실패: %+v", out)
+		t.Fatalf("failed to parse curl output: %+v", out)
 	}
 	if !strings.Contains(out.Hint, "AuthorizationPolicy") {
-		t.Fatalf("403 RBAC 힌트가 없음: %q", out.Hint)
+		t.Fatalf("missing 403 RBAC hint: %q", out.Hint)
 	}
 
-	// argv는 셸을 거치지 않고 구성되고, URL은 "--" 뒤에 온다
+	// argv is built without a shell, and the URL comes after "--"
 	argv := strings.Join(src.execArgv, " ")
 	if src.execArgv[0] != "curl" || !strings.Contains(argv, "-H x-user: beta") {
-		t.Fatalf("argv 구성이 잘못됨: %v", src.execArgv)
+		t.Fatalf("argv built incorrectly: %v", src.execArgv)
 	}
 	if src.execArgv[len(src.execArgv)-2] != "--" {
-		t.Fatalf("URL 앞에 -- 구분자가 있어야 함: %v", src.execArgv)
+		t.Fatalf("URL should be preceded by the -- separator: %v", src.execArgv)
 	}
 
-	// 위험한 입력은 거부: 잘못된 스킴, 헤더 개행 주입, 미지원 메서드
+	// dangerous input is rejected: bad scheme, header newline injection, unsupported method
 	for _, bad := range []string{
 		`{"namespace":"dev","pod":"p1","url":"file:///etc/passwd"}`,
 		`{"namespace":"dev","pod":"p1","url":"http://x/","headers":{"a":"b\r\nInjected: 1"}}`,
@@ -954,22 +955,22 @@ func TestRequestTester(t *testing.T) {
 		`{"pod":"p1","url":"http://x/"}`,
 	} {
 		if rec := send(on, adminCookie, bad); rec.Code != http.StatusBadRequest {
-			t.Fatalf("거부되어야 할 입력이 통과함 (%s): %d", bad, rec.Code)
+			t.Fatalf("input that should be rejected was accepted (%s): %d", bad, rec.Code)
 		}
 	}
 
-	// curl이 없는 컨테이너 — 이 사실은 stderr가 아니라 exec 에러로 올라온다
+	// container without curl — this surfaces as an exec error, not in stderr
 	src.execOut, src.execErrS, src.execErr = "", "", errors.New(`OCI runtime exec failed: exec: "curl": executable file not found in $PATH`)
 	rec = send(on, adminCookie, body)
 	_ = json.Unmarshal(rec.Body.Bytes(), &out)
-	if !strings.Contains(out.Error, "curl이 없습니다") {
-		t.Fatalf("curl 부재 안내가 없음: %+v", out)
+	if !strings.Contains(out.Error, "curl is not available") {
+		t.Fatalf("missing curl-not-available message: %+v", out)
 	}
 }
 
 
-// 파드 목록: Istio 1.29+ 네이티브 사이드카(restartPolicy=Always인 initContainer)도
-// 메시로 인식해야 한다. 일반 init 컨테이너는 exec 대상이 아니므로 목록에서 뺀다.
+// Pod list: Istio 1.29+ native sidecars (initContainers with restartPolicy=Always) must
+// also count as mesh. Regular init containers cannot be exec'd into, so they are left out.
 func TestPodList_NativeSidecar(t *testing.T) {
 	always := corev1.ContainerRestartPolicyAlways
 	kube := kubefake.NewClientset(
@@ -977,8 +978,8 @@ func TestPodList_NativeSidecar(t *testing.T) {
 			ObjectMeta: metav1.ObjectMeta{Name: "curl-1", Namespace: "demo"},
 			Spec: corev1.PodSpec{
 				InitContainers: []corev1.Container{
-					{Name: "istio-init"},                             // 진짜 init — 제외
-					{Name: "istio-proxy", RestartPolicy: &always},    // 네이티브 사이드카
+					{Name: "istio-init"},                             // real init — excluded
+					{Name: "istio-proxy", RestartPolicy: &always},    // native sidecar
 				},
 				Containers: []corev1.Container{{Name: "curl"}},
 			},
@@ -1010,12 +1011,12 @@ func TestPodList_NativeSidecar(t *testing.T) {
 		t.Fatalf("pods = %+v", pods)
 	}
 	if !pods[0].Mesh {
-		t.Fatalf("네이티브 사이드카 파드를 메시로 인식해야 함: %+v", pods[0])
+		t.Fatalf("native-sidecar pod should count as mesh: %+v", pods[0])
 	}
 	if strings.Join(pods[0].Containers, ",") != "istio-proxy,curl" {
-		t.Fatalf("일반 init 컨테이너는 빠지고 사이드카는 남아야 함: %v", pods[0].Containers)
+		t.Fatalf("regular init container should be dropped and the sidecar kept: %v", pods[0].Containers)
 	}
 	if pods[1].Mesh {
-		t.Fatalf("사이드카 없는 파드는 메시가 아니어야 함: %+v", pods[1])
+		t.Fatalf("pod without a sidecar should not count as mesh: %+v", pods[1])
 	}
 }

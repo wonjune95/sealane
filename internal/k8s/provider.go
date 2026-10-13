@@ -9,7 +9,7 @@ import (
 )
 
 // ErrResourceVersionRequired is returned by Update when the object lacks a
-// resourceVersion (DESIGN.md §5: prevents lost updates). Handlers map it to 400.
+// resourceVersion (prevents lost updates). Handlers map it to 400.
 var ErrResourceVersionRequired = errors.New("resourceVersion is required for update")
 
 // BadRequestError marks a client input error (e.g. malformed JSON) → HTTP 400.

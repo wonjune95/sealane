@@ -1,0 +1,125 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ include "sealane.fullname" . }}
+  labels:
+    {{- include "sealane.labels" . | nindent 4 }}
+---
+# Every cluster call runs as this single ServiceAccount; the app role (admin/editor/viewer) decides what a user may do. So the SA needs CRUD on all managed CRDs.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ include "sealane.fullname" . }}
+  labels:
+    {{- include "sealane.labels" . | nindent 4 }}
+rules:
+  - apiGroups: ["apiextensions.k8s.io"]
+    resources: ["customresourcedefinitions"]
+    verbs: ["get", "list"]
+  # Managed resources (same groups as internal/k8s/registry.go)
+  - apiGroups:
+      - networking.istio.io
+      - security.istio.io
+      - telemetry.istio.io
+      - gateway.networking.k8s.io
+    resources: ["*"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  # Reads for form dropdowns / namespace picker + ready endpoint counts for the flow map
+  - apiGroups: [""]
+    resources: ["namespaces", "services", "endpoints"]
+    verbs: ["get", "list"]
+  {{- if (default dict .Values.requestTester).enabled }}
+  # Request tester (opt-in): pick a source pod and run curl inside it. exec is effectively arbitrary command execution, so it is only granted when requestTester.enabled=true.
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get", "list"]
+  - apiGroups: [""]
+    resources: ["pods/exec"]
+    verbs: ["create"]
+  {{- end }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: {{ include "sealane.fullname" . }}
+  labels:
+    {{- include "sealane.labels" . | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: {{ include "sealane.fullname" . }}
+subjects:
+  - kind: ServiceAccount
+    name: {{ include "sealane.fullname" . }}
+    namespace: {{ .Release.Namespace }}
+---
+# Lets the settings page patch the accounts ConfigMap (that ConfigMap only).
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ include "sealane.fullname" . }}-accounts-writer
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "sealane.labels" . | nindent 4 }}
+rules:
+  - apiGroups: [""]
+    resources: ["configmaps"]
+    resourceNames: [{{ .Values.accountsConfigMap | quote }}]
+    verbs: ["get", "patch"]
+  # Initial admin/admin bootstrap: creates the ConfigMap when missing (create cannot be limited by resourceNames, so it is namespace-scoped only)
+  - apiGroups: [""]
+    resources: ["configmaps"]
+    verbs: ["create"]
+  # Multi-cluster: read/update the remote kubeconfig Secret (that Secret only)
+  - apiGroups: [""]
+    resources: ["secrets"]
+    resourceNames: [{{ .Values.clustersSecret | quote }}]
+    verbs: ["get", "patch"]
+  - apiGroups: [""]
+    resources: ["secrets"]
+    verbs: ["create"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ include "sealane.fullname" . }}-accounts-writer
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "sealane.labels" . | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: {{ include "sealane.fullname" . }}-accounts-writer
+subjects:
+  - kind: ServiceAccount
+    name: {{ include "sealane.fullname" . }}
+    namespace: {{ .Release.Namespace }}
+---
+# Read istiod's Deployment (image tag → control-plane version on the home page). Scoped to the istiod namespace; failure just hides the version.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ include "sealane.fullname" . }}-istiod-reader
+  namespace: {{ .Values.istioNamespace }}
+  labels:
+    {{- include "sealane.labels" . | nindent 4 }}
+rules:
+  - apiGroups: ["apps"]
+    resources: ["deployments"]
+    verbs: ["get", "list"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ include "sealane.fullname" . }}-istiod-reader
+  namespace: {{ .Values.istioNamespace }}
+  labels:
+    {{- include "sealane.labels" . | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: {{ include "sealane.fullname" . }}-istiod-reader
+subjects:
+  - kind: ServiceAccount
+    name: {{ include "sealane.fullname" . }}
+    namespace: {{ .Release.Namespace }}

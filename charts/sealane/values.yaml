@@ -1,0 +1,42 @@
+image:
+  repository: ghcr.io/wonjune95/sealane
+  tag: ""              # empty = chart appVersion
+  pullPolicy: IfNotPresent
+
+# e.g. [{name: regcred}] for a private registry.
+imagePullSecrets: []
+
+# The app is stateless: raise this for HA (2+ = zero-downtime rollouts).
+replicaCount: 1
+
+# Namespace where istiod runs — used to show the control-plane version on the home page.
+istioNamespace: istio-system
+
+service:
+  type: ClusterIP
+  port: 8080
+
+# Local accounts ConfigMap (not managed by Helm — see examples/accounts-configmap.yaml).
+# One key = one user, value = "role:bcryptHash" (role: admin|editor|viewer).
+# Upgrading from Istio Dashboard? Set this to istio-dashboard-accounts to keep existing users.
+accountsConfigMap: sealane-accounts
+
+# Multi-cluster: Secret holding remote kubeconfigs (key = cluster name, value = kubeconfig).
+# The settings page manages this Secret. Set to istio-dashboard-clusters when upgrading.
+clustersSecret: sealane-clusters
+
+# Request tester: runs curl inside a pod you pick to send a real HTTP request.
+# Enabling it grants the ServiceAccount pods get/list and pods/exec, which is effectively
+# "run any command in any pod" — keep it off unless you need it (admin-only in the UI).
+requestTester:
+  enabled: false
+
+resources:
+  requests:
+    cpu: 50m
+    memory: 64Mi
+  limits:
+    memory: 256Mi
+
+serviceMonitor:
+  enabled: false

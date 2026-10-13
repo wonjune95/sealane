@@ -1,0 +1,6 @@
+apiVersion: v2
+name: sealane
+description: Sealane — routing console for Istio and Gateway API. Browse, create and edit Istio and Gateway API resources through schema-driven forms or YAML, with dry-run, diff preview and role-based accounts.
+type: application
+version: 0.8.0
+appVersion: "0.8.0"

@@ -1,20 +1,20 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ include "istio-dashboard.fullname" . }}
+  name: {{ include "sealane.fullname" . }}
   labels:
-    {{- include "istio-dashboard.labels" . | nindent 4 }}
+    {{- include "sealane.labels" . | nindent 4 }}
 spec:
   replicas: {{ .Values.replicaCount }}
   selector:
     matchLabels:
-      {{- include "istio-dashboard.selectorLabels" . | nindent 6 }}
+      {{- include "sealane.selectorLabels" . | nindent 6 }}
   template:
     metadata:
       labels:
-        {{- include "istio-dashboard.selectorLabels" . | nindent 8 }}
+        {{- include "sealane.selectorLabels" . | nindent 8 }}
     spec:
-      serviceAccountName: {{ include "istio-dashboard.fullname" . }}
+      serviceAccountName: {{ include "sealane.fullname" . }}
       {{- with .Values.imagePullSecrets }}
       imagePullSecrets:
         {{- toYaml . | nindent 8 }}
@@ -28,7 +28,7 @@ spec:
         seccompProfile:
           type: RuntimeDefault
       containers:
-        - name: dashboard
+        - name: sealane
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           args: ["--addr=:8080"]
@@ -36,14 +36,13 @@ spec:
             - name: http
               containerPort: 8080
           env:
-            # 앱 자체 로컬 계정: ConfigMap(accountsConfigMap)을 디렉터리로 마운트.
-            # 한 키 = 한 사용자, 값 = "role:bcryptHash". CM 수정만으로 계정 추가/삭제.
+            # Local accounts: the accounts ConfigMap is mounted as a directory (one file per user, "role:bcryptHash"). Editing the ConfigMap adds/removes users without a restart.
             - name: ACCOUNTS_DIR
-              value: /etc/istio-dashboard/accounts
-            # 비밀번호 변경(설정 페이지)이 patch할 계정 ConfigMap 위치
+              value: /etc/sealane/accounts
+            # ConfigMap the settings page patches when a user changes their password
             - name: ACCOUNTS_CONFIGMAP
               value: {{ .Values.accountsConfigMap | quote }}
-            # 멀티클러스터: 원격 클러스터 kubeconfig Secret (빈 값이면 local만)
+            # Multi-cluster: Secret holding remote kubeconfigs (empty = local only)
             - name: CLUSTERS_SECRET
               value: {{ .Values.clustersSecret | quote }}
             - name: POD_NAMESPACE
@@ -51,7 +50,7 @@ spec:
                 fieldRef:
                   fieldPath: metadata.namespace
             {{- if (default dict .Values.requestTester).enabled }}
-            # 실제 요청 테스터 (pods/exec 사용, admin 전용)
+            # Request tester (uses pods/exec, admin only)
             - name: REQUEST_TESTER
               value: "true"
             {{- end }}
@@ -82,15 +81,14 @@ spec:
             - name: home
               mountPath: /home/nonroot
             - name: accounts
-              mountPath: /etc/istio-dashboard/accounts
+              mountPath: /etc/sealane/accounts
               readOnly: true
       volumes:
         - name: tmp
           emptyDir: {}
         - name: home
           emptyDir: {}
-        # 헬름이 관리하지 않는 CM(예: deploy/examples/accounts-configmap.yaml)이라
-        # helm upgrade가 계정 수정을 덮어쓰지 않는다. optional: 없으면 로그인 불가로만 동작.
+        # Not managed by Helm (see examples/accounts-configmap.yaml) so helm upgrade never overwrites accounts. optional: without it nobody can log in, nothing else breaks.
         - name: accounts
           configMap:
             name: {{ .Values.accountsConfigMap }}

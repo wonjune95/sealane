@@ -1,6 +1,6 @@
-{{- define "istio-dashboard.name" -}}{{ .Chart.Name }}{{- end -}}
+{{- define "sealane.name" -}}{{ .Chart.Name }}{{- end -}}
 
-{{- define "istio-dashboard.fullname" -}}
+{{- define "sealane.fullname" -}}
 {{- if contains .Chart.Name .Release.Name -}}
 {{- .Release.Name | trunc 63 | trimSuffix "-" -}}
 {{- else -}}
@@ -8,14 +8,14 @@
 {{- end -}}
 {{- end -}}
 
-{{- define "istio-dashboard.labels" -}}
-app.kubernetes.io/name: {{ include "istio-dashboard.name" . }}
+{{- define "sealane.labels" -}}
+app.kubernetes.io/name: {{ include "sealane.name" . }}
 app.kubernetes.io/instance: {{ .Release.Name }}
 app.kubernetes.io/managed-by: {{ .Release.Service }}
 helm.sh/chart: {{ printf "%s-%s" .Chart.Name .Chart.Version }}
 {{- end -}}
 
-{{- define "istio-dashboard.selectorLabels" -}}
-app.kubernetes.io/name: {{ include "istio-dashboard.name" . }}
+{{- define "sealane.selectorLabels" -}}
+app.kubernetes.io/name: {{ include "sealane.name" . }}
 app.kubernetes.io/instance: {{ .Release.Name }}
 {{- end -}}

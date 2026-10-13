@@ -37,7 +37,7 @@ jobs:
     needs: [backend, frontend]
     steps:
       - uses: actions/checkout@v4
-      - run: docker build -t istio-dashboard:ci .
+      - run: docker build -t sealane:ci .
 
   # Note: envtest integration and Playwright e2e (backend in --dev to bypass OIDC,
   # per design) are intended follow-ups once a kind+Istio CI fixture is added.

@@ -1,0 +1,21 @@
+# Expose Sealane through a Gateway API Gateway — adjust parentRefs and hostnames first.
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: sealane
+  namespace: sealane
+spec:
+  parentRefs:
+    - name: my-gateway        # the Gateway to attach to
+      namespace: my-gateway-ns
+  hostnames:
+    - sealane.example.com
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /
+      backendRefs:
+        # Service name = Helm release name when the release is called "sealane"
+        - name: sealane
+          port: 8080

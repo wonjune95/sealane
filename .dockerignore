@@ -1,8 +1,10 @@
 .git
-bridge
-.agent
 web/node_modules
 web/dist
 bin
 *.md
-deploy
+charts
+examples
+docs
+hack
+.github

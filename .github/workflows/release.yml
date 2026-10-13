@@ -1,5 +1,5 @@
-# v* 태그 푸시 시 컨테이너 이미지를 GHCR에 발행한다.
-# 예: git tag v0.2.0 && git push origin v0.2.0 → ghcr.io/<owner>/istio-dashboard:0.2.0, :latest
+# On a v* tag push, publish the container image and the Helm chart to GHCR.
+# e.g. git tag v0.8.0 && git push origin v0.8.0 → ghcr.io/<owner>/sealane:0.8.0, :latest
 name: release
 
 on:
@@ -18,7 +18,7 @@ jobs:
       - name: Build & push
         run: |
           TAG=${GITHUB_REF_NAME#v}
-          IMG=ghcr.io/${{ github.repository_owner }}/istio-dashboard
+          IMG=ghcr.io/${{ github.repository_owner }}/sealane
           docker build -t "$IMG:$TAG" -t "$IMG:latest" .
           echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
           docker push "$IMG:$TAG"
@@ -27,5 +27,5 @@ jobs:
         run: |
           TAG=${GITHUB_REF_NAME#v}
           echo "${{ secrets.GITHUB_TOKEN }}" | helm registry login ghcr.io -u ${{ github.actor }} --password-stdin
-          helm package deploy/helm --version "$TAG" --app-version "$TAG"
-          helm push "istio-dashboard-$TAG.tgz" "oci://ghcr.io/${{ github.repository_owner }}/charts"
+          helm package charts/sealane --version "$TAG" --app-version "$TAG"
+          helm push "sealane-$TAG.tgz" "oci://ghcr.io/${{ github.repository_owner }}/charts"

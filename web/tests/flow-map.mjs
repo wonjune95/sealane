@@ -1,11 +1,11 @@
 import assert from 'node:assert/strict'
 import { chromium } from 'playwright'
 
-const base = process.env.ISTIO_DASHBOARD_TEST_URL ?? 'http://127.0.0.1:5173'
+const base = process.env.SEALANE_TEST_URL ?? 'http://127.0.0.1:5173'
 const browser = await chromium.launch({
   headless: true,
-  ...(process.env.ISTIO_DASHBOARD_CHROMIUM_PATH
-    ? { executablePath: process.env.ISTIO_DASHBOARD_CHROMIUM_PATH }
+  ...(process.env.SEALANE_CHROMIUM_PATH
+    ? { executablePath: process.env.SEALANE_CHROMIUM_PATH }
     : {}),
 })
 const capabilities = {

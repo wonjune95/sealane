@@ -1,14 +1,14 @@
-# 파드 간 통신 데모 — 요청 콘솔로 "설정상 어디로 가나"(경로 확인)와
-# "실제로 어떻게 응답하나"(보내기)를 대조해 보기 위한 최소 구성.
+# Pod-to-pod demo: contrast "where does the config say this goes" (route check) with
+# "how does it actually respond" (send) in the request console. Minimal setup.
 #
 #   curl 파드 ──(사이드카)──> echo 서비스 ──> echo-v1 | echo-v2
 #
-# 기본은 v1, 헤더 x-user: beta 를 붙이면 v2로 간다.
-# 정리: kubectl delete namespace istio-dashboard-demo
+# Defaults to v1; adding the header x-user: beta routes to v2.
+# Clean up: kubectl delete namespace sealane-demo
 apiVersion: v1
 kind: Namespace
 metadata:
-  name: istio-dashboard-demo
+  name: sealane-demo
   labels:
     istio-injection: enabled
 ---
@@ -16,12 +16,12 @@ apiVersion: v1
 kind: Service
 metadata:
   name: echo
-  namespace: istio-dashboard-demo
+  namespace: sealane-demo
 spec:
   selector:
     app: echo
   ports:
-    # Istio가 HTTP로 다루려면 포트 이름이 http 여야 한다 (프로토콜 판별 규칙).
+    # For Istio to treat this as HTTP the port name must start with http (protocol selection rule).
     - name: http
       port: 8080
       targetPort: 5678
@@ -30,7 +30,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: echo-v1
-  namespace: istio-dashboard-demo
+  namespace: sealane-demo
 spec:
   replicas: 1
   selector:
@@ -49,7 +49,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: echo-v2
-  namespace: istio-dashboard-demo
+  namespace: sealane-demo
 spec:
   replicas: 1
   selector:
@@ -64,12 +64,12 @@ spec:
           args: ["-text=hello from v2", "-listen=:5678"]
           ports: [{containerPort: 5678}]
 ---
-# 요청을 보낼 클라이언트 — curl이 들어 있어 요청 콘솔의 출발 파드로 쓸 수 있다.
+# Client that sends requests - it ships curl, so it can be the source pod in the request console.
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: curl
-  namespace: istio-dashboard-demo
+  namespace: sealane-demo
 spec:
   replicas: 1
   selector:
@@ -87,38 +87,38 @@ apiVersion: networking.istio.io/v1
 kind: DestinationRule
 metadata:
   name: echo
-  namespace: istio-dashboard-demo
+  namespace: sealane-demo
 spec:
-  host: echo.istio-dashboard-demo.svc.cluster.local
+  host: echo.sealane-demo.svc.cluster.local
   subsets:
     - name: v1
       labels: {version: v1}
     - name: v2
       labels: {version: v2}
 ---
-# 메시 내부 라우팅(gateways: mesh) — 인그레스가 아니라 파드 간 통신에 적용된다.
+# In-mesh routing (gateways: mesh) - applies to pod-to-pod traffic, not ingress.
 apiVersion: networking.istio.io/v1
 kind: VirtualService
 metadata:
   name: echo
-  namespace: istio-dashboard-demo
+  namespace: sealane-demo
 spec:
   hosts:
-    - echo.istio-dashboard-demo.svc.cluster.local
+    - echo.sealane-demo.svc.cluster.local
   gateways:
     - mesh
   http:
-    # 카나리: 이 헤더가 있을 때만 v2
+    # Canary: v2 only when this header is present
     - match:
         - headers:
             x-user:
               exact: beta
       route:
         - destination:
-            host: echo.istio-dashboard-demo.svc.cluster.local
+            host: echo.sealane-demo.svc.cluster.local
             subset: v2
-    # 기본 경로
+    # Default route
     - route:
         - destination:
-            host: echo.istio-dashboard-demo.svc.cluster.local
+            host: echo.sealane-demo.svc.cluster.local
             subset: v1

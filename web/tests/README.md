@@ -11,4 +11,4 @@ The checks replace API responses with fixtures. They verify that a removed clust
 
 The flow map checks cover mixed ingress/egress parents, missing gateways, search and namespace filters retaining related paths, problem paths, keyboard selection, scaled drag, layout reset, 320–1440px layouts, reduced motion, and empty/error/retry states.
 
-Set `ISTIO_DASHBOARD_TEST_URL` to change the frontend URL. Set `ISTIO_DASHBOARD_CHROMIUM_PATH` to use an existing Chromium executable.
+Set `SEALANE_TEST_URL` to change the frontend URL. Set `SEALANE_CHROMIUM_PATH` to use an existing Chromium executable.

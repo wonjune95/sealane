@@ -1,13 +1,13 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ include "istio-dashboard.fullname" . }}
+  name: {{ include "sealane.fullname" . }}
   labels:
-    {{- include "istio-dashboard.labels" . | nindent 4 }}
+    {{- include "sealane.labels" . | nindent 4 }}
 spec:
   type: {{ .Values.service.type }}
   selector:
-    {{- include "istio-dashboard.selectorLabels" . | nindent 4 }}
+    {{- include "sealane.selectorLabels" . | nindent 4 }}
   ports:
     - name: http
       port: {{ .Values.service.port }}
@@ -17,13 +17,13 @@ spec:
 apiVersion: monitoring.coreos.com/v1
 kind: ServiceMonitor
 metadata:
-  name: {{ include "istio-dashboard.fullname" . }}
+  name: {{ include "sealane.fullname" . }}
   labels:
-    {{- include "istio-dashboard.labels" . | nindent 4 }}
+    {{- include "sealane.labels" . | nindent 4 }}
 spec:
   selector:
     matchLabels:
-      {{- include "istio-dashboard.selectorLabels" . | nindent 6 }}
+      {{- include "sealane.selectorLabels" . | nindent 6 }}
   endpoints:
     - port: http
       path: /metrics

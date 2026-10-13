@@ -1,7 +1,7 @@
 # Pod-to-pod demo: contrast "where does the config say this goes" (route check) with
 # "how does it actually respond" (send) in the request console. Minimal setup.
 #
-#   curl 파드 ──(사이드카)──> echo 서비스 ──> echo-v1 | echo-v2
+#   curl pod ──(sidecar)──> echo service ──> echo-v1 | echo-v2
 #
 # Defaults to v1; adding the header x-user: beta routes to v2.
 # Clean up: kubectl delete namespace sealane-demo

@@ -3,8 +3,8 @@ import { apiGet } from './client'
 
 export type Cluster = { name: string; connected?: boolean; version?: string; error?: string }
 
-// "local" + Secret에 등록된 원격 클러스터 목록. status=true면 연결 상태·버전 포함
-// (병렬 ping — 설정 패널용, 헤더 드롭다운은 빠른 무상태 목록).
+// "local" + the remote clusters registered in the Secret. status=true adds connection state and version
+// (parallel ping, for the settings panel; the header dropdown uses the fast stateless list).
 export function useClusters(status = false) {
   return useQuery({
     queryKey: ['clusters', status],

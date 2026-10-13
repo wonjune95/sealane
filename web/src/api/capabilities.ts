@@ -7,13 +7,13 @@ export interface Capabilities {
   virtualServiceInstalled: boolean
   gatewayAPIVersion?: string
   istioApiVersion?: string
-  istiodVersion?: string // 컨트롤플레인 실제 버전, e.g. "1.30.2"
+  istiodVersion?: string // actual control-plane version, e.g. "1.30.2"
   namespaceListAllowed: boolean
   devMode: boolean
   user?: string
   role?: string // admin | editor | viewer
-  mustChangePassword?: boolean // 초기 비밀번호(admin) 그대로 — 변경 전까지 화면 잠금
-  requestTester?: boolean // 실제 요청 테스터 활성화 (헬름 opt-in, admin 전용)
+  mustChangePassword?: boolean // still on the initial (admin) password; the UI is locked until it is changed
+  requestTester?: boolean // real request tester enabled (Helm opt-in, admin only)
 }
 
 export function useCapabilities(enabled = true) {

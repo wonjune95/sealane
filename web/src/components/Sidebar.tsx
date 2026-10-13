@@ -22,8 +22,8 @@ export function Sidebar({ onNavigate, onClose }: { onNavigate?: () => void; onCl
   const caps = useCapabilities().data
   const clusters = useClusters().data
   const [search, setSearch] = useState('')
-  const installed = (data ?? []).filter((t) => t.installed)
-  const filtered = installed.filter((t) => t.kind.toLowerCase().includes(search.toLowerCase()))
+  const installed = (data ?? []).filter((rt) => rt.installed)
+  const filtered = installed.filter((rt) => rt.kind.toLowerCase().includes(search.toLowerCase()))
   const topLink = ({ isActive }: { isActive: boolean }) => `nav-link ${isActive ? 'active' : ''}`
 
   return (
@@ -103,7 +103,7 @@ export function Sidebar({ onNavigate, onClose }: { onNavigate?: () => void; onCl
           <p className="px-3 py-3 text-xs text-muted">{t('sidebar.noKinds')}</p>
         )}
         {CATEGORY_ORDER.map((cat) => {
-          const items = filtered.filter((t) => t.category === cat)
+          const items = filtered.filter((rt) => rt.category === cat)
           if (!items.length) return null
           const accent = accentFor(cat)
           return (
@@ -112,8 +112,8 @@ export function Sidebar({ onNavigate, onClose }: { onNavigate?: () => void; onCl
                 <Icon name={CATEGORY_ICON[cat]} className={`h-3.5 w-3.5 ${accent.text}`} />
                 {CATEGORY_LABELS[cat]}
               </div>
-              {items.map((t) => (
-                <KindLink key={t.typeId} t={t} onNavigate={onNavigate} />
+              {items.map((rt) => (
+                <KindLink key={rt.typeId} type={rt} onNavigate={onNavigate} />
               ))}
             </div>
           )
@@ -140,18 +140,18 @@ export function Sidebar({ onNavigate, onClose }: { onNavigate?: () => void; onCl
   )
 }
 
-function KindLink({ t, onNavigate }: { t: ResourceType; onNavigate?: () => void }) {
+function KindLink({ type, onNavigate }: { type: ResourceType; onNavigate?: () => void }) {
   const { ns } = useNamespace()
-  const { data } = useResources(t.typeId, ns)
+  const { data } = useResources(type.typeId, ns)
   return (
     <NavLink
-      to={`/resources/${t.typeId}`}
+      to={`/resources/${type.typeId}`}
       onClick={onNavigate}
       className={({ isActive }) => `resource-link ${isActive ? 'active' : ''}`}
     >
       <span className="flex min-w-0 items-center gap-1.5">
-        <span className="truncate">{t.kind}</span>
-        {t.dangerous && <Icon name="warning" className="h-3 w-3 shrink-0 text-amber-500" />}
+        <span className="truncate">{type.kind}</span>
+        {type.dangerous && <Icon name="warning" className="h-3 w-3 shrink-0 text-amber-500" />}
       </span>
       {data && <span className="nav-count">{data.length}</span>}
     </NavLink>

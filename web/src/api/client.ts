@@ -9,8 +9,8 @@ export class ApiError extends Error {
   }
 }
 
-// 멀티클러스터: 선택된 클러스터가 모든 API 호출에 ?cluster=로 붙는다.
-// 전환은 전체 리로드 — react-query 캐시가 클러스터별 키 없이 통째로 리셋된다.
+// Multi-cluster: the selected cluster is appended to every API call as ?cluster=.
+// Switching does a full reload, so the react-query cache (not keyed per cluster) resets wholesale.
 const CLUSTER_KEY = 'sealane-cluster'
 export const getCluster = () => localStorage.getItem(CLUSTER_KEY) ?? ''
 export function setCluster(name: string, redirectTo?: string) {
@@ -28,7 +28,7 @@ function withClusterParam(path: string) {
 }
 
 async function request<T>(method: string, path: string, body?: unknown): Promise<T> {
-  // 인증은 HttpOnly 세션 쿠키가 담당한다 (same-origin fetch에 자동 포함).
+  // Auth is the HttpOnly session cookie (sent automatically with same-origin fetch).
   const headers: Record<string, string> = {}
   if (body !== undefined) headers['Content-Type'] = 'application/json'
 

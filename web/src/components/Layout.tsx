@@ -69,7 +69,7 @@ export function Layout({ children }: { children: ReactNode }) {
         </Link>
         <div className="hidden min-w-0 items-center gap-2.5 px-6 text-xs md:flex">
           <Icon name="globe" className="h-4 w-4 text-faint" />
-          <span className="text-muted">Workspace</span>
+          <span className="text-muted">{t('layout.workspace')}</span>
           <Icon name="chevron" className="h-3 w-3 text-faint" />
           <span className="truncate font-medium text-strong">{page}</span>
         </div>
@@ -96,8 +96,8 @@ export function Layout({ children }: { children: ReactNode }) {
           )}
           <button
             onClick={() => setLocale(locale === 'ko' ? 'en' : 'ko')}
-            aria-label={t('lang.switchLabel')}
             title={t('lang.switchLabel')}
+            lang={locale === 'ko' ? 'en' : 'ko'}
             className="icon-button px-2 text-xs font-semibold"
           >
             {t('lang.switch')}

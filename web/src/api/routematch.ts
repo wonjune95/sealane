@@ -30,7 +30,7 @@ export type RouteMatchResult = {
   notes?: string[]
 }
 
-// 설정만으로 계산하는 시뮬레이션 — 실제 트래픽은 발생하지 않는다.
+// Simulation computed from config alone; no real traffic is sent.
 export function checkRoute(input: {
   host: string
   path: string

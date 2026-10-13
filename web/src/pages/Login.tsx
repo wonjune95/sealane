@@ -66,8 +66,8 @@ export function Login() {
       <section className="login-form-side relative">
         <button
           onClick={() => setLocale(locale === 'ko' ? 'en' : 'ko')}
-          aria-label={t('lang.switchLabel')}
           title={t('lang.switchLabel')}
+          lang={locale === 'ko' ? 'en' : 'ko'}
           className="icon-button absolute right-16 top-5 px-2 text-xs font-semibold"
         >
           {t('lang.switch')}

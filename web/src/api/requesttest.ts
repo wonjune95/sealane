@@ -14,7 +14,7 @@ export type RequestTestResult = {
   hint?: string
 }
 
-// 요청 테스터가 켜진 admin에게만 응답한다 (아니면 403).
+// Only answers admins with the request tester enabled (403 otherwise).
 export function usePods(ns: string, enabled: boolean) {
   return useQuery({
     queryKey: ['pods', ns],
@@ -24,7 +24,7 @@ export function usePods(ns: string, enabled: boolean) {
   })
 }
 
-// 실제 HTTP 요청을 고른 파드 안에서 보낸다 — 부작용이 있는 동작이다.
+// Sends a real HTTP request from inside the chosen pod; this has side effects.
 export function sendRequestTest(input: {
   namespace: string
   pod: string

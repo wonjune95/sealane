@@ -8,12 +8,13 @@ import { useNamespaces } from '../api/namespaces'
 import { checkRoute, type RouteMatchResult } from '../api/routematch'
 import { sendRequestTest, usePods, type RequestTestResult } from '../api/requesttest'
 import { Icon } from '../components/icons'
+import { t } from '../i18n'
 
 const METHODS = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS']
 type KV = { key: string; value: string; on: boolean }
 type ResTab = 'body' | 'headers' | 'route'
 
-// URL 한 줄에서 시뮬레이터가 쓸 호스트/경로를 뽑는다 (Istio 호스트에는 포트가 없다).
+// Extract the host/path the simulator needs from a single URL line (Istio hosts carry no port).
 function parseUrl(raw: string) {
   try {
     const u = new URL(raw.includes('://') ? raw : `http://${raw}`)
@@ -23,8 +24,8 @@ function parseUrl(raw: string) {
   }
 }
 
-// 요청 하나를 작성해 두 가지로 확인한다 — 설정상 어디로 가는지(경로 확인),
-// 그리고 실제로 어떻게 응답하는지(보내기, opt-in).
+// Compose one request and check it two ways: where the config sends it (Check route)
+// and how it actually responds (Send, opt-in).
 export function RouteCheck() {
   const caps = useCapabilities()
   const testerOn = !!caps.data?.requestTester && caps.data.role === 'admin'
@@ -102,16 +103,16 @@ export function RouteCheck() {
     <div className="space-y-4">
       <PageHeader
         eyebrow="Request workbench"
-        title="요청 콘솔"
-        description="요청 조건에 맞는 라우팅 경로를 확인하고, 선택한 파드에서 실제 응답을 검증하세요."
+        title={t('rt.title')}
+        description={t('rt.description')}
       />
 
-      {/* URL 바 */}
+      {/* URL bar */}
       <div className="panel flex flex-wrap items-center gap-2 rounded-xl p-3">
         <select
           value={method}
           onChange={(e) => setMethod(e.target.value)}
-          aria-label="HTTP 메서드"
+          aria-label={t('rt.method')}
           className="input-base !w-24 shrink-0 font-semibold text-accent"
         >
           {METHODS.map((m) => (
@@ -121,7 +122,7 @@ export function RouteCheck() {
           ))}
         </select>
         <input
-          aria-label="요청 URL"
+          aria-label={t('rt.url')}
           value={url}
           onChange={(e) => setUrl(e.target.value)}
           onKeyDown={(e) => {
@@ -138,30 +139,30 @@ export function RouteCheck() {
           className="btn-ghost shrink-0 disabled:opacity-50"
         >
           <Icon name="route" className="h-4 w-4" />
-          {busy === 'check' ? '계산 중…' : '경로 확인'}
+          {busy === 'check' ? t('rt.checking') : t('rt.check')}
         </button>
         <button
           onClick={send}
           disabled={!canSend}
           title={
             !testerOn
-              ? '요청 테스터가 꺼져 있습니다 — 아래 출발 항목 참고'
+              ? t('rt.testerOffTitle')
               : !ns || !pod
-                ? '아래 출발에서 파드를 고르세요'
+                ? t('rt.pickPodTitle')
                 : ''
           }
           className="btn-primary shrink-0 disabled:opacity-40"
         >
           <Icon name="send" className="h-4 w-4" />
-          {busy === 'send' ? '보내는 중…' : '보내기'}
+          {busy === 'send' ? t('rt.sending') : t('rt.send')}
         </button>
       </div>
-      {url && !parsed && <p className="text-sm text-red-600 dark:text-red-400">URL 형식을 확인하세요.</p>}
+      {url && !parsed && <p className="text-sm text-red-600 dark:text-red-400">{t('rt.badUrl')}</p>}
       {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
 
-      {/* 요청 편집 — 출발지를 먼저 정하고 헤더·본문을 아래에서 채운다 */}
+      {/* Request editor: pick the source first, then fill headers and body below */}
       <div className="panel rounded-xl">
-        <Section title="출발" hint={testerOn ? undefined : '요청 테스터 꺼짐 — 경로 확인만 가능'}>
+        <Section title={t('rt.source')} hint={testerOn ? undefined : t('rt.testerOffHint')}>
           <SourcePicker
             enabled={testerOn}
             isAdmin={caps.data?.role === 'admin'}
@@ -178,19 +179,19 @@ export function RouteCheck() {
         </Section>
 
         <Section
-          title="헤더"
-          hint={activeHeaders.length ? `${activeHeaders.length}개 사용` : undefined}
+          title={t('rt.headers')}
+          hint={activeHeaders.length ? t('rt.headersActive', { n: activeHeaders.length }) : undefined}
           bordered
         >
           <HeaderEditor headers={headers} setHeaders={setHeaders} />
         </Section>
 
         {hasBody && (
-          <Section title="본문" bordered>
+          <Section title={t('rt.body')} bordered>
             <textarea
               value={body}
               onChange={(e) => setBody(e.target.value)}
-              placeholder='{"name": "값"}'
+              placeholder={t('rt.bodyPlaceholder')}
               rows={5}
               spellCheck={false}
               className="input-base w-full font-mono text-xs"
@@ -203,24 +204,24 @@ export function RouteCheck() {
         <div className="panel">
           <EmptyState
             icon="terminal"
-            title="요청을 입력하면 분석 결과가 표시됩니다"
-            description="URL을 입력하고 경로 확인을 눌러 매칭되는 규칙과 목적지를 살펴보세요."
+            title={t('rt.emptyTitle')}
+            description={t('rt.emptyDescription')}
           />
         </div>
       )}
-      {/* 응답 */}
+      {/* Response */}
       {(route || res) && (
         <div className="panel rounded-xl">
           <Tabs
             tabs={[
-              ...(res ? [{ id: 'body' as const, label: '응답 본문' }] : []),
+              ...(res ? [{ id: 'body' as const, label: t('rt.tab.body') }] : []),
               ...(res?.headers
-                ? [{ id: 'headers' as const, label: '응답 헤더', count: Object.keys(res.headers).length }]
+                ? [{ id: 'headers' as const, label: t('rt.tab.headers'), count: Object.keys(res.headers).length }]
                 : []),
-              ...(route ? [{ id: 'route' as const, label: '경로 분석' }] : []),
+              ...(route ? [{ id: 'route' as const, label: t('rt.tab.route') }] : []),
             ]}
             active={resTab}
-            onChange={(t) => setResTab(t as ResTab)}
+            onChange={(id) => setResTab(id as ResTab)}
             right={res ? <ResponseStatus res={res} /> : undefined}
           />
           <div className="p-4">
@@ -243,7 +244,7 @@ export function RouteCheck() {
   )
 }
 
-// 요청 편집 패널의 한 구획 (제목 + 내용). 탭 대신 한 화면에 쌓는다.
+// One block of the request editor (title + content), stacked on one screen instead of tabs.
 function Section({
   title,
   hint,
@@ -281,20 +282,20 @@ function Tabs({
 }) {
   return (
     <div className="flex items-center gap-1 border-b border-base px-2">
-      {tabs.map((t) => (
+      {tabs.map((tab) => (
         <button
-          key={t.id}
-          onClick={() => onChange(t.id)}
+          key={tab.id}
+          onClick={() => onChange(tab.id)}
           className={`-mb-px border-b-2 px-3 py-2.5 text-sm transition ${
-            active === t.id
+            active === tab.id
               ? 'border-accent font-medium text-accent'
               : 'border-transparent text-muted hover:text-strong'
           }`}
         >
-          {t.label}
-          {t.count ? <span className="ml-1.5 text-xs text-faint">{t.count}</span> : null}
-          {t.hint ? (
-            <span className="ml-1.5 max-w-[10rem] truncate align-bottom text-xs text-faint">{t.hint}</span>
+          {tab.label}
+          {tab.count ? <span className="ml-1.5 text-xs text-faint">{tab.count}</span> : null}
+          {tab.hint ? (
+            <span className="ml-1.5 max-w-[10rem] truncate align-bottom text-xs text-faint">{tab.hint}</span>
           ) : null}
         </button>
       ))}
@@ -320,23 +321,23 @@ function HeaderEditor({
             type="checkbox"
             checked={h.on}
             onChange={(e) => patch(i, { on: e.target.checked })}
-            aria-label={`헤더 ${i + 1} 사용`}
-            title="이 헤더 사용"
+            aria-label={t('rt.header.use', { n: i + 1 })}
+            title={t('rt.header.useTitle')}
             className="h-4 w-4 shrink-0 accent-blue-600"
           />
           <input
             value={h.key}
             onChange={(e) => patch(i, { key: e.target.value })}
-            aria-label={`헤더 ${i + 1} 이름`}
-            placeholder="이름 (예: x-user)"
+            aria-label={t('rt.header.name', { n: i + 1 })}
+            placeholder={t('rt.header.namePlaceholder')}
             autoComplete="off"
             className="input-base min-w-0 flex-1 font-mono text-xs"
           />
           <input
             value={h.value}
             onChange={(e) => patch(i, { value: e.target.value })}
-            aria-label={`헤더 ${i + 1} 값`}
-            placeholder="값 (예: beta)"
+            aria-label={t('rt.header.value', { n: i + 1 })}
+            placeholder={t('rt.header.valuePlaceholder')}
             autoComplete="off"
             className="input-base min-w-0 flex-1 font-mono text-xs"
           />
@@ -348,8 +349,8 @@ function HeaderEditor({
               )
             }
             className="btn-ghost shrink-0 px-2.5"
-            aria-label={`헤더 ${i + 1} 삭제`}
-            title="삭제"
+            aria-label={t('rt.header.delete', { n: i + 1 })}
+            title={t('common.delete')}
           >
             <Icon name="close" className="h-4 w-4" />
           </button>
@@ -360,13 +361,13 @@ function HeaderEditor({
         onClick={() => setHeaders((prev) => [...prev, { key: '', value: '', on: true }])}
         className="text-xs text-accent hover:underline"
       >
-        + 헤더 추가
+        {t('rt.header.add')}
       </button>
     </div>
   )
 }
 
-// 출발 파드 선택. 기능이 꺼져 있어도 탭은 남기고 켜는 방법을 안내한다.
+// Source pod picker. When the feature is off the block stays and explains how to enable it.
 function SourcePicker({
   enabled,
   isAdmin,
@@ -401,25 +402,25 @@ function SourcePicker({
     return (
       <div className="space-y-2 text-sm">
         <p className="text-muted">
-          <strong className="text-strong">실제 요청 보내기</strong>는 꺼져 있습니다. 켜면 고른 파드 안에서
-          요청을 보내 사이드카를 통과한 실제 응답(라우팅·인가·mTLS 결과)을 확인할 수 있습니다.
+          {/* en value of rt.testerOffAfter starts with a space on purpose (ko value does not) */}
+          <strong className="text-strong">{t('rt.testerOffStrong')}</strong>
+          {t('rt.testerOffAfter')}
         </p>
         {isAdmin ? (
           <details className="text-xs">
-            <summary className="cursor-pointer font-medium text-accent">관리자 활성화 안내</summary>
+            <summary className="cursor-pointer font-medium text-accent">{t('rt.adminGuide')}</summary>
             <div className="mt-3 space-y-2">
-              <p className="text-xs text-muted">
-                배포 설정에서 요청 테스터를 활성화할 수 있습니다. ServiceAccount에 pods/exec 권한이
-                추가됩니다.
-              </p>
+              <p className="text-xs text-muted">{t('rt.testerDisabledHint')}</p>
               <pre className="panel-soft overflow-x-auto rounded-lg p-3 text-xs">
-                helm upgrade sealane charts/sealane -n sealane --reuse-values --set
-                requestTester.enabled=true
+                <code>
+                  helm upgrade sealane charts/sealane -n sealane --reuse-values --set
+                  requestTester.enabled=true
+                </code>
               </pre>
             </div>
           </details>
         ) : (
-          <p className="text-xs text-muted">admin만 사용할 수 있는 기능입니다.</p>
+          <p className="text-xs text-muted">{t('rt.adminOnly')}</p>
         )}
       </div>
     )
@@ -428,17 +429,17 @@ function SourcePicker({
   return (
     <div className="space-y-3">
       <p className="text-xs text-muted">
-        고른 파드 안에서 요청을 보냅니다.{' '}
-        <span className="text-amber-600 dark:text-amber-400">실제 트래픽이라 부작용이 있을 수 있습니다.</span>
+        {t('rt.sendsFromPod')}{' '}
+        <span className="text-amber-600 dark:text-amber-400">{t('rt.realTraffic')}</span>
       </p>
       <div className="flex flex-wrap gap-2">
         <select
           value={ns}
           onChange={(e) => setNs(e.target.value)}
-          aria-label="출발 네임스페이스"
+          aria-label={t('rt.sourceNamespace')}
           className="input-base !w-full sm:!w-56 shrink-0"
         >
-          <option value="">네임스페이스 선택</option>
+          <option value="">{t('rt.selectNamespace')}</option>
           {(namespaces.data ?? []).map((n) => (
             <option key={n} value={n}>
               {n}
@@ -449,14 +450,14 @@ function SourcePicker({
           value={pod}
           onChange={(e) => setPod(e.target.value)}
           disabled={!ns}
-          aria-label="출발 파드"
+          aria-label={t('rt.sourcePod')}
           className="input-base min-w-0 basis-full sm:basis-0 flex-1 disabled:opacity-50"
         >
-          <option value="">{pods.isLoading ? '불러오는 중…' : '출발 파드 선택'}</option>
+          <option value="">{pods.isLoading ? t('common.loading') : t('rt.selectPod')}</option>
           {(pods.data ?? []).map((p) => (
             <option key={p.name} value={p.name}>
               {p.name}
-              {p.mesh ? ' · 메시' : ''}
+              {p.mesh ? ` · ${t('rt.mesh')}` : ''}
             </option>
           ))}
         </select>
@@ -464,7 +465,7 @@ function SourcePicker({
           <select
             value={container}
             onChange={(e) => setContainer(e.target.value)}
-            aria-label="출발 컨테이너"
+            aria-label={t('rt.sourceContainer')}
             className="input-base !w-full sm:!w-44 shrink-0"
           >
             {selected.containers.map((c) => (
@@ -477,8 +478,7 @@ function SourcePicker({
       </div>
       {selected && !selected.mesh && (
         <p className="text-xs text-amber-600 dark:text-amber-400">
-          이 파드에는 사이드카(istio-proxy)가 없습니다 — Istio 라우팅을 거치지 않으므로 VirtualService
-          검증에는 쓸 수 없습니다.
+          {t('rt.noSidecar')}
         </p>
       )}
     </div>
@@ -496,7 +496,7 @@ function ResponseStatus({ res }: { res: RequestTestResult }) {
           {res.status} {res.statusText}
         </span>
       ) : (
-        <span className="chip bg-red-500/10 text-red-600 dark:text-red-400">응답 없음</span>
+        <span className="chip bg-red-500/10 text-red-600 dark:text-red-400">{t('rt.noResponse')}</span>
       )}
       <span className="text-muted">{res.durationMs}ms</span>
       {res.body && <span className="text-muted">{formatBytes(res.body.length)}</span>}
@@ -524,13 +524,13 @@ function ResponseBody({ res }: { res: RequestTestResult }) {
       {res.error && <p className="text-sm text-red-600 dark:text-red-400">{res.error}</p>}
       {res.headers?.['x-envoy-upstream-service-time'] && (
         <p className="text-xs text-muted">
-          업스트림 처리 {res.headers['x-envoy-upstream-service-time']}ms · Envoy 경유
+          {t('rt.upstreamTime', { ms: res.headers['x-envoy-upstream-service-time'] })}
         </p>
       )}
       {pretty && (
         <pre className="panel-soft max-h-96 overflow-auto rounded-lg p-3 text-xs text-strong">{pretty}</pre>
       )}
-      {res.truncated && <p className="text-xs text-muted">응답이 너무 커서 잘렸습니다.</p>}
+      {res.truncated && <p className="text-xs text-muted">{t('rt.truncated')}</p>}
     </div>
   )
 }
@@ -550,7 +550,7 @@ function RouteResult({ result }: { result: RouteMatchResult }) {
             name={result.matched ? 'check' : 'warning'}
             className={`h-4 w-4 ${result.matched ? 'text-emerald-500' : 'text-amber-500'}`}
           />
-          {result.matched ? '매치되는 라우트를 찾았습니다' : '매치되는 라우트가 없습니다'}
+          {result.matched ? t('rt.matched') : t('rt.notMatched')}
         </div>
         {result.destinations.length > 0 && (
           <div className="mt-3 space-y-2">
@@ -568,7 +568,7 @@ function RouteResult({ result }: { result: RouteMatchResult }) {
                     className={`chip ${d.subsetOk === false ? 'bg-red-500/10 text-red-600 dark:text-red-400' : 'bg-accent-soft text-accent'}`}
                   >
                     subset {d.subset}
-                    {d.subsetOk === false ? ' · DR에 정의 없음' : ''}
+                    {d.subsetOk === false ? ` · ${t('rt.subsetMissing')}` : ''}
                   </span>
                 )}
                 {d.weight ? (
@@ -577,15 +577,15 @@ function RouteResult({ result }: { result: RouteMatchResult }) {
                   </span>
                 ) : null}
                 {d.external ? (
-                  <span className="chip bg-gray-500/10 text-gray-500 dark:text-slate-400">외부 호스트</span>
+                  <span className="chip bg-gray-500/10 text-gray-500 dark:text-slate-400">{t('rt.externalHost')}</span>
                 ) : d.exists ? (
                   <span
                     className={`chip ${d.endpoints > 0 ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' : 'bg-red-500/10 text-red-600 dark:text-red-400'}`}
                   >
-                    엔드포인트 {d.endpoints}
+                    {t('flow.status.endpoints', { n: d.endpoints })}
                   </span>
                 ) : (
-                  <span className="chip bg-red-500/10 text-red-600 dark:text-red-400">서비스 없음</span>
+                  <span className="chip bg-red-500/10 text-red-600 dark:text-red-400">{t('rt.noService')}</span>
                 )}
               </div>
             ))}
@@ -599,9 +599,9 @@ function RouteResult({ result }: { result: RouteMatchResult }) {
       </div>
 
       <div>
-        <h4 className="mb-2 text-xs font-semibold uppercase tracking-wide text-faint">평가 과정</h4>
+        <h4 className="mb-2 text-xs font-semibold uppercase tracking-wide text-faint">{t('rt.evaluation')}</h4>
         {result.candidates.length === 0 ? (
-          <p className="text-sm text-muted">이 호스트를 다루는 라우트가 없습니다.</p>
+          <p className="text-sm text-muted">{t('rt.noCandidates')}</p>
         ) : (
           <ul className="space-y-2">
             {result.candidates.map((c, i) => (
@@ -613,7 +613,7 @@ function RouteResult({ result }: { result: RouteMatchResult }) {
                   <span
                     className={`chip ${c.matched ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' : 'bg-gray-500/10 text-gray-500 dark:text-slate-400'}`}
                   >
-                    {c.matched ? '매치' : '불매치'}
+                    {c.matched ? t('rt.match') : t('rt.noMatch')}
                   </span>
                   <Link
                     to={`/resources/${c.typeId}/${c.namespace}/${c.name}`}
@@ -622,7 +622,7 @@ function RouteResult({ result }: { result: RouteMatchResult }) {
                     {c.kind} · {c.namespace}/{c.name}
                   </Link>
                   <span className="text-xs text-muted">rule[{c.ruleIndex}]</span>
-                  {c.winner && <span className="chip bg-accent text-white">선택됨</span>}
+                  {c.winner && <span className="chip bg-accent text-white">{t('rt.selected')}</span>}
                 </div>
                 <p className="mt-1 text-xs text-muted">{c.reason}</p>
               </li>

@@ -5,8 +5,9 @@ import { ApiError, apiDelete, apiGet, apiPost, apiPut, getCluster, setCluster } 
 import { useToast } from '../components/Toast'
 import { PageHeader } from '../components/PageHeader'
 import { Icon } from '../components/icons'
+import { t } from '../i18n'
 
-// 내 계정 정보 + 비밀번호 변경.
+// My account info + password change.
 export function Settings() {
   const caps = useCapabilities()
   const toast = useToast()
@@ -24,7 +25,7 @@ export function Settings() {
     setBusy(true)
     try {
       await apiPost('/api/account/password', { currentPassword: current, newPassword: next })
-      toast('success', '비밀번호가 변경되었습니다. (반영까지 최대 1분, 현재 세션은 유지됩니다)')
+      toast('success', t('settings.passwordChanged'))
       setCurrent('')
       setNext('')
       setConfirm('')
@@ -39,18 +40,19 @@ export function Settings() {
     <div className="space-y-6">
       <PageHeader
         eyebrow="Workspace settings"
-        title="설정"
-        description="내 계정과 워크스페이스의 사용자, 연결된 클러스터를 관리하세요."
+        title={t('settings.title')}
+        description={t('settings.description')}
       />
       <div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)]">
         <div className="panel rounded-xl p-5">
           <h3 className="mb-4 flex items-center gap-2 text-sm font-semibold text-strong">
-            <Icon name="user" className="h-4 w-4 text-accent" />내 계정
+            <Icon name="user" className="h-4 w-4 text-accent" />
+            {t('settings.myAccount')}
           </h3>
           <dl className="grid grid-cols-[6rem_1fr] gap-y-1.5 text-sm">
-            <dt className="text-muted">아이디</dt>
+            <dt className="text-muted">{t('login.username')}</dt>
             <dd className="text-strong">{caps.data?.user ?? '—'}</dd>
-            <dt className="text-muted">역할</dt>
+            <dt className="text-muted">{t('settings.role')}</dt>
             <dd className="text-strong">{caps.data?.role ?? '—'}</dd>
           </dl>
         </div>
@@ -58,10 +60,10 @@ export function Settings() {
         <form onSubmit={submit} className="panel space-y-3 rounded-xl p-5">
           <h3 className="flex items-center gap-2 text-sm font-semibold text-strong">
             <Icon name="lock" className="h-4 w-4 text-accent" />
-            비밀번호 변경
+            {t('pw.submit')}
           </h3>
           <label className="block">
-            <span className="mb-1 block text-xs font-medium text-muted">현재 비밀번호</span>
+            <span className="mb-1 block text-xs font-medium text-muted">{t('pw.current')}</span>
             <input
               type="password"
               value={current}
@@ -71,7 +73,7 @@ export function Settings() {
             />
           </label>
           <label className="block">
-            <span className="mb-1 block text-xs font-medium text-muted">새 비밀번호 (8자 이상)</span>
+            <span className="mb-1 block text-xs font-medium text-muted">{t('pw.new')}</span>
             <input
               type="password"
               value={next}
@@ -81,7 +83,7 @@ export function Settings() {
             />
           </label>
           <label className="block">
-            <span className="mb-1 block text-xs font-medium text-muted">새 비밀번호 확인</span>
+            <span className="mb-1 block text-xs font-medium text-muted">{t('pw.confirm')}</span>
             <input
               type="password"
               value={confirm}
@@ -91,10 +93,10 @@ export function Settings() {
             />
           </label>
           {mismatch && (
-            <p className="text-sm text-red-600 dark:text-red-400">새 비밀번호가 일치하지 않습니다.</p>
+            <p className="text-sm text-red-600 dark:text-red-400">{t('pw.mismatch')}</p>
           )}
           <button type="submit" disabled={!canSubmit} className="btn-primary disabled:opacity-50">
-            {busy ? '변경 중…' : '비밀번호 변경'}
+            {busy ? t('pw.busy') : t('pw.submit')}
           </button>
         </form>
       </div>
@@ -105,16 +107,14 @@ export function Settings() {
             <ClustersPanel />
           </>
         ) : (
-          <p className="text-xs text-muted">
-            계정 추가, 삭제 및 역할 변경은 워크스페이스 관리자에게 문의하세요.
-          </p>
+          <p className="text-xs text-muted">{t('settings.askAdmin')}</p>
         )}
       </div>
     </div>
   )
 }
 
-// admin 전용 멀티클러스터 관리: kubeconfig 붙여넣기로 등록 (백엔드가 Secret에 저장).
+// Admin-only multi-cluster management: register by pasting a kubeconfig (the backend stores it in a Secret).
 function ClustersPanel() {
   const toast = useToast()
   const clusters = useClusters(true)
@@ -132,9 +132,9 @@ function ClustersPanel() {
         { kubeconfig },
       )
       if (res.connected) {
-        toast('success', `${name} 클러스터를 등록했습니다 (${res.version})`)
+        toast('success', t('settings.cluster.registered', { name, version: res.version ?? '' }))
       } else {
-        toast('error', `저장은 됐지만 연결에 실패했습니다: ${res.error}`)
+        toast('error', t('settings.cluster.savedButFailed', { error: res.error ?? '' }))
       }
       setName('')
       setKubeconfig('')
@@ -147,14 +147,14 @@ function ClustersPanel() {
   }
 
   const remove = async (target: string) => {
-    if (!window.confirm(`${target} 클러스터를 삭제할까요?`)) return
+    if (!window.confirm(t('settings.cluster.confirmDelete', { name: target }))) return
     try {
       await apiDelete(`/api/clusters/${encodeURIComponent(target)}`)
       if (getCluster() === target) {
         setCluster('')
         return
-      } // 현재 클러스터 삭제 → local로 리로드
-      toast('success', `${target} 클러스터를 삭제했습니다.`)
+      } // deleted the current cluster → reload on local
+      toast('success', t('settings.cluster.deleted', { name: target }))
       void clusters.refetch()
     } catch (err) {
       toast('error', err instanceof ApiError ? err.message : String(err))
@@ -165,16 +165,14 @@ function ClustersPanel() {
     <div className="panel space-y-3 rounded-xl p-5">
       <h3 className="flex items-center gap-2 text-sm font-semibold text-strong">
         <Icon name="network" className="h-4 w-4 text-accent" />
-        클러스터 관리
+        {t('settings.cluster.title')}
       </h3>
-      <p className="text-xs text-muted">
-        kubeconfig를 붙여넣으면 원격 클러스터가 등록됩니다 (자격증명은 이 클러스터의 Secret에만 저장).
-      </p>
+      <p className="text-xs text-muted">{t('settings.cluster.intro')}</p>
       <table className="w-full text-sm">
         <thead>
           <tr className="border-b border-gray-200 text-left text-xs text-muted dark:border-slate-700">
-            <th className="py-1.5 font-medium">이름</th>
-            <th className="py-1.5 font-medium">상태</th>
+            <th className="py-1.5 font-medium">{t('common.name')}</th>
+            <th className="py-1.5 font-medium">{t('settings.cluster.status')}</th>
             <th className="py-1.5" />
           </tr>
         </thead>
@@ -183,12 +181,12 @@ function ClustersPanel() {
             <tr key={c.name} className="border-b border-gray-100 last:border-0 dark:border-slate-800">
               <td className="py-1.5 text-strong">
                 {c.name}
-                {c.name === 'local' && <span className="ml-1 text-xs text-muted">(이 클러스터)</span>}
+                {c.name === 'local' && <span className="ml-1 text-xs text-muted">{t('settings.cluster.thisCluster')}</span>}
               </td>
               <td className="py-1.5 text-xs">
                 {c.connected === undefined ? null : c.connected ? (
                   <span className="inline-flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400">
-                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" /> 연결됨
+                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" /> {t('settings.cluster.connected')}
                     {c.version ? ` · ${c.version}` : ''}
                   </span>
                 ) : (
@@ -196,7 +194,7 @@ function ClustersPanel() {
                     className="inline-flex items-center gap-1.5 text-red-600 dark:text-red-400"
                     title={c.error}
                   >
-                    <span className="h-1.5 w-1.5 rounded-full bg-red-500" /> 연결 실패
+                    <span className="h-1.5 w-1.5 rounded-full bg-red-500" /> {t('settings.cluster.failed')}
                   </span>
                 )}
               </td>
@@ -206,7 +204,7 @@ function ClustersPanel() {
                   disabled={c.name === 'local'}
                   className="text-xs text-red-600 hover:underline disabled:cursor-not-allowed disabled:opacity-40 dark:text-red-400"
                 >
-                  삭제
+                  {t('common.delete')}
                 </button>
               </td>
             </tr>
@@ -215,18 +213,18 @@ function ClustersPanel() {
       </table>
 
       <form onSubmit={submit} className="space-y-2 border-t border-gray-200 pt-3 dark:border-slate-700">
-        <p className="text-xs font-medium text-muted">클러스터 추가 / 변경</p>
+        <p className="text-xs font-medium text-muted">{t('settings.cluster.formTitle')}</p>
         <input
           value={name}
           onChange={(e) => setName(e.target.value)}
-          placeholder="이름 (예: app-cluster)"
+          placeholder={t('settings.cluster.namePlaceholder')}
           autoComplete="off"
           className="input-base w-full"
         />
         <textarea
           value={kubeconfig}
           onChange={(e) => setKubeconfig(e.target.value)}
-          placeholder="kubeconfig 내용 붙여넣기"
+          placeholder={t('settings.cluster.kubeconfigPlaceholder')}
           rows={6}
           spellCheck={false}
           className="input-base w-full font-mono text-xs"
@@ -236,7 +234,7 @@ function ClustersPanel() {
           disabled={!name || !kubeconfig || busy}
           className="btn-primary disabled:opacity-50"
         >
-          {busy ? '연결 확인 중…' : '클러스터 등록'}
+          {busy ? t('settings.cluster.connecting') : t('settings.cluster.register')}
         </button>
       </form>
     </div>
@@ -245,7 +243,7 @@ function ClustersPanel() {
 
 type Account = { name: string; role: string }
 
-// admin 전용 계정 관리: 목록/추가/역할·비밀번호 변경/삭제 (백엔드가 CM을 patch).
+// Admin-only account management: list/add/change role or password/delete (the backend patches the ConfigMap).
 function AccountsPanel({ me }: { me: string }) {
   const toast = useToast()
   const [accounts, setAccounts] = useState<Account[] | null>(null)
@@ -272,7 +270,10 @@ function AccountsPanel({ me }: { me: string }) {
     setBusy(true)
     try {
       await apiPut(`/api/accounts/${encodeURIComponent(name)}`, { role, password })
-      toast('success', `${name} 계정을 ${exists ? '변경' : '추가'}했습니다. (로그인 반영까지 최대 1분)`)
+      toast(
+        'success',
+        exists ? t('settings.account.updated', { name }) : t('settings.account.added', { name }),
+      )
       setName('')
       setPassword('')
       setRole('viewer')
@@ -285,10 +286,10 @@ function AccountsPanel({ me }: { me: string }) {
   }
 
   const remove = async (target: string) => {
-    if (!window.confirm(`${target} 계정을 삭제할까요?`)) return
+    if (!window.confirm(t('settings.account.confirmDelete', { name: target }))) return
     try {
       await apiDelete(`/api/accounts/${encodeURIComponent(target)}`)
-      toast('success', `${target} 계정을 삭제했습니다.`)
+      toast('success', t('settings.account.deleted', { name: target }))
       reload()
     } catch (err) {
       toast('error', err instanceof ApiError ? err.message : String(err))
@@ -299,16 +300,16 @@ function AccountsPanel({ me }: { me: string }) {
     <div className="panel space-y-3 rounded-xl p-5">
       <h3 className="flex items-center gap-2 text-sm font-semibold text-strong">
         <Icon name="user" className="h-4 w-4 text-accent" />
-        계정 관리
+        {t('settings.account.title')}
       </h3>
       {accounts === null ? (
-        <p className="text-sm text-muted">불러오는 중…</p>
+        <p className="text-sm text-muted">{t('common.loading')}</p>
       ) : (
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-gray-200 text-left text-xs text-muted dark:border-slate-700">
-              <th className="py-1.5 font-medium">아이디</th>
-              <th className="py-1.5 font-medium">역할</th>
+              <th className="py-1.5 font-medium">{t('login.username')}</th>
+              <th className="py-1.5 font-medium">{t('settings.role')}</th>
               <th className="py-1.5" />
             </tr>
           </thead>
@@ -317,7 +318,7 @@ function AccountsPanel({ me }: { me: string }) {
               <tr key={a.name} className="border-b border-gray-100 last:border-0 dark:border-slate-800">
                 <td className="py-1.5 text-strong">
                   {a.name}
-                  {a.name === me && <span className="ml-1 text-xs text-muted">(나)</span>}
+                  {a.name === me && <span className="ml-1 text-xs text-muted">{t('settings.account.me')}</span>}
                 </td>
                 <td className="py-1.5">{a.role}</td>
                 <td className="py-1.5 text-right">
@@ -326,7 +327,7 @@ function AccountsPanel({ me }: { me: string }) {
                     disabled={a.name === me || a.name === 'admin'}
                     className="text-xs text-red-600 hover:underline disabled:cursor-not-allowed disabled:opacity-40 dark:text-red-400"
                   >
-                    삭제
+                    {t('common.delete')}
                   </button>
                 </td>
               </tr>
@@ -336,12 +337,12 @@ function AccountsPanel({ me }: { me: string }) {
       )}
 
       <form onSubmit={submit} className="space-y-2 border-t border-gray-200 pt-3 dark:border-slate-700">
-        <p className="text-xs font-medium text-muted">계정 추가 / 변경</p>
+        <p className="text-xs font-medium text-muted">{t('settings.account.formTitle')}</p>
         <div className="flex gap-2">
           <input
             value={name}
             onChange={(e) => setName(e.target.value)}
-            placeholder="아이디"
+            placeholder={t('login.username')}
             autoComplete="off"
             className="input-base min-w-0 flex-1"
           />
@@ -359,12 +360,12 @@ function AccountsPanel({ me }: { me: string }) {
           type="password"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
-          placeholder={exists ? '비밀번호 (비우면 유지, 역할만 변경)' : '비밀번호 (8자 이상)'}
+          placeholder={exists ? t('settings.account.passwordKeep') : t('settings.account.passwordNew')}
           autoComplete="new-password"
           className="input-base w-full"
         />
         <button type="submit" disabled={!canSubmit} className="btn-primary disabled:opacity-50">
-          {busy ? '저장 중…' : exists ? '계정 변경' : '계정 추가'}
+          {busy ? t('settings.account.saving') : exists ? t('settings.account.update') : t('settings.account.add')}
         </button>
       </form>
     </div>

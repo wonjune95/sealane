@@ -636,7 +636,9 @@ button:disabled {
 }
 
 /* rjsf core renders Bootstrap glyphicon font icons we don't ship → hide and
-   give the add/remove buttons visible text + size. */
+   give the add/remove buttons visible text + size. Fallback only: our own
+   ArrayFieldTemplate/ArrayFieldItemTemplate render localized buttons, so these
+   default-template labels stay English-only. */
 .rjsf-compact .glyphicon {
   display: none;
 }
@@ -647,10 +649,10 @@ button:disabled {
   @apply border-slate-700 bg-slate-800 text-slate-200 hover:bg-slate-700;
 }
 .rjsf-compact .btn-add::after {
-  content: '+ 추가';
+  content: '+ Add';
 }
 .rjsf-compact .array-item-remove::after {
-  content: '삭제';
+  content: 'Delete';
 }
 .rjsf-compact .array-item-move-up::after {
   content: '↑';
@@ -659,7 +661,7 @@ button:disabled {
   content: '↓';
 }
 .rjsf-compact .array-item-copy::after {
-  content: '복사';
+  content: 'Copy';
 }
 
 @media (prefers-reduced-motion: reduce) {

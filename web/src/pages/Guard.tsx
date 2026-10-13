@@ -5,6 +5,7 @@ export function Guard() {
     <div className="panel mx-auto max-w-2xl p-8 shadow-sm">
       <h2 className="mb-2 text-xl font-semibold text-strong">{t('guard.title')}</h2>
       <p className="mb-4 text-muted">
+        {/* en values of guard.introMiddle/introAfter start with a space on purpose (ko values do not) */}
         {t('guard.introBefore')} <code className="rounded bg-gray-100 px-1 dark:bg-slate-800">HTTPRoute</code>
         {t('guard.introMiddle')} <code className="rounded bg-gray-100 px-1 dark:bg-slate-800">VirtualService</code>
         {t('guard.introAfter')}

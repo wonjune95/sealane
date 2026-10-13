@@ -8,6 +8,8 @@ docs_dir: docs
 exclude_docs: |
   superpowers/**
   requirements.txt
+  announcement.md
+  announcement.ko.md
 theme:
   name: material
   logo: img/favicon.svg

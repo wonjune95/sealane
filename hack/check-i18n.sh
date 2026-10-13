@@ -3,7 +3,7 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
-leaks=$(git grep -n -I -P '[\x{AC00}-\x{D7A3}]' -- . ':!web/src/i18n/ko.json' ':!README.ko.md' ':!docs/superpowers/' || true)
+leaks=$(git grep -n -I -P '[\x{AC00}-\x{D7A3}]' -- . ':!web/src/i18n/ko.json' ':!README.ko.md' ':!docs/superpowers/' ':!docs/announcement.ko.md' || true)
 if [ -n "$leaks" ]; then
   echo "Korean text outside locale files (move it to web/src/i18n/ko.json or translate it):"
   echo "$leaks"

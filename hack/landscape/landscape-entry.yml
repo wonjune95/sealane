@@ -1,0 +1,10 @@
+# Snippet for cncf/landscape landscape.yml — category "Orchestration & Management", subcategory "Service Mesh"
+# (next to Istio). Submit after the repo passes ~300 stars (Landscape's bar for non-CNCF projects).
+- item:
+  name: Sealane
+  homepage_url: https://wonjune95.github.io/sealane/
+  repo_url: https://github.com/wonjune95/sealane
+  logo: sealane.svg      # copy hack/landscape/sealane-stacked.svg to hosted_logos/sealane.svg
+  organization:
+    name: Sealane        # no company behind it; the landscape README allows `organization` instead of `crunchbase`
+  description: Routing console for Istio and the Kubernetes Gateway API — browse, edit and test routing config with dry-run, diff and role-based accounts.

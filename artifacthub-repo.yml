@@ -1,0 +1,7 @@
+# Artifact Hub repository metadata (verified publisher + ownership claim).
+# Push it next to the chart with hack/artifacthub-publish.sh after registering the OCI repository
+# oci://ghcr.io/wonjune95/charts/sealane on artifacthub.io; repositoryID comes from the control panel.
+repositoryID: ""   # paste the ID from Artifact Hub → Control panel → Repositories → sealane
+owners:
+  - name: wonjune95
+    email: ""      # must match the Artifact Hub account email

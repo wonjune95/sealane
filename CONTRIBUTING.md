@@ -29,7 +29,6 @@ Every user-visible string goes through `t('key')` from `web/src/i18n`. Add the E
 ## Commits and pull requests
 
 - Commit messages in English, imperative mood ("Add OIDC login", not "Added").
-- Sign off your commits (`git commit -s`) to certify the [Developer Certificate of Origin](https://developercertificate.org/).
 - Keep PRs focused. Describe what changed and how you tested it; the PR template asks for both.
 - New behavior needs a test where one is practical (Go unit test with the fake client, or a Playwright fixture check).
 

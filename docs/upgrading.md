@@ -44,3 +44,15 @@ helm upgrade sealane oci://ghcr.io/wonjune95/charts/sealane --version 0.9.0 -n <
 ```
 
 0.9 also creates a `<release>-session` Secret by default so sessions survive restarts. Set `sessionSecret.create=false` to opt out (GitOps users should set `sessionSecret.existingSecret` instead).
+
+## From 0.9.x to 0.10.x
+
+0.10 adds single sign-on through new `oidc.*` values. OIDC is off by default (`oidc.enabled=false`), so nothing changes unless you enable it; see [Authentication](authentication.md#single-sign-on-oidc).
+
+```bash
+helm upgrade sealane oci://ghcr.io/wonjune95/charts/sealane --version 0.10.0 -n <namespace> --reset-then-reuse-values
+```
+
+With plain `--reuse-values` the new `oidc.defaultRole` key is absent. If you then enable OIDC, users with no matching group are refused until you set `oidc.defaultRole` explicitly (for example `viewer`).
+
+Existing sessions are invalidated once, because the session cookie format gained a provider field. Everyone signs in again after the upgrade.

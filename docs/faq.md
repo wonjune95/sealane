@@ -6,7 +6,7 @@ Kiali is built for observing a mesh: topology from telemetry, metrics, traces an
 
 ## Does Sealane install CRDs or an operator?
 
-No. It reads the Istio and Gateway API CRDs that are already in the cluster and shows only the kinds it finds. The chart installs a Deployment, a Service, RBAC and optionally a session Secret, Ingress/HTTPRoute and ServiceMonitor — nothing cluster-wide besides the ClusterRole for the managed kinds.
+No. It reads the Istio and Gateway API CRDs that are already in the cluster and shows only the kinds it finds. The chart installs a Deployment, a Service, a ServiceAccount, a ClusterRole and a ClusterRoleBinding for the managed kinds, namespaced Roles and RoleBindings, and optionally a session Secret, Ingress/HTTPRoute and ServiceMonitor.
 
 ## Why does every cluster call run as one ServiceAccount?
 

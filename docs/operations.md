@@ -28,7 +28,8 @@ Logs are JSON lines on stdout (`slog`). The useful messages:
 | `resource mutated` | a create/update/delete through Sealane succeeded | `audit=true`, `dangerous`, `cluster`, `user`, `verb`, `type`, `namespace`, `name` |
 | `HIGH-RISK resource mutated` (warn) | same, for a high-risk kind | same, `dangerous=true` |
 | `resource mutation failed` (error) | the API server rejected a write | same, plus `err` |
-| `login` / `login failed` | local or SSO sign-in | `user`, `role` (and `provider` for SSO) |
+| `login` | successful local or SSO sign-in | `user`, `role` (and `provider` for SSO) |
+| `login failed` (warn) | wrong local username or password | `user` |
 | `oidc callback failed` (warn) | an SSO sign-in failed | `reason` (`state`, `access_denied`, `idp`), `err` |
 
 Ship them with your usual log collector and alert on `dangerous=true`. Dry runs are not logged as mutations.

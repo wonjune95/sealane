@@ -7,6 +7,7 @@ Sealane is configured with a few flags and environment variables. When you insta
 | Flag / env | Default | Description |
 |---|---|---|
 | `--addr` | `:8080` | listen address |
+| `--version` | | print the version and exit |
 | `--dev` | `false` | skip login + use local kubeconfig (**refuses to boot in-cluster**) |
 | `--kubeconfig` | (default loading rules) | dev-only kubeconfig path |
 | `ACCOUNTS_DIR` | `/etc/sealane/accounts` | accounts ConfigMap mount path |
@@ -16,7 +17,7 @@ Sealane is configured with a few flags and environment variables. When you insta
 | `REQUEST_TESTER` | (set by Helm) | `true` enables the in-pod request tester (needs pods/exec, admin only) |
 | `CLUSTERS_SECRET` / `POD_NAMESPACE` | (set by Helm) | multi-cluster: Secret holding remote kubeconfigs (empty = local only) |
 
-### Environment variables
+### Single sign-on variables
 
 Single sign-on is configured through `OIDC_*` variables (the chart's `oidc.*` values; see [Authentication](authentication.md#single-sign-on-oidc)):
 

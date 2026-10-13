@@ -97,7 +97,7 @@ oidc:
   defaultRole: viewer                        # "" refuses users without a matching group
 ```
 
-`issuerURL`, `clientID`, `clientSecretRef.name` and `redirectURL` are required; the chart refuses to render without them. The chart passes these as `OIDC_*` environment variables (see [Configuration](configuration.md#environment-variables)); an incomplete set or an invalid `defaultRole` stops the server at startup with `oidc config invalid` in the log.
+`issuerURL`, `clientID`, `clientSecretRef.name` and `redirectURL` are required; the chart refuses to render without them. The chart passes these as `OIDC_*` environment variables (see [Single sign-on variables](configuration.md#single-sign-on-variables) in Configuration); an incomplete set or an invalid `defaultRole` stops the server at startup with `oidc config invalid` in the log.
 
 When upgrading an existing release from 0.9, use `--reset-then-reuse-values` (Helm 3.14+) or pass your values explicitly, as described in [Upgrading](upgrading.md). With plain `--reuse-values` the new `oidc` defaults are not merged in, so `defaultRole` ends up empty and users without a matching group are refused.
 
@@ -108,6 +108,9 @@ When upgrading an existing release from 0.9, use `--reset-then-reuse-values` (He
 - **Multiple replicas need a shared session key.** Both the session cookie and the short-lived sign-in cookie are HMAC-signed. With more than one replica, every pod must use the same key, which `sessionSecret` provides (`sessionSecret.create=true` is the default). Without it each pod signs with its own random key: sessions break when a request lands on another pod, and a callback served by a different pod than the login fails with `oidc_error=state`.
 
 ### Provider notes
+
+!!! note
+    The console steps below are starting points written from the providers' documentation; they have not been verified against a live Keycloak or Google here. Check them against the current provider docs: Keycloak [client scopes](https://www.keycloak.org/docs/latest/server_admin/#_client_scopes) and [protocol mappers](https://www.keycloak.org/docs/latest/server_admin/#_protocol-mappers), and Google's [OpenID Connect guide](https://developers.google.com/identity/openid-connect/openid-connect).
 
 #### Keycloak
 
@@ -148,7 +151,7 @@ kubectl -n sealane logs deploy/sealane | grep oidc
 
 | `oidc_error` | Login page says | What to check |
 |---|---|---|
-| `state` | The sign-in attempt expired or was tampered with. | The sign-in took longer than 10 minutes, or the browser dropped the sign-in cookie, or replicas sign with different keys (see `sessionSecret` above). Try again. |
+| `state` | The sign-in attempt expired or was tampered with. | The sign-in took longer than 10 minutes, or the browser dropped the sign-in cookie, or replicas sign with different keys (see `sessionSecret` above). Also check that sign-in starts on the host named in `redirectURL`: if it starts elsewhere (for example a `localhost` port-forward while `redirectURL` names the real host), the state cookie is set for that other host and never sent back to the callback. |
 | `access_denied` | Your account has no role in Sealane. | The user has no group listed in `oidc.roles.*` and `defaultRole` is empty. Check the group names in the ID token (exact strings, for Keycloak without the leading `/`) and `groupsClaim`. |
 | `idp` | The identity provider returned an error. | Read the `err` in the log. Common causes: `redirectURL` does not match the redirect URI registered on the IdP client **exactly** (scheme, host, port, path); `issuerURL` differs from the `issuer` that the provider's discovery document returns (a trailing slash or `http` vs `https` is enough); the Sealane pod cannot reach the issuer; wrong client secret; an unknown scope. If the user cancelled or the IdP refused the sign-in, its own `error` (for example the IdP's `access_denied`) appears in `err`. |
 

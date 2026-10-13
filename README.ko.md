@@ -25,7 +25,7 @@ kubectl apply -f https://github.com/wonjune95/sealane/releases/latest/download/i
 kubectl -n sealane port-forward svc/sealane 8080:8080   # → http://localhost:8080, 초기 계정 admin / admin
 ```
 
-`install.yaml`은 istiod 버전 조회용으로 `istio-system` 네임스페이스를 전제한다. Istio가 없는 클러스터에서 `kubectl apply`가 내는 `namespaces "istio-system" not found` 오류 두 건은 무시해도 된다. istiod가 다른 네임스페이스에 있으면 Helm 설치 시 `istioNamespace`를 지정한다. Istio가 없는 클러스터에 Helm으로 설치할 때는 `istioNamespace`를 실제로 있는 네임스페이스로 지정한다.
+`install.yaml`은 istiod 버전 조회용으로 `istio-system` 네임스페이스를 전제한다. Istio가 없는 클러스터에서 `kubectl apply`가 내는 `namespaces "istio-system" not found` 오류 두 건은 무시해도 된다. Helm 설치 시 `istioNamespace`는 istiod가 있는 네임스페이스로, Istio가 없으면 실제로 있는 아무 네임스페이스로 지정한다 — [Getting started](https://wonjune95.github.io/sealane/getting-started/) 참고.
 
 ![Sealane 홈 화면](docs/img/screenshot.png)
 

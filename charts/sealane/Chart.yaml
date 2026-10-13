@@ -23,7 +23,7 @@ annotations:
   artifacthub.io/category: networking
   artifacthub.io/links: |
     - name: Documentation
-      url: https://github.com/wonjune95/sealane#readme
+      url: https://wonjune95.github.io/sealane/
     - name: Upgrading
       url: https://github.com/wonjune95/sealane/blob/main/docs/upgrading.md
   artifacthub.io/images: |

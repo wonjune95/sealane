@@ -11,9 +11,7 @@ kubectl -n sealane port-forward svc/sealane 8080:8080   # → http://localhost:8
 ```
 
 !!! note "Clusters without Istio"
-    `install.yaml` expects the `istio-system` namespace for the istiod version reader; without Istio, the two `namespaces "istio-system" not found` errors from `kubectl apply` are harmless. Helm users whose istiod lives elsewhere set `istioNamespace`.
-
-    For a Helm install on a cluster without Istio, set `istioNamespace` to a namespace that exists (for example `--set istioNamespace=sealane`): the chart creates its istiod-reader Role and RoleBinding in that namespace, so it must exist. The home page then simply shows no control-plane version.
+    `install.yaml` expects the `istio-system` namespace for the istiod version reader; without Istio, the two `namespaces "istio-system" not found` errors from `kubectl apply` are harmless. Helm users whose istiod lives elsewhere set `istioNamespace`. For a Helm install on a cluster without Istio, set `istioNamespace` to a namespace that exists (for example `--set istioNamespace=sealane`): the chart creates its istiod-reader Role and RoleBinding in that namespace, so it must exist. The home page then simply shows no control-plane version.
 
 The steps below are for building and installing from a clone. You only need Docker and Helm (the image build is multi-stage — no local Go/Node required).
 

@@ -31,9 +31,9 @@ type Server struct {
 	sessions   *auth.Sessions
 	accountsCM AccountsCMRef // accounts ConfigMap that password changes patch (empty = changes disabled)
 
-	clustersSecret ClustersSecretRef        // remote-cluster kubeconfig Secret (empty = local only)
-	clusterMu      sync.Mutex               // guards clusterCache
-	clusterCache   map[string]ClientSource  // cluster name → factory (created lazily)
+	clustersSecret ClustersSecretRef       // remote-cluster kubeconfig Secret (empty = local only)
+	clusterMu      sync.Mutex              // guards clusterCache
+	clusterCache   map[string]ClientSource // cluster name → factory (created lazily)
 
 	auditMu  sync.Mutex
 	auditLog []AuditEntry // newest first, capped at auditKeep

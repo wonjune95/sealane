@@ -63,11 +63,11 @@ var Registry = []ResourceType{
 // plane or security posture — the UI requires typed confirmation and audit logs
 // flag them (Gemini review ⑦).
 var dangerous = map[string]bool{
-	"envoyfilters.networking.istio.io":          true,
-	"authorizationpolicies.security.istio.io":   true,
-	"peerauthentications.security.istio.io":     true,
-	"requestauthentications.security.istio.io":  true,
-	"sidecars.networking.istio.io":              true,
+	"envoyfilters.networking.istio.io":         true,
+	"authorizationpolicies.security.istio.io":  true,
+	"peerauthentications.security.istio.io":    true,
+	"requestauthentications.security.istio.io": true,
+	"sidecars.networking.istio.io":             true,
 }
 
 // IsDangerous reports whether a TypeID is high-risk.

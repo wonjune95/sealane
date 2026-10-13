@@ -610,7 +610,7 @@ func TestFlowMap(t *testing.T) {
 	gw := gwfake.NewSimpleClientset(
 		&gwapi.HTTPRoute{ObjectMeta: metav1.ObjectMeta{Name: "hr", Namespace: "dev"},
 			Spec: gwapi.HTTPRouteSpec{
-				Hostnames: []gwapi.Hostname{"api.example.com"},
+				Hostnames:       []gwapi.Hostname{"api.example.com"},
 				CommonRouteSpec: gwapi.CommonRouteSpec{ParentRefs: []gwapi.ParentReference{{Name: "tgw"}}},
 				Rules: []gwapi.HTTPRouteRule{{BackendRefs: []gwapi.HTTPBackendRef{
 					{BackendRef: gwapi.BackendRef{BackendObjectReference: gwapi.BackendObjectReference{Name: "missing-svc"}}}}}},
@@ -882,7 +882,6 @@ func TestRouteMatch(t *testing.T) {
 	}
 }
 
-
 // Request tester: 403 when disabled, 403 for non-admins; when enabled it builds argv
 // without a shell, parses curl output and attaches an Istio-context hint.
 func TestRequestTester(t *testing.T) {
@@ -968,7 +967,6 @@ func TestRequestTester(t *testing.T) {
 	}
 }
 
-
 // Pod list: Istio 1.29+ native sidecars (initContainers with restartPolicy=Always) must
 // also count as mesh. Regular init containers cannot be exec'd into, so they are left out.
 func TestPodList_NativeSidecar(t *testing.T) {
@@ -978,8 +976,8 @@ func TestPodList_NativeSidecar(t *testing.T) {
 			ObjectMeta: metav1.ObjectMeta{Name: "curl-1", Namespace: "demo"},
 			Spec: corev1.PodSpec{
 				InitContainers: []corev1.Container{
-					{Name: "istio-init"},                             // real init — excluded
-					{Name: "istio-proxy", RestartPolicy: &always},    // native sidecar
+					{Name: "istio-init"},                          // real init — excluded
+					{Name: "istio-proxy", RestartPolicy: &always}, // native sidecar
 				},
 				Containers: []corev1.Container{{Name: "curl"}},
 			},

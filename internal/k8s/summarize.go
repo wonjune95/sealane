@@ -18,11 +18,17 @@ func summarize(typeID string, u *unstructured.Unstructured) string {
 }
 
 var summarizers = map[string]func(*unstructured.Unstructured) string{
-	"httproutes.gateway.networking.k8s.io":  func(u *unstructured.Unstructured) string { return hostsSummary(u, "spec", "hostnames") },
-	"virtualservices.networking.istio.io":   func(u *unstructured.Unstructured) string { return hostsSummary(u, "spec", "hosts") },
-	"serviceentries.networking.istio.io":    func(u *unstructured.Unstructured) string { return hostsSummary(u, "spec", "hosts") },
-	"destinationrules.networking.istio.io":  func(u *unstructured.Unstructured) string { h, _, _ := unstructured.NestedString(u.Object, "spec", "host"); return prefix("host", h) },
-	"authorizationpolicies.security.istio.io": func(u *unstructured.Unstructured) string { a, _, _ := unstructured.NestedString(u.Object, "spec", "action"); return prefix("action", a) },
+	"httproutes.gateway.networking.k8s.io": func(u *unstructured.Unstructured) string { return hostsSummary(u, "spec", "hostnames") },
+	"virtualservices.networking.istio.io":  func(u *unstructured.Unstructured) string { return hostsSummary(u, "spec", "hosts") },
+	"serviceentries.networking.istio.io":   func(u *unstructured.Unstructured) string { return hostsSummary(u, "spec", "hosts") },
+	"destinationrules.networking.istio.io": func(u *unstructured.Unstructured) string {
+		h, _, _ := unstructured.NestedString(u.Object, "spec", "host")
+		return prefix("host", h)
+	},
+	"authorizationpolicies.security.istio.io": func(u *unstructured.Unstructured) string {
+		a, _, _ := unstructured.NestedString(u.Object, "spec", "action")
+		return prefix("action", a)
+	},
 }
 
 func hostsSummary(u *unstructured.Unstructured, fields ...string) string {

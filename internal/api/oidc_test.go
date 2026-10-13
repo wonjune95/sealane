@@ -311,14 +311,20 @@ func TestOIDCCallbackRejectsBadIDToken(t *testing.T) {
 }
 
 func TestCookiesSecureWhenRedirectIsHTTPS(t *testing.T) {
-	mux, _ := newOIDCMux(t, newFakeIdP(t), "viewer")
+	idp := newFakeIdP(t)
+	mux, _ := newOIDCMux(t, idp, "viewer")
 	if _, c := startLogin(t, mux); c.Secure {
 		t.Fatal("state cookie must not be Secure by default (http redirect)")
 	}
 	SecureCookies = true // what main sets for an https:// OIDC_REDIRECT_URL
 	t.Cleanup(func() { SecureCookies = false })
-	if _, c := startLogin(t, mux); !c.Secure {
+	q, c := startLogin(t, mux)
+	if !c.Secure {
 		t.Fatal("state cookie must be Secure behind https")
+	}
+	_, idp.nonce, _, _ = testSessions.ParseState(c.Value)
+	if sc := issuedSession(callback(t, mux, "code=good-code&state="+url.QueryEscape(q.Get("state")), c)); sc == nil || !sc.Secure {
+		t.Fatalf("session cookie must be Secure behind https: %v", sc)
 	}
 	rec := httptest.NewRecorder()
 	mux.ServeHTTP(rec, httptest.NewRequest("POST", "/api/logout", nil))

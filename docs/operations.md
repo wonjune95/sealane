@@ -2,7 +2,7 @@
 
 ## High availability
 
-Sealane keeps no state of its own. Accounts live in the accounts ConfigMap, remote clusters in the clusters Secret, and sessions in signed cookies, so replicas are interchangeable and you scale with `replicaCount`. Two replicas plus the shutdown delay (`SHUTDOWN_DELAY`, default `5s`) give rollouts with zero dropped requests, so set `replicaCount: 2` for HA.
+Sealane keeps no state of its own. Accounts live in the accounts ConfigMap, remote clusters in the clusters Secret, and sessions in signed cookies, so replicas are interchangeable and you scale with `replicaCount`. Two replicas plus the shutdown delay (`SHUTDOWN_DELAY`, default `5s`) keep requests flowing through a rolling update (the old pod keeps serving for 5 s after it leaves the Service), so set `replicaCount: 2` for HA.
 
 Every replica must sign sessions with the **same key**, otherwise a cookie issued by one pod is rejected by another (and an SSO sign-in that comes back to a different pod fails with `oidc_error=state`):
 

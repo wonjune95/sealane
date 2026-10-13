@@ -117,8 +117,8 @@ func main() {
 	}()
 
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
-	defer stop()
 	<-ctx.Done()
+	stop() // a second Ctrl-C during the delay/drain exits immediately
 
 	delay := 5 * time.Second
 	if v := os.Getenv("SHUTDOWN_DELAY"); v != "" {

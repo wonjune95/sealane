@@ -67,7 +67,7 @@ Everyone with a local account, viewers included, changes their own password from
 - **Local login stays.** The username and password form remains on the login page; the initial `admin` and any local accounts keep working. Keep at least one local admin as a break-glass account in case the IdP is down.
 - **Same session cookie.** An SSO login ends in the same HMAC-signed session cookie as a local login (12 hours). The role is decided at sign-in and carried in the cookie, so group changes at the IdP apply on the user's next sign-in. Signing out of Sealane clears the cookie; it does not sign the user out of the IdP.
 - **No password in Sealane.** SSO users see "You signed in through …" on the settings page instead of the password form. They are not written to the accounts ConfigMap and do not appear in the account list.
-- **Secure cookies.** When `OIDC_REDIRECT_URL` is `https://`, the session and sign-in cookies are marked `Secure` automatically.
+- **Secure cookies.** When `OIDC_REDIRECT_URL` is `https://`, the session and sign-in cookies are marked `Secure` automatically (so users must also reach Sealane over https; browsers drop `Secure` cookies on plain http).
 - **Failure messages.** When a sign-in fails, the browser goes back to the login page with `?oidc_error=<code>` and a generic message; the details go to the server log only. The three codes are listed under [troubleshooting](#troubleshooting).
 
 The login page learns what is available from `GET /api/auth/methods` (unauthenticated), which returns whether local login is on and, when SSO is configured, its display name.

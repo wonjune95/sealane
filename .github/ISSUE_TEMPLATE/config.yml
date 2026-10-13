@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Questions and discussion
+    url: https://github.com/wonjune95/sealane/discussions
+    about: Ask how-to questions here instead of opening an issue.
+  - name: Security report
+    url: https://github.com/wonjune95/sealane/security/advisories/new
+    about: Report vulnerabilities privately.

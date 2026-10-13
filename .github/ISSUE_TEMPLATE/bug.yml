@@ -1,0 +1,35 @@
+name: Bug report
+description: Something does not work as documented
+labels: [bug]
+body:
+  - type: input
+    id: version
+    attributes:
+      label: Sealane version
+      placeholder: "0.8.0 (image tag or chart version)"
+    validations:
+      required: true
+  - type: input
+    id: env
+    attributes:
+      label: Kubernetes / Istio / Gateway API versions
+      placeholder: "K8s 1.34, Istio 1.31.1, Gateway API v1.3"
+    validations:
+      required: true
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: Include the exact error text from the UI or the pod logs (`kubectl logs deploy/sealane`).
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What did you expect?

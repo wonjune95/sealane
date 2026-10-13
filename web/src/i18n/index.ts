@@ -26,6 +26,11 @@ export function t(key: Key, vars?: Record<string, string | number>): string {
   return s
 }
 
+// Untyped accessor for dynamic keys (form help/example text); t() stays typed.
+export function lookup(key: string): string | undefined {
+  return DICT[locale][key] ?? DICT.en[key]
+}
+
 export function setLocale(next: Locale) {
   try {
     localStorage.setItem(KEY, next)

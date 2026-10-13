@@ -302,6 +302,8 @@ func TestCapabilities_SAUnauthorizedIs401(t *testing.T) {
 }
 
 func TestCapabilities_WithSessionIs200(t *testing.T) {
+	AppVersion = "9.9.9-test"
+	t.Cleanup(func() { AppVersion = "dev" })
 	mux := newTestMux(t, &stubSource{clients: &k8s.Clients{Kube: kubefake.NewClientset()}})
 
 	rec := httptest.NewRecorder()
@@ -309,11 +311,8 @@ func TestCapabilities_WithSessionIs200(t *testing.T) {
 	if rec.Code != http.StatusOK {
 		t.Fatalf("status = %d, want 200: %s", rec.Code, rec.Body.String())
 	}
-	AppVersion = "9.9.9-test"
-	rec2 := httptest.NewRecorder()
-	mux.ServeHTTP(rec2, authedReq("GET", "/api/capabilities", nil))
-	if !strings.Contains(rec2.Body.String(), `"appVersion":"9.9.9-test"`) {
-		t.Fatalf("capabilities must carry appVersion: %s", rec2.Body.String())
+	if !strings.Contains(rec.Body.String(), `"appVersion":"9.9.9-test"`) {
+		t.Fatalf("capabilities must carry appVersion: %s", rec.Body.String())
 	}
 }
 

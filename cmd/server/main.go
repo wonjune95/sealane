@@ -80,7 +80,8 @@ func main() {
 	})
 	mux.HandleFunc("GET /readyz", func(w http.ResponseWriter, _ *http.Request) {
 		if err := factory.Ready(); err != nil {
-			writeText(w, http.StatusServiceUnavailable, "not ready: "+err.Error())
+			slog.Warn("readiness check failed", "err", err)
+			writeText(w, http.StatusServiceUnavailable, "not ready")
 			return
 		}
 		writeText(w, http.StatusOK, "ready")

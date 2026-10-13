@@ -7,13 +7,20 @@
 ![Go](https://img.shields.io/badge/Go-1.26-00ADD8?logo=go&logoColor=white)
 ![React](https://img.shields.io/badge/React-18%20%2B%20TS-61DAFB?logo=react&logoColor=black)
 ![License](https://img.shields.io/badge/License-MIT-yellow)
+[![ci](https://github.com/wonjune95/sealane/actions/workflows/ci.yml/badge.svg)](https://github.com/wonjune95/sealane/actions/workflows/ci.yml)
+[![e2e](https://github.com/wonjune95/sealane/actions/workflows/e2e.yml/badge.svg)](https://github.com/wonjune95/sealane/actions/workflows/e2e.yml)
+[![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/wonjune95/sealane/badge)](https://scorecard.dev/viewer/?uri=github.com/wonjune95/sealane)
+[![Artifact Hub](https://img.shields.io/endpoint?url=https://artifacthub.io/badge/repository/sealane)](https://artifacthub.io/packages/search?repo=sealane)
 
 > Sealane is a third-party tool for Istio. It is not an official Istio or CNCF project and is not affiliated with or endorsed by them.
 
 **Sealane is a routing console for Istio and Gateway API.** It is a single-binary web UI that lets you browse, create and edit `VirtualService`, `HTTPRoute`, `DestinationRule`, `Gateway`, `AuthorizationPolicy` and the rest of the Istio and Gateway API resources through schema-driven forms or YAML, with dry-run validation, diff preview and role-based accounts, and no CRDs or operators installed in your cluster.
 
 ```bash
-helm install sealane oci://ghcr.io/wonjune95/charts/sealane --version 0.8.0 -n sealane --create-namespace
+# Helm (OCI)
+helm install sealane oci://ghcr.io/wonjune95/charts/sealane --version 0.9.0 -n sealane --create-namespace
+# or plain manifests
+kubectl apply -f https://github.com/wonjune95/sealane/releases/latest/download/install.yaml
 kubectl -n sealane port-forward svc/sealane 8080:8080   # → http://localhost:8080, log in as admin / admin
 ```
 
@@ -168,6 +175,7 @@ docker push <registry>/sealane:<tag>
 helm install sealane ./charts/sealane -n sealane --create-namespace \
   --set image.repository=<registry>/sealane --set image.tag=<tag>
 ```
+The published image is multi-arch (amd64/arm64) and signed with cosign (keyless); see [docs/releasing.md](docs/releasing.md) for the verification command.
 Key values: `image.*`, `imagePullSecrets` (private registries), `replicaCount` (stateless — scale for HA), `accountsConfigMap`, `clustersSecret`, `requestTester.enabled` (real request tester — off by default; enabling it grants `pods/exec`). The pod runs distroless non-root (uid 65532) with readOnlyRootFilesystem.
 
 ### 3) Expose — attach an HTTPRoute to your cluster's Gateway
@@ -212,7 +220,7 @@ To manage multiple clusters from one Sealane install, go to **settings → clust
 | `REQUEST_TESTER` | (set by Helm) | `true` enables the in-pod request tester (needs pods/exec, admin only) |
 | `CLUSTERS_SECRET` / `POD_NAMESPACE` | (set by Helm) | multi-cluster: Secret holding remote kubeconfigs (empty = local only) |
 
-Probes: `/healthz` (live) · `/readyz` (ready) · `/metrics` (Prometheus). Logs are structured `slog` JSON (request log + write audit log).
+Probes: `/healthz` (live) · `/readyz` (ready) · `/metrics` (Prometheus). Logs are structured `slog` JSON (request log + write audit log). `/readyz` pings the API server (2 s timeout) and returns 503 `not ready` on failure. The running version is shown at the bottom of the Settings page.
 
 ---
 
@@ -272,11 +280,14 @@ cd web && npm run dev              # frontend HMR: Vite :5173 → /api proxy →
 
 go test ./internal/...             # unit tests (auth boundaries, registry cache, write guards, audit, flow map)
 go vet ./cmd/... ./internal/...
+go run github.com/golangci/golangci-lint/v2/cmd/golangci-lint@latest run ./cmd/... ./internal/...
 ./hack/check-i18n.sh               # no Korean outside locale files, en/ko keys match
 helm lint charts/sealane
 cd web && npm run lint                     # ESLint
 cd web && npm run test:cluster-selection   # cluster selection recovery
 cd web && npm run test:flow-map            # path filtering, drag and responsive UI
+
+./hack/e2e.sh http://localhost:8080   # API smoke test against a fresh install (admin/admin)
 
 # single binary without a container
 cd web && npm ci && npm run build  # frontend build → internal/assets/dist
@@ -308,6 +319,11 @@ kubectl apply -f examples/httproute.yaml
 ```
 
 After installing: ① change the admin password (forced at first login) ② add accounts (settings → account management) ③ for multi-cluster, register kubeconfigs (settings → cluster management). Uninstall with `helm uninstall sealane -n sealane` (the accounts ConfigMap and clusters Secret survive — delete them too for a full cleanup).
+
+## Compatibility
+
+Tested in CI on kind with Istio 1.31.1 and Gateway API v1.5.1 (linux/amd64); the image is multi-arch (amd64/arm64).
+Kubernetes 1.28+ is required; the full matrix is in [docs/compatibility.md](docs/compatibility.md).
 
 ## License
 

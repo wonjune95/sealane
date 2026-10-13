@@ -7,6 +7,10 @@
 ![Go](https://img.shields.io/badge/Go-1.26-00ADD8?logo=go&logoColor=white)
 ![React](https://img.shields.io/badge/React-18%20%2B%20TS-61DAFB?logo=react&logoColor=black)
 ![License](https://img.shields.io/badge/License-MIT-yellow)
+[![ci](https://github.com/wonjune95/sealane/actions/workflows/ci.yml/badge.svg)](https://github.com/wonjune95/sealane/actions/workflows/ci.yml)
+[![e2e](https://github.com/wonjune95/sealane/actions/workflows/e2e.yml/badge.svg)](https://github.com/wonjune95/sealane/actions/workflows/e2e.yml)
+[![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/wonjune95/sealane/badge)](https://scorecard.dev/viewer/?uri=github.com/wonjune95/sealane)
+[![Artifact Hub](https://img.shields.io/endpoint?url=https://artifacthub.io/badge/repository/sealane)](https://artifacthub.io/packages/search?repo=sealane)
 
 > [!NOTE]
 > Istio용 서드파티 도구입니다. Istio 및 CNCF의 공식 프로젝트가 아니며 제휴·보증 관계가 없습니다.
@@ -14,7 +18,10 @@
 > Istio · Gateway API 라우팅/보안/텔레메트리 설정을 **계정·역할 기반으로 안전하게** 보고·만들고·고치는 단일 바이너리 웹 콘솔.
 
 ```bash
-helm install sealane oci://ghcr.io/wonjune95/charts/sealane --version 0.8.0 -n sealane --create-namespace
+# Helm (OCI)
+helm install sealane oci://ghcr.io/wonjune95/charts/sealane --version 0.9.0 -n sealane --create-namespace
+# or plain manifests
+kubectl apply -f https://github.com/wonjune95/sealane/releases/latest/download/install.yaml
 kubectl -n sealane port-forward svc/sealane 8080:8080   # → http://localhost:8080, 초기 계정 admin / admin
 ```
 
@@ -169,6 +176,7 @@ docker push <registry>/sealane:<tag>
 helm install sealane ./charts/sealane -n sealane --create-namespace \
   --set image.repository=<registry>/sealane --set image.tag=<tag>
 ```
+공개 이미지는 amd64/arm64 멀티아치이며 cosign(keyless)으로 서명된다. 검증 명령은 [docs/releasing.md](docs/releasing.md)를 참고한다.
 주요 values: `image.*`, `imagePullSecrets`(사설 레지스트리), `replicaCount`(무상태라 늘리면 그대로 HA), `accountsConfigMap`(계정 ConfigMap), `clustersSecret`(멀티클러스터), `requestTester.enabled`(실제 요청 테스터 — 기본 꺼짐, 켜면 `pods/exec` 권한이 붙는다). 파드는 distroless non-root(uid 65532) + readOnlyRootFilesystem으로 뜬다.
 
 ### 3) 노출 — 클러스터의 Gateway에 HTTPRoute 부착
@@ -213,7 +221,7 @@ kubectl -n sealane edit configmap sealane-accounts
 | `REQUEST_TESTER` | (헬름이 주입) | `true`면 실제 요청 테스터 활성화 (pods/exec 권한 필요, admin 전용) |
 | `CLUSTERS_SECRET` / `POD_NAMESPACE` | (헬름이 주입) | 멀티클러스터: 원격 클러스터 kubeconfig Secret 이름 (비우면 local만) |
 
-프로브: `/healthz` (live) · `/readyz` (ready) · `/metrics` (Prometheus). 로그는 `slog` JSON 구조화(요청 로그 + 쓰기 감사 로그).
+프로브: `/healthz` (live) · `/readyz` (ready) · `/metrics` (Prometheus). 로그는 `slog` JSON 구조화(요청 로그 + 쓰기 감사 로그). `/readyz`는 API 서버 핑(2초 타임아웃)이며 실패하면 503 `not ready`를 돌려준다. 실행 중인 버전은 설정 페이지 하단에 표시된다.
 
 ---
 
@@ -274,11 +282,14 @@ cd web && npm run dev              # 프론트 HMR: Vite :5173 → /api 프록�
 
 go test ./internal/...             # 단위 테스트 (인증 경계·레지스트리 캐시·쓰기 가드·감사 로그, fake client 기반)
 go vet ./cmd/... ./internal/...
+go run github.com/golangci/golangci-lint/v2/cmd/golangci-lint@latest run ./cmd/... ./internal/...
 ./hack/check-i18n.sh               # 로케일 파일 밖 한글 금지, en/ko 키 일치
 helm lint charts/sealane
 cd web && npm run lint                     # ESLint
 cd web && npm run test:cluster-selection   # 클러스터 선택 복구 검증
 cd web && npm run test:flow-map            # 흐름 탐색·드래그·반응형 UI 검증
+
+./hack/e2e.sh http://localhost:8080   # 새로 설치한 인스턴스에 대한 API 스모크 테스트 (admin/admin)
 
 # 컨테이너 없이 단일 바이너리로 구동할 때
 cd web && npm ci && npm run build  # 프론트 빌드 → internal/assets/dist
@@ -310,6 +321,11 @@ kubectl apply -f examples/httproute.yaml
 ```
 
 설치 후 할 일: ① admin 비밀번호 변경(설정 페이지) ② 계정 추가(설정 → 계정 관리) ③ 멀티클러스터가 필요하면 설정 → 클러스터 관리에서 kubeconfig 등록. 제거는 `helm uninstall sealane -n sealane` (계정 ConfigMap과 클러스터 Secret은 남으므로 완전 삭제 시 함께 지운다).
+
+## 호환성
+
+CI에서 kind + Istio 1.31.1 + Gateway API v1.5.1(linux/amd64)로 검증하며, 이미지는 멀티아치(amd64/arm64)다.
+Kubernetes 1.28 이상이 필요하며, 전체 표는 [docs/compatibility.md](docs/compatibility.md)에 있다.
 
 ## 라이선스
 

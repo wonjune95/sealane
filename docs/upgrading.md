@@ -34,3 +34,13 @@ Then `helm upgrade sealane oci://ghcr.io/wonjune95/charts/sealane --version 0.8.
 - Chart: `oci://ghcr.io/wonjune95/charts/sealane`, source under `charts/sealane`.
 - UI language: English by default, Korean available from the header toggle (browser language is detected).
 - Accounts mount path inside the pod: `/etc/sealane/accounts`.
+
+## From 0.8.x to 0.9.x
+
+0.9 adds new values keys (`sessionSecret`, `ingress`, `httpRoute`), so `helm upgrade --reuse-values` from 0.8.0 fails with a nil-pointer template error. Reset to the new chart defaults and then reapply your previous values (Helm 3.14+), or pass your values explicitly:
+
+```bash
+helm upgrade sealane oci://ghcr.io/wonjune95/charts/sealane --version 0.9.0 -n <namespace> --reset-then-reuse-values
+```
+
+0.9 also creates a `<release>-session` Secret by default so sessions survive restarts. Set `sessionSecret.create=false` to opt out (GitOps users should set `sessionSecret.existingSecret` instead).

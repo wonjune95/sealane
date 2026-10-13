@@ -18,6 +18,7 @@ go vet ./cmd/... ./internal/... && go test ./internal/...
 cd web && npm run build && npm run lint
 cd web && npm run test:cluster-selection && npm run test:flow-map   # browser checks, need `npm run dev` running and Playwright Chromium
 ./hack/check-i18n.sh               # no Korean outside locale files, en/ko keys match
+go run github.com/golangci/golangci-lint/v2/cmd/golangci-lint@latest run ./cmd/... ./internal/...
 helm lint charts/sealane
 ```
 
@@ -31,6 +32,10 @@ Every user-visible string goes through `t('key')` from `web/src/i18n`. Add the E
 - Sign off your commits (`git commit -s`) to certify the [Developer Certificate of Origin](https://developercertificate.org/).
 - Keep PRs focused. Describe what changed and how you tested it; the PR template asks for both.
 - New behavior needs a test where one is practical (Go unit test with the fake client, or a Playwright fixture check).
+
+## Releases
+
+See [docs/releasing.md](docs/releasing.md).
 
 ## Reporting bugs and proposing features
 

@@ -42,4 +42,5 @@ One constraint drove the design — **"it must work just by deploying it."** No 
 - [Authentication](authentication.md) — local accounts and OIDC single sign-on.
 - [Features](features.md) — the resource engine, write safeguards, flow map and request console.
 - [Configuration](configuration.md) — flags, environment variables and Helm values.
+- [Versioning & support](versioning.md) — what stays stable in 1.x, which versions get fixes, compatibility policy.
 - [FAQ](faq.md)

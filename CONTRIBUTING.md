@@ -45,7 +45,7 @@ Every user-visible string goes through `t('key')` from `web/src/i18n`. Add the E
 
 ## Releases
 
-See [docs/releasing.md](docs/releasing.md).
+See [docs/releasing.md](docs/releasing.md). Version numbers and what stays stable in 1.x are in [docs/versioning.md](docs/versioning.md).
 
 ## Reporting bugs and proposing features
 

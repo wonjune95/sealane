@@ -41,10 +41,12 @@ nav:
   - Reference:
       - Configuration: configuration.md
       - Operations: operations.md
+      - Versioning & support: versioning.md
       - Compatibility: compatibility.md
       - Security policy: security.md
   - Project:
       - Contributing: contributing.md
+      - Governance & adopters: governance.md
       - Releasing: releasing.md
       - Upgrading: upgrading.md
       - FAQ: faq.md

@@ -85,6 +85,7 @@ admin은 설정 페이지에서 계정과 원격 클러스터를 관리한다.
 - [Features](https://wonjune95.github.io/sealane/features/) — 리소스 엔진, 쓰기 안전장치, 흐름도, 요청 콘솔
 - [Configuration](https://wonjune95.github.io/sealane/configuration/) — 플래그, 환경변수, Helm values
 - [FAQ](https://wonjune95.github.io/sealane/faq/)
+- [Versioning & support](https://wonjune95.github.io/sealane/versioning/) · [Governance & adopters](https://wonjune95.github.io/sealane/governance/) — 1.x 호환 약속, 지원 범위, 프로젝트 운영 방식
 
 ## 개발
 

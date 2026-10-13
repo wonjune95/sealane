@@ -84,6 +84,7 @@ Full documentation: **https://wonjune95.github.io/sealane/**
 - [Features](https://wonjune95.github.io/sealane/features/) — resource engine, write safeguards, flow map, request console
 - [Configuration](https://wonjune95.github.io/sealane/configuration/) — flags, environment variables, Helm values
 - [FAQ](https://wonjune95.github.io/sealane/faq/)
+- [Versioning & support](https://wonjune95.github.io/sealane/versioning/) · [Governance & adopters](https://wonjune95.github.io/sealane/governance/) — stability promise, support, how the project is run
 
 ## Development
 

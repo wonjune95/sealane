@@ -102,7 +102,7 @@ func (s *Server) Routes(mux *http.ServeMux) {
 // mode, otherwise the parsed session cookie.
 func (s *Server) sessionIdentity(r *http.Request) (auth.Identity, error) {
 	if s.dev {
-		return auth.Identity{Name: "dev", Role: "admin"}, nil
+		return auth.Identity{Name: "dev", Role: "admin", Provider: auth.ProviderLocal}, nil
 	}
 	c, err := r.Cookie(sessionCookie)
 	if err != nil {

@@ -21,10 +21,17 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
+// Provider values carried in the session: who authenticated the user.
+const (
+	ProviderLocal = "local"
+	ProviderOIDC  = "oidc"
+)
+
 // Identity is the logged-in user attached to each request.
 type Identity struct {
-	Name string
-	Role string // admin | editor | viewer
+	Name     string
+	Role     string // admin | editor | viewer
+	Provider string // ProviderLocal | ProviderOIDC
 }
 
 // User returns a stable display identity for audit logs.
@@ -100,7 +107,7 @@ func (s *Store) Authenticate(username, password string) (string, error) {
 	return role, nil
 }
 
-// Sessions signs and verifies session cookie values: "user|role|expiry|sig".
+// Sessions signs and verifies session cookie values: "user|role|expiry|provider|sig".
 type Sessions struct{ secret []byte }
 
 // NewSessions uses SESSION_SECRET when provided; otherwise a random per-boot key.
@@ -118,24 +125,20 @@ func NewSessions(secret string) *Sessions {
 }
 
 func (s *Sessions) Sign(id Identity, ttl time.Duration) string {
-	payload := fmt.Sprintf("%s|%s|%d",
-		base64.RawURLEncoding.EncodeToString([]byte(id.Name)), id.Role, time.Now().Add(ttl).Unix())
+	provider := id.Provider
+	if provider == "" {
+		provider = ProviderLocal
+	}
+	payload := fmt.Sprintf("%s|%s|%d|%s",
+		base64.RawURLEncoding.EncodeToString([]byte(id.Name)), id.Role, time.Now().Add(ttl).Unix(), provider)
 	return payload + "|" + s.sig(payload)
 }
 
 var ErrSessionInvalid = errors.New("login required")
 
 func (s *Sessions) Parse(value string) (Identity, error) {
-	i := strings.LastIndexByte(value, '|')
-	if i < 0 {
-		return Identity{}, ErrSessionInvalid
-	}
-	payload, sig := value[:i], value[i+1:]
-	if !hmac.Equal([]byte(s.sig(payload)), []byte(sig)) {
-		return Identity{}, ErrSessionInvalid
-	}
-	parts := strings.Split(payload, "|")
-	if len(parts) != 3 {
+	parts, err := s.verify(value, 4)
+	if err != nil {
 		return Identity{}, ErrSessionInvalid
 	}
 	exp, err := strconv.ParseInt(parts[2], 10, 64)
@@ -143,10 +146,68 @@ func (s *Sessions) Parse(value string) (Identity, error) {
 		return Identity{}, ErrSessionInvalid
 	}
 	name, err := base64.RawURLEncoding.DecodeString(parts[0])
-	if err != nil || !validRoles[parts[1]] {
+	if err != nil || !validRoles[parts[1]] || (parts[3] != ProviderLocal && parts[3] != ProviderOIDC) {
 		return Identity{}, ErrSessionInvalid
 	}
-	return Identity{Name: string(name), Role: parts[1]}, nil
+	return Identity{Name: string(name), Role: parts[1], Provider: parts[3]}, nil
+}
+
+// SignState protects the OIDC login state (state, nonce, PKCE verifier) in a short-lived
+// cookie with the same HMAC key, so the flow stays stateless across replicas.
+func (s *Sessions) SignState(state, nonce, verifier string, ttl time.Duration) string {
+	payload := fmt.Sprintf("%s|%s|%s|%d", state, nonce, verifier, time.Now().Add(ttl).Unix())
+	return payload + "|" + s.sig(payload)
+}
+
+var ErrStateInvalid = errors.New("login state invalid or expired")
+
+func (s *Sessions) ParseState(value string) (state, nonce, verifier string, err error) {
+	parts, err := s.verify(value, 4)
+	if err != nil {
+		return "", "", "", ErrStateInvalid
+	}
+	exp, err := strconv.ParseInt(parts[3], 10, 64)
+	if err != nil || time.Now().Unix() > exp {
+		return "", "", "", ErrStateInvalid
+	}
+	return parts[0], parts[1], parts[2], nil
+}
+
+// verify checks the trailing HMAC and splits the payload into exactly n fields.
+func (s *Sessions) verify(value string, n int) ([]string, error) {
+	i := strings.LastIndexByte(value, '|')
+	if i < 0 {
+		return nil, ErrSessionInvalid
+	}
+	payload, sig := value[:i], value[i+1:]
+	if !hmac.Equal([]byte(s.sig(payload)), []byte(sig)) {
+		return nil, ErrSessionInvalid
+	}
+	parts := strings.Split(payload, "|")
+	if len(parts) != n {
+		return nil, ErrSessionInvalid
+	}
+	return parts, nil
+}
+
+// MapRole picks the highest app role whose group list intersects the user's groups;
+// defaultRole applies when nothing matches ("" = refuse the login).
+func MapRole(groups []string, roles map[string][]string, defaultRole string) (string, bool) {
+	has := map[string]bool{}
+	for _, g := range groups {
+		has[g] = true
+	}
+	for _, role := range []string{"admin", "editor", "viewer"} {
+		for _, g := range roles[role] {
+			if has[g] {
+				return role, true
+			}
+		}
+	}
+	if defaultRole != "" && validRoles[defaultRole] {
+		return defaultRole, true
+	}
+	return "", false
 }
 
 func (s *Sessions) sig(payload string) string {

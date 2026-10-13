@@ -39,7 +39,7 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 		writeError(w, status, "Unauthorized", err.Error())
 		return
 	}
-	id := auth.Identity{Name: in.Username, Role: role}
+	id := auth.Identity{Name: in.Username, Role: role, Provider: auth.ProviderLocal}
 	http.SetCookie(w, &http.Cookie{
 		Name:     sessionCookie,
 		Value:    s.sessions.Sign(id, sessionTTL),

@@ -35,16 +35,16 @@ func Handler() http.Handler {
 				return
 			}
 		}
-		defer f.Close()
+		defer f.Close() //nolint:errcheck // read-only embedded file
 		st, err := f.Stat()
 		if err != nil || st.IsDir() {
-			f.Close()
+			_ = f.Close()
 			p = "index.html"
 			if f, err = sub.Open(p); err != nil {
 				http.Error(w, "not found", http.StatusNotFound)
 				return
 			}
-			defer f.Close()
+			defer f.Close() //nolint:errcheck // read-only embedded file
 			st, _ = f.Stat()
 		}
 		rs, ok := f.(io.ReadSeeker)

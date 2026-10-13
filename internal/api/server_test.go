@@ -571,8 +571,8 @@ current-context: x
 func TestFlowMap(t *testing.T) {
 	kube := kubefake.NewClientset(
 		&corev1.Service{ObjectMeta: metav1.ObjectMeta{Name: "petclinic", Namespace: "dev"}},
-		&corev1.Endpoints{ObjectMeta: metav1.ObjectMeta{Name: "petclinic", Namespace: "dev"},
-			Subsets: []corev1.EndpointSubset{{Addresses: []corev1.EndpointAddress{{IP: "10.0.0.1"}, {IP: "10.0.0.2"}}}}},
+		&corev1.Endpoints{ObjectMeta: metav1.ObjectMeta{Name: "petclinic", Namespace: "dev"}, //nolint:staticcheck // production flow map reads core Endpoints
+			Subsets: []corev1.EndpointSubset{{Addresses: []corev1.EndpointAddress{{IP: "10.0.0.1"}, {IP: "10.0.0.2"}}}}}, //nolint:staticcheck // see Endpoints above
 	)
 	istio := istiofake.NewSimpleClientset(
 		&istionet.VirtualService{ObjectMeta: metav1.ObjectMeta{Name: "shop", Namespace: "dev"},
@@ -612,7 +612,7 @@ func TestFlowMap(t *testing.T) {
 			Spec: istioapi.ServiceEntry{Hosts: []string{"*.example.com"}}}, metav1.CreateOptions{}); err != nil {
 		t.Fatal(err)
 	}
-	gw := gwfake.NewSimpleClientset(
+	gw := gwfake.NewClientset(
 		&gwapi.HTTPRoute{ObjectMeta: metav1.ObjectMeta{Name: "hr", Namespace: "dev"},
 			Spec: gwapi.HTTPRouteSpec{
 				Hostnames:       []gwapi.Hostname{"api.example.com"},
@@ -771,8 +771,8 @@ func TestClustersList_Status(t *testing.T) {
 func TestRouteMatch(t *testing.T) {
 	kube := kubefake.NewClientset(
 		&corev1.Service{ObjectMeta: metav1.ObjectMeta{Name: "shop", Namespace: "dev"}},
-		&corev1.Endpoints{ObjectMeta: metav1.ObjectMeta{Name: "shop", Namespace: "dev"},
-			Subsets: []corev1.EndpointSubset{{Addresses: []corev1.EndpointAddress{{IP: "10.0.0.1"}}}}},
+		&corev1.Endpoints{ObjectMeta: metav1.ObjectMeta{Name: "shop", Namespace: "dev"}, //nolint:staticcheck // production flow map reads core Endpoints
+			Subsets: []corev1.EndpointSubset{{Addresses: []corev1.EndpointAddress{{IP: "10.0.0.1"}}}}}, //nolint:staticcheck // see Endpoints above
 	)
 	istio := istiofake.NewSimpleClientset()
 	if _, err := istio.NetworkingV1().VirtualServices("dev").Create(context.Background(),
@@ -806,7 +806,7 @@ func TestRouteMatch(t *testing.T) {
 	}
 	exact, prefix := gwapi.PathMatchExact, gwapi.PathMatchPathPrefix
 	pApi, pApiUsers := "/api", "/api/users"
-	gw := gwfake.NewSimpleClientset(
+	gw := gwfake.NewClientset(
 		&gwapi.HTTPRoute{ObjectMeta: metav1.ObjectMeta{Name: "api-hr", Namespace: "dev"},
 			Spec: gwapi.HTTPRouteSpec{
 				Hostnames: []gwapi.Hostname{"api.example.com"},

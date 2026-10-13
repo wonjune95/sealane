@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/url"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -229,7 +230,9 @@ func parseCurlOutput(raw string, out *reqTestResult) {
 		return
 	}
 	if parts := strings.SplitN(lines[0], " ", 3); len(parts) >= 2 && strings.HasPrefix(parts[0], "HTTP/") {
-		fmt.Sscanf(parts[1], "%d", &out.Status)
+		if n, err := strconv.Atoi(parts[1]); err == nil {
+			out.Status = n
+		}
 		if len(parts) == 3 {
 			out.StatusText = parts[2]
 		}

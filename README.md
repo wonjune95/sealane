@@ -24,7 +24,7 @@ kubectl apply -f https://github.com/wonjune95/sealane/releases/latest/download/i
 kubectl -n sealane port-forward svc/sealane 8080:8080   # → http://localhost:8080, log in as admin / admin
 ```
 
-`install.yaml` expects the `istio-system` namespace for the istiod version reader; without Istio, the two `namespaces "istio-system" not found` errors from `kubectl apply` are harmless. A Helm install works without Istio: when the `istioNamespace` namespace is absent, the chart skips its istiod-reader Role — see [Getting started](https://wonjune95.github.io/sealane/getting-started/).
+`install.yaml` expects the `istio-system` namespace for the istiod version reader; without Istio, the two `namespaces "istio-system" not found` errors from `kubectl apply` are harmless. A Helm install works without Istio: when the `istioNamespace` namespace is absent, the chart skips its istiod-reader Role (GitOps tools render with `helm template` and cannot detect this — set `istioNamespace: ""` there) — see [Getting started](https://wonjune95.github.io/sealane/getting-started/).
 
 ![Sealane home](docs/img/screenshot.png)
 

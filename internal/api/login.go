@@ -41,7 +41,7 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 	}
 	id := auth.Identity{Name: in.Username, Role: role, Provider: auth.ProviderLocal}
 	setSessionCookie(w, s.sessions.Sign(id, sessionTTL))
-	slog.Info("login", "user", in.Username, "role", role)
+	slog.Info("login", "user", in.Username, "role", role, "provider", auth.ProviderLocal)
 	writeJSON(w, http.StatusOK, map[string]string{"user": id.Name, "role": id.Role})
 }
 

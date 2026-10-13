@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/http"
 	"os"
 	"strings"
 	"sync"
@@ -88,9 +89,13 @@ type OIDC struct {
 
 func NewOIDC(cfg OIDCConfig) *OIDC { return &OIDC{cfg: cfg} }
 
+// oidcHTTP bounds every IdP call: discovery, token exchange and (via the provider) JWKS.
+var oidcHTTP = &http.Client{Timeout: 10 * time.Second}
+
 func (o *OIDC) DisplayName() string { return o.cfg.DisplayName }
 
 func (o *OIDC) discover(ctx context.Context) (*oidc.Provider, error) {
+	// ponytail: one mutex serializes first discovery; fine at login rates.
 	o.mu.Lock()
 	defer o.mu.Unlock()
 	if o.provider != nil {
@@ -98,7 +103,7 @@ func (o *OIDC) discover(ctx context.Context) (*oidc.Provider, error) {
 	}
 	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
-	p, err := oidc.NewProvider(ctx, o.cfg.IssuerURL)
+	p, err := oidc.NewProvider(oidc.ClientContext(ctx, oidcHTTP), o.cfg.IssuerURL) // the provider keeps this client for JWKS
 	if err != nil {
 		return nil, fmt.Errorf("oidc discovery: %w", err)
 	}
@@ -129,6 +134,7 @@ func (o *OIDC) Exchange(ctx context.Context, code, verifier, nonce string) (Iden
 	if err != nil {
 		return Identity{}, err
 	}
+	ctx = oidc.ClientContext(ctx, oidcHTTP)
 	tok, err := o.oauth(p).Exchange(ctx, code, oauth2.VerifierOption(verifier))
 	if err != nil {
 		return Identity{}, fmt.Errorf("token exchange: %w", err)

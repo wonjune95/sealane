@@ -27,6 +27,7 @@ await check('SSO button shows the provider name and links to the login route', a
 await check('oidc_error=access_denied shows the no-role message', async () => {
   await page.goto(base + '/?oidc_error=access_denied')
   await page.getByText('Your account has no role in Sealane', { exact: false }).waitFor()
+  await page.waitForURL((u) => !u.search) // the code is dropped so a later sign-out does not show it again
 })
 await check('oidc_error=state shows the expired message', async () => {
   await page.goto(base + '/?oidc_error=state')
@@ -34,7 +35,9 @@ await check('oidc_error=state shows the expired message', async () => {
 })
 await check('no SSO button when the server offers only local accounts', async () => {
   ssoEnabled = false
+  const methods = page.waitForResponse((r) => r.url().endsWith('/api/auth/methods'))
   await page.goto(base + '/')
+  await methods // count only after the methods answer arrived, or the check passes vacuously
   await page.getByRole('heading', { name: 'Sign in to your workspace' }).waitFor()
   if (await page.getByRole('link', { name: /Sign in with/ }).count()) throw new Error('SSO link rendered without oidc')
 })

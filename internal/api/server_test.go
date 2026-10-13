@@ -254,8 +254,29 @@ func TestCreateResource_SuccessIsAudited(t *testing.T) {
 	if audit == nil {
 		t.Fatal("no audit record emitted")
 	}
-	if audit["namespace"] != "default" || audit["name"] != "app" || audit["verb"] != "create" {
-		t.Errorf("audit = %v, want create default/app", audit)
+	if audit["namespace"] != "default" || audit["name"] != "app" || audit["verb"] != "create" || audit["provider"] != "local" {
+		t.Errorf("audit = %v, want create default/app by a local user", audit)
+	}
+}
+
+// Same name from local and OIDC is two people: the audit log and history keep them apart.
+func TestCreateResource_AuditRecordsOIDCProvider(t *testing.T) {
+	logs := captureLogs(t)
+	clients, _ := fakeDynamicClients()
+	mux := newTestMux(t, &stubSource{clients: clients})
+
+	req := httptest.NewRequest("POST", "/api/resources/"+vsTypeID, strings.NewReader(vsBody))
+	req.AddCookie(&http.Cookie{Name: "sealane_session",
+		Value: testSessions.Sign(auth.Identity{Name: "tester", Role: "editor", Provider: auth.ProviderOIDC}, time.Hour)})
+	mux.ServeHTTP(httptest.NewRecorder(), req)
+
+	if audit := findAudit(logs()); audit == nil || audit["provider"] != "oidc" {
+		t.Fatalf("audit = %v, want provider oidc", audit)
+	}
+	rec := httptest.NewRecorder()
+	mux.ServeHTTP(rec, authedReq("GET", "/api/audit", nil))
+	if !strings.Contains(rec.Body.String(), `"provider":"oidc"`) {
+		t.Fatalf("history entry lacks the provider: %s", rec.Body.String())
 	}
 }
 

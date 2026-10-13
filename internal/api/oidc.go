@@ -73,10 +73,6 @@ func (s *Server) handleOIDCCallback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	q := r.URL.Query()
-	if e := q.Get("error"); e != "" {
-		fail("idp", errors.New(e+": "+q.Get("error_description")))
-		return
-	}
 	c, err := r.Cookie(oidcStateCookie)
 	if err != nil {
 		fail("state", err)
@@ -85,6 +81,11 @@ func (s *Server) handleOIDCCallback(w http.ResponseWriter, r *http.Request) {
 	state, nonce, verifier, err := s.sessions.ParseState(c.Value)
 	if err != nil || state == "" || state != q.Get("state") {
 		fail("state", errors.New("state mismatch or expired"))
+		return
+	}
+	// Only after the state check: a crafted ?error= link without our state is a state failure, not an IdP one.
+	if e := q.Get("error"); e != "" {
+		fail("idp", errors.New(e+": "+q.Get("error_description")))
 		return
 	}
 	id, err := s.oidc.Exchange(r.Context(), q.Get("code"), verifier, nonce)

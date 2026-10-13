@@ -11,9 +11,14 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
+
+	"golang.org/x/crypto/bcrypt"
+	"golang.org/x/oauth2"
 
 	"github.com/wonjune95/sealane/internal/auth"
 	"github.com/wonjune95/sealane/internal/k8s"
@@ -22,7 +27,8 @@ import (
 )
 
 // fakeIdP is a minimal OpenID provider: discovery, JWKS and a token endpoint that mints
-// RS256 id_tokens with whatever nonce/groups the test sets.
+// RS256 id_tokens with whatever nonce/groups the test sets. aud, exp and signKey
+// override the valid defaults ("sealane", +1h, the published key) for negative tests.
 type fakeIdP struct {
 	srv          *httptest.Server
 	key          *rsa.PrivateKey
@@ -30,6 +36,9 @@ type fakeIdP struct {
 	groups       []string
 	email        string
 	lastVerifier string
+	aud          string
+	exp          time.Time
+	signKey      *rsa.PrivateKey
 }
 
 func newFakeIdP(t *testing.T) *fakeIdP {
@@ -65,11 +74,21 @@ func newFakeIdP(t *testing.T) *fakeIdP {
 			_ = json.NewEncoder(w).Encode(map[string]string{"error": "invalid_grant"})
 			return
 		}
-		claims := map[string]any{
-			"iss": iss, "sub": "alice", "aud": "sealane", "iat": time.Now().Unix(),
-			"exp": time.Now().Add(time.Hour).Unix(), "nonce": f.nonce, "email": f.email, "groups": f.groups,
+		aud, exp, signKey := "sealane", time.Now().Add(time.Hour), key
+		if f.aud != "" {
+			aud = f.aud
 		}
-		_ = json.NewEncoder(w).Encode(map[string]any{"access_token": "at", "token_type": "Bearer", "id_token": signRS256(t, key, claims)})
+		if !f.exp.IsZero() {
+			exp = f.exp
+		}
+		if f.signKey != nil {
+			signKey = f.signKey
+		}
+		claims := map[string]any{
+			"iss": iss, "sub": "alice", "aud": aud, "iat": time.Now().Unix(),
+			"exp": exp.Unix(), "nonce": f.nonce, "email": f.email, "groups": f.groups,
+		}
+		_ = json.NewEncoder(w).Encode(map[string]any{"access_token": "at", "token_type": "Bearer", "id_token": signRS256(t, signKey, claims)})
 	})
 	return f
 }
@@ -167,6 +186,9 @@ func TestOIDCFullFlowMapsHighestRole(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	if q.Get("code_challenge") != oauth2.S256ChallengeFromVerifier(verifier) {
+		t.Fatal("code_challenge is not bound to the verifier in the state cookie")
+	}
 	idp.nonce, idp.groups = nonce, []string{"sre", "platform-admins"}
 
 	rec := callback(t, mux, "code=good-code&state="+url.QueryEscape(q.Get("state")), cookie)
@@ -236,6 +258,10 @@ func TestOIDCIdPErrorsRedirect(t *testing.T) {
 	if rec.Header().Get("Location") != "/?oidc_error=idp" {
 		t.Fatalf("idp error param: %s", rec.Header().Get("Location"))
 	}
+	// An ?error= without our state is a forged link, not an IdP answer.
+	if rec = callback(t, mux, "error=access_denied", nil); rec.Header().Get("Location") != "/?oidc_error=state" {
+		t.Fatalf("idp error without state: %s", rec.Header().Get("Location"))
+	}
 	_, nonce, _, _ := testSessions.ParseState(cookie.Value)
 	idp.nonce = nonce + "-tampered"
 	rec = callback(t, mux, "code=good-code&state="+url.QueryEscape(q.Get("state")), cookie)
@@ -245,6 +271,68 @@ func TestOIDCIdPErrorsRedirect(t *testing.T) {
 	rec = callback(t, mux, "code=bad-code&state="+url.QueryEscape(q.Get("state")), cookie)
 	if rec.Header().Get("Location") != "/?oidc_error=idp" {
 		t.Fatalf("bad code: %s", rec.Header().Get("Location"))
+	}
+}
+
+// The verifier's checks (audience, expiry, signature) are what the whole flow rests on.
+func TestOIDCCallbackRejectsBadIDToken(t *testing.T) {
+	foreign, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for name, spoil := range map[string]func(*fakeIdP){
+		"wrong aud":       func(f *fakeIdP) { f.aud = "other" },
+		"expired":         func(f *fakeIdP) { f.exp = time.Now().Add(-time.Hour) },
+		"unpublished key": func(f *fakeIdP) { f.signKey = foreign },
+	} {
+		t.Run(name, func(t *testing.T) {
+			idp := newFakeIdP(t)
+			mux, _ := newOIDCMux(t, idp, "viewer")
+			q, cookie := startLogin(t, mux)
+			_, nonce, _, _ := testSessions.ParseState(cookie.Value)
+			idp.nonce, idp.groups = nonce, []string{"platform-admins"}
+			spoil(idp)
+			rec := callback(t, mux, "code=good-code&state="+url.QueryEscape(q.Get("state")), cookie)
+			if rec.Code != http.StatusFound || rec.Header().Get("Location") != "/?oidc_error=idp" || issuedSession(rec) != nil {
+				t.Fatalf("callback = %d %s", rec.Code, rec.Header().Get("Location"))
+			}
+			cleared := false
+			for _, c := range rec.Result().Cookies() {
+				cleared = cleared || (c.Name == "sealane_oidc" && c.Value == "" && c.MaxAge < 0)
+			}
+			if !cleared {
+				t.Fatal("state cookie not cleared")
+			}
+		})
+	}
+}
+
+// An SSO user named "admin" must not inherit the local admin's forced password change.
+func TestOIDCAdminNotForcedToChangePassword(t *testing.T) {
+	dir := t.TempDir()
+	hash, _ := bcrypt.GenerateFromPassword([]byte("admin"), bcrypt.MinCost)
+	if err := os.WriteFile(filepath.Join(dir, "admin"), []byte("admin:"+string(hash)), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	idp := newFakeIdP(t)
+	srv := NewServer(false, &stubSource{clients: &k8s.Clients{Kube: kubefake.NewClientset()}}, auth.NewStore(dir), testSessions, AccountsCMRef{}, ClustersSecretRef{})
+	srv.SetOIDC(auth.NewOIDC(oidcTestConfig(idp, "viewer")))
+	mux := http.NewServeMux()
+	srv.Routes(mux)
+
+	q, cookie := startLogin(t, mux)
+	_, nonce, _, _ := testSessions.ParseState(cookie.Value)
+	idp.nonce, idp.groups, idp.email = nonce, []string{"platform-admins"}, "admin"
+	sc := issuedSession(callback(t, mux, "code=good-code&state="+url.QueryEscape(q.Get("state")), cookie))
+	if sc == nil {
+		t.Fatal("no session cookie after successful login")
+	}
+	req := httptest.NewRequest("GET", "/api/capabilities", nil)
+	req.AddCookie(sc)
+	rec := httptest.NewRecorder()
+	mux.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK || strings.Contains(rec.Body.String(), `"mustChangePassword":true`) {
+		t.Fatalf("capabilities = %d %s", rec.Code, rec.Body.String())
 	}
 }
 

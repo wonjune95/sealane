@@ -17,7 +17,8 @@ type AuditEntry struct {
 	Time      time.Time `json:"time"`
 	Cluster   string    `json:"cluster,omitempty"` // empty means local
 	User      string    `json:"user,omitempty"`
-	Verb      string    `json:"verb"` // create | update | delete
+	Provider  string    `json:"provider,omitempty"` // local | oidc; same name from both is two people
+	Verb      string    `json:"verb"`               // create | update | delete
 	TypeID    string    `json:"typeId"`
 	Namespace string    `json:"namespace"`
 	Name      string    `json:"name"`
@@ -48,6 +49,7 @@ func (s *Server) auditResource(ctx context.Context, verb, typeID, ns, name strin
 		slog.Bool("dangerous", danger),
 		slog.String("cluster", clusterFrom(ctx)),
 		slog.String("user", identityFrom(ctx).User()),
+		slog.String("provider", identityFrom(ctx).Provider),
 		slog.String("verb", verb),
 		slog.String("type", typeID),
 		slog.String("namespace", ns),
@@ -67,6 +69,7 @@ func (s *Server) auditResource(ctx context.Context, verb, typeID, ns, name strin
 		Time:      time.Now(),
 		Cluster:   clusterFrom(ctx),
 		User:      identityFrom(ctx).User(),
+		Provider:  identityFrom(ctx).Provider,
 		Verb:      verb,
 		TypeID:    typeID,
 		Namespace: ns,

@@ -253,6 +253,7 @@ function ActionRow({ a, kind }: { a: AuditEntry; kind: string }) {
         <span className="mt-0.5 block text-[11px] text-muted">
           {kind}
           {a.user && ` · ${a.user}`}
+          {a.user && a.provider === 'oidc' && ` ${t('home.auditViaSso')}`}
         </span>
       </span>
       {!a.ok && <span className="text-red-500">{t('home.failed')}</span>}

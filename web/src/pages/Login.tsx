@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { ApiError, apiPost } from '../api/client'
 import { Icon } from '../components/icons'
 import { useTheme } from '../ui/theme'
@@ -21,6 +21,11 @@ export function Login() {
   const { theme, toggle } = useTheme()
   const methods = useAuthMethods().data
   const [oidcError] = useState(() => OIDC_ERRORS.get(new URLSearchParams(window.location.search).get('oidc_error') ?? ''))
+  // Shown once: drop ?oidc_error= so it does not return after a later sign-out. An effect, not the
+  // initializer, because StrictMode re-runs initializers and the second run would see the clean URL.
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).has('oidc_error')) window.history.replaceState(null, '', '/')
+  }, [])
   const submit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!username.trim() || !password) return

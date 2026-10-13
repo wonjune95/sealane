@@ -5,6 +5,7 @@ import { apiGet } from './client'
 export interface AuditEntry {
   time: string
   user?: string
+  provider?: 'local' | 'oidc'
   verb: 'create' | 'update' | 'delete'
   typeId: string
   namespace: string

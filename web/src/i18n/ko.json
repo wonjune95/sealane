@@ -132,6 +132,7 @@
   "home.auditFailed": "변경 기록을 불러오지 못했습니다.",
   "home.auditEmptyTitle": "아직 변경 기록이 없습니다",
   "home.auditEmptyDescription": "리소스를 생성하거나 수정하면 여기에 기록됩니다. 기록은 서버 재시작 시 초기화됩니다.",
+  "home.auditViaSso": "(SSO)",
   "home.verb.create": "생성",
   "home.verb.update": "수정",
   "home.verb.delete": "삭제",

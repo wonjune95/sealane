@@ -132,6 +132,7 @@
   "home.auditFailed": "Could not load change history.",
   "home.auditEmptyTitle": "No changes yet",
   "home.auditEmptyDescription": "Resources you create or edit are recorded here. History resets when the server restarts.",
+  "home.auditViaSso": "(SSO)",
   "home.verb.create": "Created",
   "home.verb.update": "Updated",
   "home.verb.delete": "Deleted",

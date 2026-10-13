@@ -19,14 +19,14 @@ Sealane is the new name of Istio Dashboard. Images, charts and default resource 
 
 3. Remove the old release: `helm uninstall istio-dashboard -n <namespace>`. The ConfigMap and Secret are not managed by Helm and stay in place.
 
-If you prefer the new default names, copy the data into new objects and drop the two `--set` flags:
+If you prefer the new default names, copy the data into new objects (requires `jq`) and drop the two `--set` flags:
 
 ```bash
 kubectl -n <namespace> get cm istio-dashboard-accounts -o json | jq '{apiVersion, kind, metadata: {name: "sealane-accounts"}, data}' | kubectl -n <namespace> apply -f -
 kubectl -n <namespace> get secret istio-dashboard-clusters -o json | jq '{apiVersion, kind, type, metadata: {name: "sealane-clusters"}, data}' | kubectl -n <namespace> apply -f -
 ```
 
-Then `helm upgrade sealane ... --set accountsConfigMap=sealane-accounts --set clustersSecret=sealane-clusters` (or omit the flags) and delete the old objects once the new release is healthy.
+Then `helm upgrade sealane oci://ghcr.io/wonjune95/charts/sealane --version 0.8.0 -n <namespace> --set accountsConfigMap=sealane-accounts --set clustersSecret=sealane-clusters` (or omit the flags) and delete the old objects once the new release is healthy.
 
 ### What else changed in 0.8
 

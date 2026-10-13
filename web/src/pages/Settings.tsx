@@ -132,7 +132,12 @@ function ClustersPanel() {
         { kubeconfig },
       )
       if (res.connected) {
-        toast('success', t('settings.cluster.registered', { name, version: res.version ?? '' }))
+        toast(
+          'success',
+          res.version
+            ? t('settings.cluster.registered', { name, version: res.version })
+            : t('settings.cluster.registeredNoVersion', { name }),
+        )
       } else {
         toast('error', t('settings.cluster.savedButFailed', { error: res.error ?? '' }))
       }

@@ -20,7 +20,7 @@ export function setCluster(name: string, redirectTo?: string) {
   else window.location.reload()
 }
 function withClusterParam(path: string) {
-  // Accounts and cluster registrations belong to the dashboard's host cluster.
+  // Accounts and cluster registrations belong to Sealane's host cluster.
   if (/^\/api\/(?:clusters|accounts|account|login|logout)(?:\/|\?|$)/.test(path)) return path
   const c = getCluster()
   if (!c) return path

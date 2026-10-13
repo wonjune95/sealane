@@ -333,7 +333,7 @@ func matchVSOne(m *istioapi.HTTPMatchRequest, path, method string, headers map[s
 	for _, k := range sortedKeys(m.WithoutHeaders) {
 		if v, has := headers[strings.ToLower(k)]; has {
 			if ok, _ := stringMatch(m.WithoutHeaders[k], v); ok {
-				return false, fmt.Sprintf("withoutHeaders %s excluded", k)
+				return false, fmt.Sprintf("withoutHeaders %s matched, rule excluded", k)
 			}
 		}
 	}

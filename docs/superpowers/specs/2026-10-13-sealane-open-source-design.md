@@ -80,7 +80,7 @@ CLI, Operator/CRD 기반 선언적 설정, Kustomize 오버레이, 실시간 SSE
 
 - `web/src/i18n/index.tsx`: `LocaleProvider`, `useT()` → `t(key, vars?)`; `{name}` 치환. `en.json`/`ko.json`은 평면 키(`login.tagline`, `settings.cluster.deleted`). 라이브러리 추가 없음(약 50줄).
 - 로케일 결정: `localStorage["sealane.locale"]` → `navigator.language`가 `ko`로 시작하면 `ko` → 그 외 `en`. 헤더의 테마 토글 옆에 언어 토글(`Layout.tsx`).
-- 폼 도움말·예시 사전(`web/src/forms/fieldHelp.ts`, `fieldExample.ts`)은 `{ en: {...}, ko: {...} }`로 로케일별 맵.
+- 폼 도움말·예시 문구는 `en.json`/`ko.json`의 `help.*`/`example.*` 키에 두고, `fieldHelp.ts`/`fieldExample.ts`는 타입 없는 `lookup()`으로 읽는다(구현 기준으로 수정 — 원안의 `{ en, ko }` 맵은 "한국어는 ko.json에만" 불변식과 충돌).
 - Go 사용자 노출 문자열(에러 메시지, 로그 메시지, `hack/bcrypt-hash.go` 안내)은 영어로 통일. 서버 에러는 로케일과 무관하게 영어로 표시한다(에러 코드 매핑은 필요 시).
 - 코드 주석(Go 110줄, TS 46줄)과 차트·values·examples·워크플로 주석을 영어로.
 - Playwright 픽스처 테스트(`web/tests/*.mjs`)는 영어 문자열로 갱신(테스트 기본 로케일 en).

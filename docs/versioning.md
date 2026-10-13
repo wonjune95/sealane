@@ -26,7 +26,7 @@ Sealane has a single maintainer. Fixes ship as patch releases of the latest mino
 
 ## Compatibility policy
 
-Sealane supports the last three Kubernetes minors, the last two Istio minors and the Gateway API v1.x standard channel. The e2e matrix in [`.github/workflows/e2e.yml`](https://github.com/wonjune95/sealane/blob/main/.github/workflows/e2e.yml) runs the Istio versions listed in [Compatibility](compatibility.md). Older versions probably work but are not tested.
+Sealane supports the last three Kubernetes minors, the last two Istio minors and the Gateway API v1.x standard channel: bugs reported against these versions are in scope for a fix. [Compatibility](compatibility.md) lists the exact versions that CI and a live cluster run; the e2e matrix in [`.github/workflows/e2e.yml`](https://github.com/wonjune95/sealane/blob/main/.github/workflows/e2e.yml) covers both Istio minors. Older versions that the chart still accepts (Kubernetes 1.28+) probably work but are not tested.
 
 ## Release cadence
 

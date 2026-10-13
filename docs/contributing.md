@@ -51,7 +51,7 @@ Every user-visible string goes through `t('key')` from `web/src/i18n`. Add the E
 - Keep PRs focused. Describe what changed and how you tested it; the PR template asks for both.
 - New behavior needs a test where one is practical (Go unit test with the fake client, or a Playwright fixture check).
 
-For security problems, follow the [security policy](security.md) instead of opening a public issue. Releases follow [Releasing](releasing.md).
+For security problems, follow the [security policy](security.md) instead of opening a public issue. Releases follow [Releasing](releasing.md). Version numbers and what stays stable in 1.x are in [Versioning & support](versioning.md).
 
 ## Project layout
 

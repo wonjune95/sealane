@@ -2,7 +2,7 @@
 
 ## Supported versions
 
-Only the latest minor release receives fixes. Please upgrade before reporting.
+Only the latest minor release receives fixes. Please upgrade before reporting. See [Versioning & support](versioning.md) for the full policy.
 
 ## Reporting a vulnerability
 

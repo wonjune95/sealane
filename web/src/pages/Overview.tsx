@@ -11,6 +11,7 @@ import { CATEGORY_ORDER, accentFor } from '../ui/categories'
 import { Icon } from '../components/icons'
 import { PageHeader } from '../components/PageHeader'
 import { EmptyState } from '../components/EmptyState'
+import { t } from '../i18n'
 
 export function Overview() {
   const { ns, setNs } = useNamespace()
@@ -42,14 +43,15 @@ export function Overview() {
         eyebrow="Resource inventory"
         title={
           <>
-            전체 리소스<span className="nav-count !text-xs">{rows.length}</span>
+            {t('overview.title')}
+            <span className="nav-count !text-xs">{rows.length}</span>
           </>
         }
-        description="클러스터의 모든 메시 설정을 검색하고 네임스페이스별로 살펴보세요."
+        description={t('overview.description')}
       />
       {failed && (
         <p role="alert" className="text-sm text-red-600 dark:text-red-400">
-          일부 리소스를 불러오지 못했습니다.
+          {t('overview.partialFailure')}
         </p>
       )}
       {/* toolbar */}
@@ -59,14 +61,14 @@ export function Overview() {
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="리소스 검색"
-            aria-label="리소스 검색"
+            placeholder={t('overview.search')}
+            aria-label={t('overview.search')}
             className="input-base pl-9"
           />
         </label>
         <Field label="Namespace">
           <select className="input-base w-auto py-1" value={ns} onChange={(e) => setNs(e.target.value)}>
-            <option value="">전체</option>
+            <option value="">{t('overview.all')}</option>
             {(namespaces.data ?? []).map((n) => (
               <option key={n} value={n}>
                 {n}
@@ -80,7 +82,7 @@ export function Overview() {
             value={cat}
             onChange={(e) => setCat(e.target.value as Category | '')}
           >
-            <option value="">전체</option>
+            <option value="">{t('overview.all')}</option>
             {CATEGORY_ORDER.map((c) => (
               <option key={c} value={c}>
                 {CATEGORY_LABELS[c]}
@@ -127,8 +129,8 @@ export function Overview() {
               <tr>
                 <td colSpan={5}>
                   <EmptyState
-                    title={search ? '검색 결과가 없습니다' : '리소스가 없습니다'}
-                    description="검색어나 네임스페이스 필터를 확인하세요."
+                    title={search ? t('overview.noResults') : t('overview.noResources')}
+                    description={t('overview.emptyHint')}
                   />
                 </td>
               </tr>
@@ -136,7 +138,7 @@ export function Overview() {
             {loading && (
               <tr>
                 <td colSpan={5} className="text-center text-muted">
-                  리소스를 불러오는 중…
+                  {t('overview.loading')}
                 </td>
               </tr>
             )}

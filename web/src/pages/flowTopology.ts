@@ -1,4 +1,5 @@
 import type { FlowMap as FlowData, FlowBackend } from '../api/flowmap'
+import { t } from '../i18n'
 
 export type FlowNode = {
   id: string
@@ -63,8 +64,8 @@ export function buildTopology(
     edges.set(`${from}>${to}`, { from, to, broken })
   nodes.set('src', {
     id: 'src',
-    name: isEgress ? '서비스 메시' : '외부 클라이언트',
-    kind: isEgress ? '메시 내부' : '외부 요청',
+    name: isEgress ? t('flow.node.mesh') : t('flow.node.externalClient'),
+    kind: isEgress ? t('flow.node.meshInternal') : t('flow.node.externalRequest'),
     hosts: [],
     stage: 0,
     icon: isEgress ? 'network' : 'globe',
@@ -115,8 +116,8 @@ export function buildTopology(
           stage: 1,
           icon: 'warning',
           tone: 'red',
-          issue: '참조한 게이트웨이를 찾을 수 없습니다',
-          status: '게이트웨이 없음',
+          issue: t('flow.issue.gatewayNotFound'),
+          status: t('flow.status.noGateway'),
         })
         addEdge('src', gatewayId, true)
       }
@@ -130,7 +131,7 @@ export function buildTopology(
         id: bid,
         name: backend.name,
         namespace: backend.namespace,
-        kind: backend.external ? '외부 호스트' : 'Service',
+        kind: backend.external ? t('flow.node.externalHost') : 'Service',
         hosts: [],
         stage: 3,
         icon: backend.external ? 'globe' : 'cube',
@@ -140,14 +141,14 @@ export function buildTopology(
         status: backend.external
           ? backend.serviceEntry
             ? `ServiceEntry · ${backend.serviceEntry}`
-            : '외부 목적지'
+            : t('flow.status.external')
           : !backend.exists
-            ? '서비스 없음'
-            : `엔드포인트 ${backend.endpoints}`,
+            ? t('flow.status.noService')
+            : t('flow.status.endpoints', { n: backend.endpoints }),
         issue: broken
           ? !backend.exists
-            ? '참조한 서비스가 존재하지 않습니다'
-            : '요청을 받을 준비된 엔드포인트가 없습니다'
+            ? t('flow.issue.serviceMissing')
+            : t('flow.issue.noEndpoints')
           : undefined,
       })
       addEdge(id, bid, broken)
@@ -171,7 +172,7 @@ export function buildTopology(
         stage: 3,
         icon: 'globe',
         tone: 'green',
-        status: '메시에서 직접 연결',
+        status: t('flow.status.direct'),
         to: `/resources/${entry.typeId}/${entry.namespace}/${entry.name}`,
       })
       addEdge('src', id)

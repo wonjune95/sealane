@@ -22,7 +22,7 @@ const capabilities = {
 }
 
 async function scenario({ registered = false, authenticated = true, failCapabilities = false, failList = false } = {}) {
-  const context = await browser.newContext()
+  const context = await browser.newContext({ locale: 'en-US' })
   const requests = []
   const errors = []
   await context.addInitScript(({ key }) => {

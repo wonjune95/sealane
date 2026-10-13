@@ -85,6 +85,7 @@ let failure = false
 const errors = []
 const context = await browser.newContext({
   viewport: { width: 1440, height: 1100 },
+  locale: 'en-US',
 })
 await context.route('**/api/**', async (interception) => {
   const request = interception.request(),
@@ -105,7 +106,7 @@ await context.route('**/api/**', async (interception) => {
         ? {
             status: 500,
             json: {
-              error: { reason: 'Internal', message: '테스트 조회 오류' },
+              error: { reason: 'Internal', message: 'test fetch error' },
             },
           }
         : { json: response },
@@ -118,16 +119,16 @@ const cards = page.locator('.flow-node')
 async function reload() {
   await page.goto(`${base}/flowmap`)
   await page
-    .getByRole('heading', { name: '트래픽 흐름', exact: true })
+    .getByRole('heading', { name: 'Traffic flow', exact: true })
     .waitFor()
 }
 try {
   await reload()
   await cards.filter({ hasText: 'checkout-route' }).waitFor()
   assert.equal(await cards.count(), 11)
-  await page.getByRole('button', { name: '인그레스', exact: false }).click()
+  await page.getByRole('button', { name: 'Ingress', exact: false }).click()
   await cards.filter({ hasText: 'dual-direction' }).waitFor()
-  await page.getByRole('button', { name: '이그레스', exact: false }).click()
+  await page.getByRole('button', { name: 'Egress', exact: false }).click()
   await cards.filter({ hasText: 'dual-direction' }).waitFor()
   await cards.filter({ hasText: 'public-api' }).waitFor()
   assert.equal(await cards.filter({ hasText: 'public-gateway' }).count(), 0)
@@ -139,19 +140,19 @@ try {
     'PASS: mixed ingress/egress parents and direct ServiceEntry connections remain visible',
   )
 
-  await page.getByRole('button', { name: '인그레스', exact: false }).click()
-  await page.getByRole('textbox', { name: '흐름 검색' }).fill('checkout')
+  await page.getByRole('button', { name: 'Ingress', exact: false }).click()
+  await page.getByRole('textbox', { name: 'Search flows' }).fill('checkout')
   assert.equal(await cards.count(), 4)
   assert.equal(await cards.filter({ hasText: 'public-gateway' }).count(), 1)
   await page
-    .getByRole('combobox', { name: '흐름 네임스페이스' })
+    .getByRole('combobox', { name: 'Flow namespace' })
     .selectOption('apps')
   assert.equal(await cards.count(), 4)
   await page
-    .getByRole('button', { name: '필터 초기화', exact: true })
+    .getByRole('button', { name: 'Reset filters', exact: true })
     .first()
     .click()
-  await page.getByRole('button', { name: '문제 경로', exact: false }).click()
+  await page.getByRole('button', { name: 'Problem paths', exact: false }).click()
   await cards.filter({ hasText: 'missing-gateway' }).waitFor()
   assert.equal(await cards.filter({ hasText: 'checkout-route' }).count(), 0)
   assert.equal(await cards.filter({ hasText: 'unready' }).count(), 1)
@@ -160,17 +161,17 @@ try {
   )
 
   await page
-    .getByRole('button', { name: '필터 초기화', exact: true })
+    .getByRole('button', { name: 'Reset filters', exact: true })
     .first()
     .click()
   const checkout = cards.filter({ hasText: 'checkout-route' })
   await checkout.focus()
   await page.keyboard.press('Enter')
-  const details = page.getByLabel('선택한 노드 상세')
+  const details = page.getByLabel('Selected node details')
   await details.waitFor()
   assert.equal(
     await details
-      .getByRole('link', { name: '리소스 열기' })
+      .getByRole('link', { name: 'Open resource' })
       .getAttribute('href'),
     '/resources/virtualservices.networking.istio.io/apps/checkout-route',
   )
@@ -184,7 +185,7 @@ try {
   await page.keyboard.press('Escape')
   assert.equal(await details.count(), 0)
   // Zoom and drag must use the same coordinate system, and dragging must not select.
-  await page.getByRole('button', { name: '흐름도 확대', exact: true }).click()
+  await page.getByRole('button', { name: 'Zoom in', exact: true }).click()
   const before = await checkout.boundingBox()
   await page.mouse.move(before.x + 45, before.y + 35)
   await page.mouse.down()
@@ -193,7 +194,7 @@ try {
   const after = await checkout.boundingBox()
   assert.ok(Math.abs(after.y - before.y - 50) < 3)
   assert.equal(await details.count(), 0)
-  await page.getByRole('button', { name: '배치 초기화' }).click()
+  await page.getByRole('button', { name: 'Reset layout' }).click()
   assert.equal(
     await checkout.evaluate((el) => el.style.transform),
     'translate(0px, 0px)',
@@ -203,8 +204,8 @@ try {
   )
 
   await checkout.click()
-  await page.getByRole('button', { name: '다크 모드', exact: true }).click()
-  await page.getByRole('button', { name: '라이트 모드', exact: true }).click()
+  await page.getByRole('button', { name: 'Dark mode', exact: true }).click()
+  await page.getByRole('button', { name: 'Light mode', exact: true }).click()
   for (const width of [320, 390, 768, 1024, 1440]) {
     await page.setViewportSize({ width, height: 1000 })
     await page.waitForTimeout(150)
@@ -219,7 +220,7 @@ try {
     assert.ok(await viewport.evaluate((el) => el.scrollWidth >= el.clientWidth))
   }
   await page.setViewportSize({ width: 390, height: 1000 })
-  await page.getByRole('button', { name: '화면에 맞춤' }).click()
+  await page.getByRole('button', { name: 'Fit to screen' }).click()
   assert.equal(
     await page
       .locator('.flow-viewport')
@@ -238,25 +239,25 @@ try {
     'PASS: 320–1440px layouts contain horizontal scrolling; fit and reduced motion work',
   )
 
-  await page.getByRole('textbox', { name: '흐름 검색' }).fill('no-such-host')
-  await page.getByText('일치하는 경로가 없습니다', { exact: true }).waitFor()
+  await page.getByRole('textbox', { name: 'Search flows' }).fill('no-such-host')
+  await page.getByText('No matching paths', { exact: true }).waitFor()
   await page
-    .getByRole('button', { name: '필터 초기화', exact: true })
+    .getByRole('button', { name: 'Reset filters', exact: true })
     .first()
     .click()
   response = { gateways: [], routes: [], serviceEntries: [] }
   await reload()
-  await page.getByText('인그레스 경로가 없습니다', { exact: true }).waitFor()
+  await page.getByText('No ingress paths', { exact: true }).waitFor()
   failure = true
   await reload()
   await page.getByRole('alert').waitFor()
   assert.equal(
-    await page.getByText('인그레스 경로가 없습니다', { exact: true }).count(),
+    await page.getByText('No ingress paths', { exact: true }).count(),
     0,
   )
   failure = false
   response = fixture
-  await page.getByRole('button', { name: '다시 시도', exact: true }).click()
+  await page.getByRole('button', { name: 'Retry', exact: true }).click()
   await cards.filter({ hasText: 'checkout-route' }).waitFor()
   assert.deepEqual(errors, [])
   console.log(

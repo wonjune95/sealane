@@ -4,6 +4,7 @@ import { useFlowMap } from '../api/flowmap'
 import { PageHeader } from '../components/PageHeader'
 import { EmptyState } from '../components/EmptyState'
 import { Icon } from '../components/icons'
+import { t, locale, type Key } from '../i18n'
 import {
   buildTopology,
   connectedNodes,
@@ -14,7 +15,7 @@ import {
 
 type Offsets = Record<string, { x: number; y: number }>
 const CANVAS_WIDTH = 1064
-const stages = ['요청 출발지', '게이트웨이', '라우트', '목적지']
+const stages: Key[] = ['flow.source', 'flow.gateways', 'flow.routes', 'flow.destinations']
 
 export function FlowMap() {
   const { data, isLoading, error, isFetching, refetch, dataUpdatedAt } =
@@ -49,8 +50,8 @@ export function FlowMap() {
     <div className="space-y-6">
       <PageHeader
         eyebrow="Traffic topology"
-        title="트래픽 흐름"
-        description="요청이 어디로 연결되는지, 어떤 경로를 점검해야 하는지 한눈에 확인하세요."
+        title={t('flow.title')}
+        description={t('flow.description')}
         actions={
           <button
             className="btn-ghost"
@@ -61,32 +62,32 @@ export function FlowMap() {
               name="refresh"
               className={`h-4 w-4 ${isFetching ? 'animate-spin' : ''}`}
             />{' '}
-            새로고침
+            {t('common.refresh')}
           </button>
         }
       />
       <div className="flow-summary">
         {[
           {
-            label: '게이트웨이',
+            label: t('flow.gateways'),
             value: topology.nodes.filter((n) => n.stage === 1).length,
             icon: 'shield',
             tone: 'blue',
           },
           {
-            label: '라우트',
+            label: t('flow.routes'),
             value: topology.nodes.filter((n) => n.stage === 2).length,
             icon: 'route',
             tone: 'violet',
           },
           {
-            label: '목적지',
+            label: t('flow.destinations'),
             value: topology.nodes.filter((n) => n.stage === 3).length,
             icon: 'cube',
             tone: 'green',
           },
           {
-            label: '점검할 노드',
+            label: t('flow.issueNodes'),
             value: issues,
             icon: issues ? 'warning' : 'check',
             tone: issues ? 'red' : 'green',
@@ -107,10 +108,10 @@ export function FlowMap() {
       </div>
       <section
         className="panel min-w-0 overflow-hidden"
-        aria-label="트래픽 경로 탐색"
+        aria-label={t('flow.explore')}
       >
         <div className="flow-toolbar">
-          <div className="flow-tabs" aria-label="트래픽 방향">
+          <div className="flow-tabs" aria-label={t('flow.direction')}>
             {(['ingress', 'egress'] as const).map((value) => (
               <button
                 key={value}
@@ -122,7 +123,7 @@ export function FlowMap() {
                   name={value === 'ingress' ? 'download' : 'send'}
                   className="h-4 w-4"
                 />
-                {value === 'ingress' ? '인그레스' : '이그레스'}
+                {value === 'ingress' ? t('flow.ingress') : t('flow.egress')}
                 <span>
                   {
                     (value === 'ingress' ? ingress : egress).nodes.filter(
@@ -134,9 +135,9 @@ export function FlowMap() {
             ))}
           </div>
           <p className="text-xs text-muted">
-            설정 기반 · 30초마다 갱신
+            {t('flow.refreshNote')}
             {dataUpdatedAt > 0 &&
-              ` · ${new Date(dataUpdatedAt).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })}`}
+              ` · ${new Date(dataUpdatedAt).toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' })}`}
           </p>
         </div>
         <div className="flow-filters">
@@ -147,19 +148,19 @@ export function FlowMap() {
             />
             <input
               className="input-base pl-9"
-              aria-label="흐름 검색"
-              placeholder="이름, 호스트, 리소스 종류 검색"
+              aria-label={t('flow.search')}
+              placeholder={t('flow.searchPlaceholder')}
               value={query}
               onChange={(e) => setQuery(e.target.value)}
             />
           </div>
           <select
             className="input-base flow-namespace"
-            aria-label="흐름 네임스페이스"
+            aria-label={t('flow.namespace')}
             value={namespace}
             onChange={(e) => setNamespace(e.target.value)}
           >
-            <option value="">전체 네임스페이스</option>
+            <option value="">{t('flow.allNamespaces')}</option>
             {namespaces.map((ns) => (
               <option key={ns}>{ns}</option>
             ))}
@@ -169,12 +170,12 @@ export function FlowMap() {
             aria-pressed={issuesOnly}
             onClick={() => setIssuesOnly(!issuesOnly)}
           >
-            <Icon name="warning" className="h-4 w-4" /> 문제 경로{' '}
+            <Icon name="warning" className="h-4 w-4" /> {t('flow.problemPaths')}{' '}
             <span>{issues}</span>
           </button>
           {(query || namespace || issuesOnly) && (
             <button className="btn-ghost" onClick={resetFilters}>
-              필터 초기화
+              {t('flow.resetFilters')}
             </button>
           )}
         </div>
@@ -184,33 +185,33 @@ export function FlowMap() {
             role="alert"
           >
             <Icon name="warning" />
-            흐름을 불러오지 못했습니다: {error.message}
+            {t('flow.loadFailed', { message: error.message })}
             <button className="btn-ghost" onClick={() => void refetch()}>
-              다시 시도
+              {t('common.retry')}
             </button>
           </div>
         )}
         {isLoading ? (
           <div className="p-12 text-center text-sm text-muted" role="status">
-            트래픽 경로를 불러오는 중…
+            {t('flow.loading')}
           </div>
         ) : !data ? null : filtered.nodes.length <= 1 ? (
           <EmptyState
             icon="route"
             title={
               topology.nodes.length <= 1
-                ? `${direction === 'ingress' ? '인그레스' : '이그레스'} 경로가 없습니다`
-                : '일치하는 경로가 없습니다'
+                ? t(direction === 'ingress' ? 'flow.noIngress' : 'flow.noEgress')
+                : t('flow.noMatch')
             }
             description={
               topology.nodes.length <= 1
-                ? '게이트웨이, 라우트 또는 ServiceEntry를 구성하면 연결 경로가 표시됩니다.'
-                : '다른 검색어나 네임스페이스를 선택해 보세요.'
+                ? t('flow.emptyHint')
+                : t('flow.noMatchHint')
             }
             action={
               (query || namespace || issuesOnly) && (
                 <button className="btn-ghost" onClick={resetFilters}>
-                  필터 초기화
+                  {t('flow.resetFilters')}
                 </button>
               )
             }
@@ -220,14 +221,13 @@ export function FlowMap() {
         )}
         <div className="flow-footer">
           <span>
-            <span className="flow-legend-line" /> 설정 연결
+            <span className="flow-legend-line" /> {t('flow.legendConfigured')}
           </span>
           <span>
-            <span className="flow-legend-line is-broken" /> 점검 필요
+            <span className="flow-legend-line is-broken" /> {t('flow.legendBroken')}
           </span>
           <span className="ml-auto">
-            {filteredCount}개 라우트 표시 · 실제 트래픽·지연 지표는 포함하지
-            않습니다
+            {t('flow.footer', { n: filteredCount })}
           </span>
         </div>
       </section>
@@ -319,15 +319,15 @@ function FlowCanvas({ topology }: { topology: Topology }) {
     <>
       <div className="flow-canvas-controls">
         <p className="text-xs text-muted">
-          노드를 선택해 경로 확인 · 마우스로 드래그해 배치
+          {t('flow.canvasHint')}
         </p>
         <div
           className="flex flex-wrap items-center gap-1"
-          aria-label="흐름도 보기 설정"
+          aria-label={t('flow.viewControls')}
         >
           <button
             className="flow-control"
-            aria-label="흐름도 축소"
+            aria-label={t('flow.zoomOut')}
             disabled={scale <= 0.25}
             onClick={() => setZoom(Math.max(0.25, scale - 0.1))}
           >
@@ -341,14 +341,14 @@ function FlowCanvas({ topology }: { topology: Topology }) {
           </span>
           <button
             className="flow-control"
-            aria-label="흐름도 확대"
+            aria-label={t('flow.zoomIn')}
             disabled={scale >= 1.5}
             onClick={() => setZoom(Math.min(1.5, scale + 0.1))}
           >
             <Icon name="plus" className="h-4 w-4" />
           </button>
           <button className="flow-control px-2" onClick={fit}>
-            <Icon name="fit" className="h-4 w-4" /> 화면에 맞춤
+            <Icon name="fit" className="h-4 w-4" /> {t('flow.fit')}
           </button>
           <button
             className="flow-control px-2"
@@ -359,7 +359,7 @@ function FlowCanvas({ topology }: { topology: Topology }) {
               viewportRef.current?.scrollTo({ left: 0, top: 0 })
             }}
           >
-            <Icon name="refresh" className="h-4 w-4" /> 배치 초기화
+            <Icon name="refresh" className="h-4 w-4" /> {t('flow.resetLayout')}
           </button>
         </div>
       </div>
@@ -367,7 +367,7 @@ function FlowCanvas({ topology }: { topology: Topology }) {
         ref={viewportRef}
         className="flow-viewport"
         tabIndex={0}
-        aria-label="트래픽 연결 그래프. 가로로 스크롤할 수 있습니다."
+        aria-label={t('flow.graph')}
         onKeyDown={(e) => {
           if (e.key === 'Escape') setSelected(null)
         }}
@@ -425,7 +425,7 @@ function FlowCanvas({ topology }: { topology: Topology }) {
                 <div key={stage} className="min-w-0">
                   <div className="flow-stage">
                     <span>{String(index + 1).padStart(2, '0')}</span>
-                    {stage}
+                    {t(stage)}
                     <small>
                       {topology.nodes.filter((n) => n.stage === index).length}
                     </small>
@@ -456,8 +456,8 @@ function FlowCanvas({ topology }: { topology: Topology }) {
                     {!topology.nodes.some((n) => n.stage === index) && (
                       <div className="flow-stage-empty">
                         {index === 1 || index === 2
-                          ? '직접 연결 경로'
-                          : '연결된 노드 없음'}
+                          ? t('flow.directPath')
+                          : t('flow.noNodes')}
                       </div>
                     )}
                   </div>
@@ -475,8 +475,7 @@ function FlowCanvas({ topology }: { topology: Topology }) {
         />
       ) : (
         <div className="flow-selection-hint">
-          <Icon name="info" className="h-4 w-4" /> 노드를 선택하면 관련 경로와
-          리소스 상세 정보가 표시됩니다.
+          <Icon name="info" className="h-4 w-4" /> {t('flow.selectHint')}
         </div>
       )}
     </>
@@ -599,7 +598,7 @@ function NodeDetails({
   return (
     <div
       className="flow-details"
-      aria-label="선택한 노드 상세"
+      aria-label={t('flow.selectedDetails')}
       aria-live="polite"
     >
       <div className="flex min-w-0 items-center gap-3">
@@ -608,7 +607,7 @@ function NodeDetails({
         </span>
         <div className="min-w-0">
           <p className="text-[11px] font-medium text-muted">
-            {node.kind} · 연결 노드 {connected}개
+            {node.kind} · {t('flow.connectedNodes', { n: connected })}
           </p>
           <h2 className="mt-1 break-all text-sm font-semibold text-strong">
             {node.name}
@@ -616,7 +615,7 @@ function NodeDetails({
         </div>
         <button
           className="flow-control ml-auto"
-          aria-label="노드 선택 해제"
+          aria-label={t('flow.clearSelection')}
           onClick={clear}
         >
           <Icon name="close" className="h-4 w-4" />
@@ -624,25 +623,25 @@ function NodeDetails({
       </div>
       <dl className="flow-detail-grid">
         <div>
-          <dt>네임스페이스</dt>
+          <dt>{t('common.namespace')}</dt>
           <dd>{node.namespace || '—'}</dd>
         </div>
         <div>
-          <dt>호스트 / 포트</dt>
+          <dt>{t('flow.hostPort')}</dt>
           <dd>
             {node.hosts.join(', ') || (node.port ? `:${node.port}` : '—')}
           </dd>
         </div>
         <div>
-          <dt>상태</dt>
+          <dt>{t('flow.statusLabel')}</dt>
           <dd className={node.issue ? 'text-red-600 dark:text-red-400' : ''}>
-            {node.issue || node.status || '라우팅 설정에 포함됨'}
+            {node.issue || node.status || t('flow.inRouting')}
           </dd>
         </div>
       </dl>
       {node.to && (
         <Link className="btn-ghost justify-center" to={node.to}>
-          리소스 열기
+          {t('flow.openResource')}
           <Icon name="arrow" className="h-4 w-4" />
         </Link>
       )}

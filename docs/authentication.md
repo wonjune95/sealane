@@ -126,7 +126,7 @@ When upgrading an existing release from 0.9, use `--reset-then-reuse-values` (He
 To try SSO without a real IdP, deploy [`examples/dex-demo.yaml`](https://github.com/wonjune95/sealane/blob/main/examples/dex-demo.yaml). It runs Dex with the **mock connector**: every sign-in succeeds as `kilgore@kilgore.trout` with the group `authors`. The comments at the top of the file give the steps: replace the two `example.com` hosts (Dex must be reachable by the browser **and** by the Sealane pod at the same issuer URL), apply the file, then upgrade Sealane with:
 
 ```bash
-helm upgrade sealane oci://ghcr.io/wonjune95/charts/sealane --version 1.0.0 -n sealane --reset-then-reuse-values \
+helm upgrade sealane oci://ghcr.io/wonjune95/charts/sealane --version 1.0.1 -n sealane --reset-then-reuse-values \
   --set oidc.enabled=true --set oidc.displayName=Dex \
   --set oidc.issuerURL=http://dex.example.com/dex --set oidc.clientID=sealane \
   --set oidc.clientSecretRef.name=sealane-dex-client \
@@ -143,6 +143,30 @@ With a real Dex, groups come from the connector (for example LDAP group search o
 - Issuer `https://accounts.google.com`; create an OAuth client of type **Web application** with the redirect URI above.
 - Google does not know a `groups` scope and its ID tokens carry no groups claim, so set `scopes: [openid, profile, email]` and keep `usernameClaim: email`.
 - With no groups, role mapping falls through to `defaultRole`: either give every Google user `viewer` and keep a local `admin` account for changes, or set a higher `defaultRole` deliberately. Every Google account that completes the sign-in gets `defaultRole`, so restrict who can sign in on the Google side (for a Google Workspace organization, an **Internal** OAuth consent screen).
+
+#### Private CA
+
+Sealane checks the issuer's TLS certificate against the image's system roots. If your IdP presents a certificate from an internal CA, put that CA certificate in a ConfigMap and point Go's `SSL_CERT_FILE` at it through the chart's pass-through values (the file is loaded in addition to the system roots):
+
+```bash
+kubectl -n sealane create configmap sealane-ca --from-file=ca.crt=/path/to/ca.crt
+```
+
+```yaml
+extraEnv:
+  - name: SSL_CERT_FILE
+    value: /etc/sealane/ca/ca.crt
+extraVolumes:
+  - name: ca
+    configMap:
+      name: sealane-ca
+extraVolumeMounts:
+  - name: ca
+    mountPath: /etc/sealane/ca
+    readOnly: true
+```
+
+The browser must trust the same CA, since users are sent to the IdP directly. The symptom of a missing CA is `x509: certificate signed by unknown authority` in the Sealane log at startup.
 
 ### Troubleshooting
 

@@ -92,3 +92,9 @@ oidc:
     editor: []
     viewer: []
   defaultRole: viewer
+
+# Passed through to the pod as-is. Example uses: SHUTDOWN_DELAY, HTTPS_PROXY, or a private CA
+# for the OIDC issuer (SSL_CERT_FILE + a ConfigMap mount, see docs/authentication.md#private-ca).
+extraEnv: []
+extraVolumes: []
+extraVolumeMounts: []

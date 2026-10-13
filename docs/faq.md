@@ -14,7 +14,7 @@ Passing each user's Kubernetes token through was tried first. It was accurate bu
 
 ## Does it work in an air-gapped cluster?
 
-Yes. The frontend is embedded in the binary and nothing is fetched from the internet at runtime. Mirror the image (`ghcr.io/wonjune95/sealane:1.0.0`) and the chart to your registry, then set `image.repository` and, if needed, `imagePullSecrets`. For SSO the IdP only has to be reachable from the browser and the Sealane pod.
+Yes. The frontend is embedded in the binary and nothing is fetched from the internet at runtime. Mirror the image (`ghcr.io/wonjune95/sealane:1.0.1`) and the chart to your registry, then set `image.repository` and, if needed, `imagePullSecrets`. For SSO the IdP only has to be reachable from the browser and the Sealane pod.
 
 ## My cluster has only Gateway API (or only Istio). Is that fine?
 

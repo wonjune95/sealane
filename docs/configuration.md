@@ -16,7 +16,7 @@ Sealane is configured with a few flags and environment variables. When you insta
 | `SESSION_SECRET` | (set by Helm from `<release>-session`; empty = random per boot) | session cookie signing key; empty = random per boot (restart = re-login) |
 | `REQUEST_TESTER` | (set by Helm) | `true` enables the in-pod request tester (needs pods/exec, admin only) |
 | `CLUSTERS_SECRET` / `POD_NAMESPACE` | (set by Helm) | multi-cluster: Secret holding remote kubeconfigs (empty = local only) |
-| `SHUTDOWN_DELAY` | `5s` | wait before closing the listener on SIGTERM so in-flight requests and endpoint propagation finish; set `0s` to disable; no Helm value in 1.0: `kubectl -n <ns> set env deploy/sealane SHUTDOWN_DELAY=0s`, or edit install.yaml |
+| `SHUTDOWN_DELAY` | `5s` | wait before closing the listener on SIGTERM so in-flight requests and endpoint propagation finish; set `0s` to disable through the `extraEnv` Helm value (`- {name: SHUTDOWN_DELAY, value: "0s"}`) or by editing install.yaml |
 
 ### Single sign-on variables
 
@@ -60,6 +60,7 @@ The same table is in the [chart README](https://github.com/wonjune95/sealane/blo
 | `oidc.roles.{admin,editor,viewer}` | `[]` | IdP groups per role; highest wins |
 | `oidc.defaultRole` | `viewer` | Role for users with no matching group; empty string refuses them |
 | `oidc.displayName` | `SSO` | Login button label |
+| `extraEnv` / `extraVolumes` / `extraVolumeMounts` | `[]` | Passed through to the pod as-is: `SHUTDOWN_DELAY`, a proxy, or a private CA for the IdP (see [Private CA](authentication.md#private-ca)) |
 
 ## Probes and metrics
 

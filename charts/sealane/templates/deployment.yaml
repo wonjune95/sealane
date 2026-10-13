@@ -105,6 +105,9 @@ spec:
             - name: OIDC_DISPLAY_NAME
               value: {{ $oidc.displayName | default "SSO" | quote }}
             {{- end }}
+            {{- with .Values.extraEnv }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
           livenessProbe:
             httpGet:
               path: /healthz
@@ -130,6 +133,9 @@ spec:
             - name: accounts
               mountPath: /etc/sealane/accounts
               readOnly: true
+            {{- with .Values.extraVolumeMounts }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
       volumes:
         - name: tmp
           emptyDir: {}
@@ -140,3 +146,6 @@ spec:
           configMap:
             name: {{ .Values.accountsConfigMap }}
             optional: true
+        {{- with .Values.extraVolumes }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}

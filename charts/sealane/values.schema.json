@@ -4,6 +4,9 @@
   "type": "object",
   "additionalProperties": false,
   "properties": {
+    "extraEnv": { "type": "array", "items": { "type": "object", "required": ["name"] } },
+    "extraVolumes": { "type": "array", "items": { "type": "object", "required": ["name"] } },
+    "extraVolumeMounts": { "type": "array", "items": { "type": "object", "required": ["name", "mountPath"] } },
     "oidc": {
       "type": "object", "additionalProperties": false,
       "properties": {

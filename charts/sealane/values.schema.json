@@ -4,6 +4,22 @@
   "type": "object",
   "additionalProperties": false,
   "properties": {
+    "oidc": {
+      "type": "object", "additionalProperties": false,
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "displayName": { "type": "string" },
+        "issuerURL": { "type": "string" },
+        "clientID": { "type": "string" },
+        "clientSecretRef": { "type": "object", "additionalProperties": false, "properties": { "name": { "type": "string" }, "key": { "type": "string" } } },
+        "redirectURL": { "type": "string" },
+        "scopes": { "type": "array", "items": { "type": "string" } },
+        "groupsClaim": { "type": "string" },
+        "usernameClaim": { "type": "string" },
+        "roles": { "type": "object", "additionalProperties": false, "properties": { "admin": { "type": "array", "items": { "type": "string" } }, "editor": { "type": "array", "items": { "type": "string" } }, "viewer": { "type": "array", "items": { "type": "string" } } } },
+        "defaultRole": { "type": "string", "enum": ["", "admin", "editor", "viewer"] }
+      }
+    },
     "global": { "type": "object" },
     "image": {
       "type": "object", "additionalProperties": false,

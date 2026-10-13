@@ -70,3 +70,24 @@ httpRoute:
   #    namespace: my-gateway-ns
   hostnames:
     - sealane.example.com
+
+# Single sign-on (OpenID Connect). Local accounts keep working alongside it.
+# Any OIDC provider works (Keycloak, Dex, Google, Entra ID …). Groups from the ID token
+# are mapped to Sealane roles; users with no matching group get defaultRole ("" = refused).
+oidc:
+  enabled: false
+  displayName: SSO
+  issuerURL: ""                     # e.g. https://keycloak.example.com/realms/main
+  clientID: ""
+  clientSecretRef:
+    name: ""                        # Secret holding the client secret (not managed by the chart)
+    key: clientSecret
+  redirectURL: ""                   # https://sealane.example.com/api/auth/oidc/callback — must match the IdP client
+  scopes: [openid, profile, email, groups]
+  groupsClaim: groups
+  usernameClaim: email
+  roles:
+    admin: []                       # e.g. [platform-admins]
+    editor: []
+    viewer: []
+  defaultRole: viewer

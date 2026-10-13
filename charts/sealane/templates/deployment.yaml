@@ -70,6 +70,41 @@ spec:
                   name: {{ include "sealane.sessionSecretName" . }}
                   key: session-secret
             {{- end }}
+            {{- $oidc := default dict .Values.oidc }}
+            {{- if $oidc.enabled }}
+            {{- if or (not $oidc.issuerURL) (not $oidc.clientID) (not (default dict $oidc.clientSecretRef).name) (not $oidc.redirectURL) }}
+            {{- fail "oidc.enabled=true requires oidc.issuerURL, oidc.clientID, oidc.clientSecretRef.name and oidc.redirectURL" }}
+            {{- end }}
+            # Single sign-on (see values.oidc)
+            - name: OIDC_ISSUER_URL
+              value: {{ $oidc.issuerURL | quote }}
+            - name: OIDC_CLIENT_ID
+              value: {{ $oidc.clientID | quote }}
+            - name: OIDC_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $oidc.clientSecretRef.name | quote }}
+                  key: {{ $oidc.clientSecretRef.key | default "clientSecret" | quote }}
+            - name: OIDC_REDIRECT_URL
+              value: {{ $oidc.redirectURL | quote }}
+            - name: OIDC_SCOPES
+              value: {{ join " " ($oidc.scopes | default (list "openid" "profile" "email" "groups")) | quote }}
+            - name: OIDC_GROUPS_CLAIM
+              value: {{ $oidc.groupsClaim | default "groups" | quote }}
+            - name: OIDC_USERNAME_CLAIM
+              value: {{ $oidc.usernameClaim | default "email" | quote }}
+            {{- $roles := default dict $oidc.roles }}
+            - name: OIDC_ROLES_ADMIN
+              value: {{ join "," ($roles.admin | default list) | quote }}
+            - name: OIDC_ROLES_EDITOR
+              value: {{ join "," ($roles.editor | default list) | quote }}
+            - name: OIDC_ROLES_VIEWER
+              value: {{ join "," ($roles.viewer | default list) | quote }}
+            - name: OIDC_DEFAULT_ROLE
+              value: {{ $oidc.defaultRole | default "" | quote }}
+            - name: OIDC_DISPLAY_NAME
+              value: {{ $oidc.displayName | default "SSO" | quote }}
+            {{- end }}
           livenessProbe:
             httpGet:
               path: /healthz

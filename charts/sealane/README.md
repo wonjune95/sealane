@@ -27,5 +27,24 @@ kubectl -n sealane port-forward svc/sealane 8080:8080   # http://localhost:8080 
 | `httpRoute.enabled` / `parentRefs` / `hostnames` / `annotations` | `false` … | Gateway API HTTPRoute |
 | `resources` | small requests/limits | |
 | `serviceMonitor.enabled` | `false` | Prometheus Operator ServiceMonitor for `/metrics` |
+| `oidc.enabled` | `false` | OpenID Connect single sign-on; local accounts stay |
+| `oidc.issuerURL` / `clientID` / `clientSecretRef` / `redirectURL` | `""` | Required when enabled (`clientSecretRef.name` = Secret, `key` default `clientSecret`) |
+| `oidc.scopes` / `groupsClaim` / `usernameClaim` | `[openid, profile, email, groups]` / `groups` / `email` | Scopes requested and ID-token claims read |
+| `oidc.roles.{admin,editor,viewer}` | `[]` | IdP groups per role; highest wins |
+| `oidc.defaultRole` | `viewer` | Role for users with no matching group; empty string refuses them |
+| `oidc.displayName` | `SSO` | Login button label |
 
 Upgrading from the Istio Dashboard name: set `accountsConfigMap=istio-dashboard-accounts` and `clustersSecret=istio-dashboard-clusters` to keep your data — see [docs/upgrading.md](https://github.com/wonjune95/sealane/blob/main/docs/upgrading.md).
+
+Single sign-on example (Keycloak):
+
+```yaml
+oidc:
+  enabled: true
+  displayName: Keycloak
+  issuerURL: https://keycloak.example.com/realms/main
+  clientID: sealane
+  clientSecretRef: { name: sealane-oidc, key: clientSecret }
+  redirectURL: https://sealane.example.com/api/auth/oidc/callback
+  roles: { admin: [platform-admins], editor: [sre] }
+```

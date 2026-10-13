@@ -1,0 +1,89 @@
+# Dex demo identity provider for trying Sealane's single sign-on without a real IdP.
+# It uses Dex's mock connector: every login succeeds as "Kilgore Trout" (kilgore@kilgore.trout)
+# with the group "authors" — map that group to a role in Sealane. NOT for production.
+#
+# 1. Replace both example.com hosts below with yours (Dex must be reachable by the browser
+#    AND by the Sealane pod at the same issuer URL).
+# 2. kubectl apply -f examples/dex-demo.yaml
+# 3. helm upgrade sealane ... --set oidc.enabled=true --set oidc.displayName=Dex \
+#      --set oidc.issuerURL=http://dex.example.com/dex --set oidc.clientID=sealane \
+#      --set oidc.clientSecretRef.name=sealane-dex-client \
+#      --set oidc.redirectURL=http://sealane.example.com/api/auth/oidc/callback \
+#      --set 'oidc.roles.admin={authors}'   (the Secret must be in Sealane's namespace)
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: dex-demo
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: dex
+  namespace: dex-demo
+data:
+  config.yaml: |
+    issuer: http://dex.example.com/dex
+    storage:
+      type: memory
+    web:
+      http: 0.0.0.0:5556
+    oauth2:
+      skipApprovalScreen: true
+    staticClients:
+      - id: sealane
+        name: Sealane
+        secret: dex-demo-secret
+        redirectURIs:
+          - http://sealane.example.com/api/auth/oidc/callback
+    connectors:
+      - type: mockCallback
+        id: mock
+        name: Example
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: dex
+  namespace: dex-demo
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: dex }
+  template:
+    metadata:
+      labels: { app: dex }
+    spec:
+      containers:
+        - name: dex
+          image: ghcr.io/dexidp/dex:v2.46.0
+          args: ["dex", "serve", "/etc/dex/config.yaml"]
+          ports:
+            - containerPort: 5556
+          volumeMounts:
+            - name: config
+              mountPath: /etc/dex
+      volumes:
+        - name: config
+          configMap:
+            name: dex
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: dex
+  namespace: dex-demo
+spec:
+  selector: { app: dex }
+  ports:
+    - port: 5556
+      targetPort: 5556
+---
+# The client secret Sealane reads (create it in Sealane's namespace, not dex-demo).
+apiVersion: v1
+kind: Secret
+metadata:
+  name: sealane-dex-client
+  namespace: sealane
+type: Opaque
+stringData:
+  clientSecret: dex-demo-secret

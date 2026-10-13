@@ -25,6 +25,8 @@ kubectl apply -f https://github.com/wonjune95/sealane/releases/latest/download/i
 kubectl -n sealane port-forward svc/sealane 8080:8080   # → http://localhost:8080, 초기 계정 admin / admin
 ```
 
+`install.yaml`은 istiod 버전 조회용으로 `istio-system` 네임스페이스를 전제한다. Istio가 없는 클러스터에서 `kubectl apply`가 내는 `namespaces "istio-system" not found` 오류 두 건은 무시해도 된다. istiod가 다른 네임스페이스에 있으면 Helm 설치 시 `istioNamespace`를 지정한다.
+
 ![Sealane 홈 화면](docs/img/screenshot.png)
 
 > 이전 이름 **Istio Dashboard**에서 올리는 경우 [docs/upgrading.md](docs/upgrading.md)를 참고한다 — 계정과 클러스터 등록은 그대로 이어진다.
@@ -177,7 +179,7 @@ helm install sealane ./charts/sealane -n sealane --create-namespace \
   --set image.repository=<registry>/sealane --set image.tag=<tag>
 ```
 공개 이미지는 amd64/arm64 멀티아치이며 cosign(keyless)으로 서명된다. 검증 명령은 [docs/releasing.md](docs/releasing.md)를 참고한다.
-주요 values: `image.*`, `imagePullSecrets`(사설 레지스트리), `replicaCount`(무상태라 늘리면 그대로 HA), `accountsConfigMap`(계정 ConfigMap), `clustersSecret`(멀티클러스터), `requestTester.enabled`(실제 요청 테스터 — 기본 꺼짐, 켜면 `pods/exec` 권한이 붙는다). 파드는 distroless non-root(uid 65532) + readOnlyRootFilesystem으로 뜬다.
+주요 values: `image.*`, `imagePullSecrets`(사설 레지스트리), `replicaCount`(무상태라 늘리면 그대로 HA), `accountsConfigMap`(계정 ConfigMap), `clustersSecret`(멀티클러스터), `requestTester.enabled`(실제 요청 테스터 — 기본 꺼짐, 켜면 `pods/exec` 권한이 붙는다), `sessionSecret.*`(세션 서명 키 고정), `ingress.*`, `httpRoute.*`(Ingress 또는 Gateway API로 노출). 파드는 distroless non-root(uid 65532) + readOnlyRootFilesystem으로 뜬다.
 
 ### 3) 노출 — 클러스터의 Gateway에 HTTPRoute 부착
 ```bash
@@ -217,7 +219,7 @@ kubectl -n sealane edit configmap sealane-accounts
 | `ACCOUNTS_DIR` | `/etc/sealane/accounts` | 계정 ConfigMap 마운트 경로 |
 | `ACCOUNTS_CONFIGMAP` / `POD_NAMESPACE` | (헬름이 주입) | 비밀번호 변경·초기 admin 생성이 patch할 CM 위치 |
 | `ISTIO_NAMESPACE` | `istio-system` (차트가 `istioNamespace`로 설정) | istiod가 있는 네임스페이스. 홈 화면의 컨트롤플레인 버전 표시에 쓰인다 |
-| `SESSION_SECRET` | (없음) | 세션 쿠키 서명 키. 비우면 부팅마다 랜덤(재시작 = 재로그인) |
+| `SESSION_SECRET` | (Helm이 `<release>-session`에서 주입; 비우면 부팅마다 랜덤) | 세션 쿠키 서명 키. 비우면 부팅마다 랜덤(재시작 = 재로그인) |
 | `REQUEST_TESTER` | (헬름이 주입) | `true`면 실제 요청 테스터 활성화 (pods/exec 권한 필요, admin 전용) |
 | `CLUSTERS_SECRET` / `POD_NAMESPACE` | (헬름이 주입) | 멀티클러스터: 원격 클러스터 kubeconfig Secret 이름 (비우면 local만) |
 
@@ -282,7 +284,7 @@ cd web && npm run dev              # 프론트 HMR: Vite :5173 → /api 프록�
 
 go test ./internal/...             # 단위 테스트 (인증 경계·레지스트리 캐시·쓰기 가드·감사 로그, fake client 기반)
 go vet ./cmd/... ./internal/...
-go run github.com/golangci/golangci-lint/v2/cmd/golangci-lint@latest run ./cmd/... ./internal/...
+go run github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.14.0 run ./cmd/... ./internal/...
 ./hack/check-i18n.sh               # 로케일 파일 밖 한글 금지, en/ko 키 일치
 helm lint charts/sealane
 cd web && npm run lint                     # ESLint

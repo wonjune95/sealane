@@ -24,6 +24,8 @@ kubectl apply -f https://github.com/wonjune95/sealane/releases/latest/download/i
 kubectl -n sealane port-forward svc/sealane 8080:8080   # → http://localhost:8080, log in as admin / admin
 ```
 
+`install.yaml` expects the `istio-system` namespace for the istiod version reader; without Istio, the two `namespaces "istio-system" not found` errors from `kubectl apply` are harmless. Helm users whose istiod lives elsewhere set `istioNamespace`.
+
 ![Sealane home](docs/img/screenshot.png)
 
 > Upgrading from **Istio Dashboard** (the project's previous name)? See [docs/upgrading.md](docs/upgrading.md) — your accounts and clusters carry over.
@@ -176,7 +178,7 @@ helm install sealane ./charts/sealane -n sealane --create-namespace \
   --set image.repository=<registry>/sealane --set image.tag=<tag>
 ```
 The published image is multi-arch (amd64/arm64) and signed with cosign (keyless); see [docs/releasing.md](docs/releasing.md) for the verification command.
-Key values: `image.*`, `imagePullSecrets` (private registries), `replicaCount` (stateless — scale for HA), `accountsConfigMap`, `clustersSecret`, `requestTester.enabled` (real request tester — off by default; enabling it grants `pods/exec`). The pod runs distroless non-root (uid 65532) with readOnlyRootFilesystem.
+Key values: `image.*`, `imagePullSecrets` (private registries), `replicaCount` (stateless — scale for HA), `accountsConfigMap`, `clustersSecret`, `requestTester.enabled` (real request tester — off by default; enabling it grants `pods/exec`), `sessionSecret.*` (stable session-signing key), `ingress.*`, `httpRoute.*` (expose via Ingress or Gateway API). The pod runs distroless non-root (uid 65532) with readOnlyRootFilesystem.
 
 ### 3) Expose — attach an HTTPRoute to your cluster's Gateway
 ```bash
@@ -216,7 +218,7 @@ To manage multiple clusters from one Sealane install, go to **settings → clust
 | `ACCOUNTS_DIR` | `/etc/sealane/accounts` | accounts ConfigMap mount path |
 | `ACCOUNTS_CONFIGMAP` / `POD_NAMESPACE` | (set by Helm) | CM that password changes / initial-admin creation patch |
 | `ISTIO_NAMESPACE` | `istio-system` (set by the chart from `istioNamespace`) | namespace where istiod runs; used to show the control-plane version on the home page |
-| `SESSION_SECRET` | (none) | session cookie signing key; empty = random per boot (restart = re-login) |
+| `SESSION_SECRET` | (set by Helm from `<release>-session`; empty = random per boot) | session cookie signing key; empty = random per boot (restart = re-login) |
 | `REQUEST_TESTER` | (set by Helm) | `true` enables the in-pod request tester (needs pods/exec, admin only) |
 | `CLUSTERS_SECRET` / `POD_NAMESPACE` | (set by Helm) | multi-cluster: Secret holding remote kubeconfigs (empty = local only) |
 
@@ -280,7 +282,7 @@ cd web && npm run dev              # frontend HMR: Vite :5173 → /api proxy →
 
 go test ./internal/...             # unit tests (auth boundaries, registry cache, write guards, audit, flow map)
 go vet ./cmd/... ./internal/...
-go run github.com/golangci/golangci-lint/v2/cmd/golangci-lint@latest run ./cmd/... ./internal/...
+go run github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.14.0 run ./cmd/... ./internal/...
 ./hack/check-i18n.sh               # no Korean outside locale files, en/ko keys match
 helm lint charts/sealane
 cd web && npm run lint                     # ESLint

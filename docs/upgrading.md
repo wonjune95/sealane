@@ -37,7 +37,7 @@ Then `helm upgrade sealane oci://ghcr.io/wonjune95/charts/sealane --version 0.8.
 
 ## From 0.8.x to 0.9.x
 
-0.9 adds new values keys (`sessionSecret`, `ingress`, `httpRoute`), so `helm upgrade --reuse-values` from 0.8.0 fails with a nil-pointer template error. Reset to the new chart defaults and then reapply your previous values (Helm 3.14+), or pass your values explicitly:
+0.9 adds new values keys (`sessionSecret`, `ingress`, `httpRoute`). `helm upgrade --reuse-values` from 0.8.0 renders fine but keeps the 0.8 shape: no session Secret (sessions still reset on restart), no Ingress or HTTPRoute. To pick up the new defaults, use `--reset-then-reuse-values` (Helm 3.14+), which resets to the new chart defaults and then reapplies your previous values, or pass your values explicitly:
 
 ```bash
 helm upgrade sealane oci://ghcr.io/wonjune95/charts/sealane --version 0.9.0 -n <namespace> --reset-then-reuse-values

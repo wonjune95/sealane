@@ -68,6 +68,7 @@ jobs:
           {
             printf '# Sealane %s — rendered from charts/sealane with default values.\n' "$TAG"
             printf '# kubectl apply -f install.yaml   (installs into namespace "sealane")\n'
+            printf '# Expects namespace "istio-system" for the istiod version reader (Helm value istioNamespace); without Istio, the two "namespaces istio-system not found" errors are harmless.\n'
             printf 'apiVersion: v1\nkind: Namespace\nmetadata:\n  name: sealane\n---\n'
             helm template sealane charts/sealane --namespace sealane \
               --set image.tag="$TAG" --set sessionSecret.create=false

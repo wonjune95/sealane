@@ -103,15 +103,7 @@ func analyzeMesh(ctx context.Context, c *k8s.Clients, ns string) analysis {
 				if g == "mesh" {
 					continue
 				}
-				full := g
-				if !strings.Contains(g, "/") {
-					if name, rest, ok := strings.Cut(g, "."); ok { // legacy "gw.ns.svc.cluster.local" form
-						gwNS, _, _ := strings.Cut(rest, ".")
-						full = gwNS + "/" + name
-					} else {
-						full = v.Namespace + "/" + g
-					}
-				}
+				full := istioGatewayKey(g, v.Namespace)
 				if _, ok := st.istioGWs[full]; !ok && st.istioGWs != nil {
 					add(finding{Severity: "error", Code: "vs-gateway-missing", Resource: self,
 						Message: fmt.Sprintf("gateway %q does not exist", full)})
@@ -272,6 +264,18 @@ func analyzeMesh(ctx context.Context, c *k8s.Clients, ns string) analysis {
 		return a.Message < b.Message // map-ordered sources (conflicts, gateways) stay stable across refreshes
 	})
 	return out
+}
+
+// istioGatewayKey normalises a VirtualService gateway reference to "ns/name".
+func istioGatewayKey(g, vsNS string) string {
+	if strings.Contains(g, "/") {
+		return g
+	}
+	if name, rest, ok := strings.Cut(g, "."); ok { // legacy "gw.ns.svc.cluster.local" form
+		gwNS, _, _ := strings.Cut(rest, ".")
+		return gwNS + "/" + name
+	}
+	return vsNS + "/" + g
 }
 
 // vsDestinations flattens http/tls/tcp route destinations.

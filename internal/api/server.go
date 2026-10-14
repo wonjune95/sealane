@@ -86,6 +86,7 @@ func (s *Server) Routes(mux *http.ServeMux) {
 	mux.Handle("GET /api/namespaces", s.withAuth(http.HandlerFunc(s.handleNamespaces)))
 	mux.Handle("GET /api/gateways", s.withAuth(http.HandlerFunc(s.handleGateways)))
 	mux.Handle("GET /api/services", s.withAuth(http.HandlerFunc(s.handleServices)))
+	mux.Handle("GET /api/services/{ns}/{name}/mesh", s.withAuth(http.HandlerFunc(s.handleServiceMesh)))
 	mux.Handle("GET /api/subsets", s.withAuth(http.HandlerFunc(s.handleSubsets)))
 	mux.Handle("GET /api/audit", s.withAuth(http.HandlerFunc(s.handleAudit)))
 	// Config-based ingress traffic flow map (Gateway → Route → Service)

@@ -17,11 +17,11 @@ import (
 // service view read, loaded concurrently once per request. A list that fails (CRD
 // not installed, RBAC, throttling) leaves its field nil — that nil is the field's
 // ok flag — and the callers skip that kind; a list that succeeds is non-nil even
-// when empty.
+// when empty. A kind the caller did not request (snapshotOpts) is nil as well.
 type meshSnapshot struct {
 	services  map[string]*corev1.Service // ns/name
 	endpoints map[string]int             // ns/name → ready addresses
-	pods      map[string][]labels.Set    // ns → pod label sets; nil also when not requested
+	pods      map[string][]labels.Set    // ns → pod label sets
 	ses       []flowServiceEntry
 	drs       []*istionet.DestinationRule
 	istioGWs  []*istionet.Gateway
@@ -30,9 +30,17 @@ type meshSnapshot struct {
 	gws       []gwapi.Gateway
 }
 
+// snapshotOpts picks the optional kinds; Services, Endpoints, VirtualServices and
+// HTTPRoutes are always loaded.
 type snapshotOpts struct {
-	pods bool // only the analysis reads pods (subset / gateway selectors that match nothing)
+	pods     bool // subset / gateway selectors that match nothing (analysis)
+	drs      bool // DestinationRules
+	ses      bool // ServiceEntries
+	gateways bool // Istio and Gateway API Gateways
 }
+
+// fullSnapshot is what the analysis needs.
+var fullSnapshot = snapshotOpts{pods: true, drs: true, ses: true, gateways: true}
 
 // loadMeshSnapshot runs every list in its own goroutine; each goroutine writes only its own field.
 func loadMeshSnapshot(ctx context.Context, c *k8s.Clients, opts snapshotOpts) *meshSnapshot {
@@ -65,31 +73,38 @@ func loadMeshSnapshot(ctx context.Context, c *k8s.Clients, opts snapshotOpts) *m
 		wg.Go(func() {
 			if l, err := c.Kube.CoreV1().Pods("").List(ctx, all); err == nil {
 				st.pods = map[string][]labels.Set{}
-				for _, p := range l.Items {
+				for i := range l.Items {
+					p := &l.Items[i]
 					st.pods[p.Namespace] = append(st.pods[p.Namespace], labels.Set(p.Labels))
 				}
 			}
 		})
 	}
-	wg.Go(func() {
-		if l, err := c.Istio.NetworkingV1().ServiceEntries("").List(ctx, all); err == nil {
-			st.ses = []flowServiceEntry{}
-			for _, se := range l.Items {
-				st.ses = append(st.ses, flowServiceEntry{TypeID: "serviceentries.networking.istio.io",
-					Namespace: se.Namespace, Name: se.Name, Hosts: append([]string{}, se.Spec.Hosts...)})
+	if opts.ses {
+		wg.Go(func() {
+			if l, err := c.Istio.NetworkingV1().ServiceEntries("").List(ctx, all); err == nil {
+				st.ses = []flowServiceEntry{}
+				for _, se := range l.Items {
+					st.ses = append(st.ses, flowServiceEntry{TypeID: "serviceentries.networking.istio.io",
+						Namespace: se.Namespace, Name: se.Name, Hosts: append([]string{}, se.Spec.Hosts...)})
+				}
 			}
-		}
-	})
-	wg.Go(func() {
-		if l, err := c.Istio.NetworkingV1().DestinationRules("").List(ctx, all); err == nil {
-			st.drs = append([]*istionet.DestinationRule{}, l.Items...)
-		}
-	})
-	wg.Go(func() {
-		if l, err := c.Istio.NetworkingV1().Gateways("").List(ctx, all); err == nil {
-			st.istioGWs = append([]*istionet.Gateway{}, l.Items...)
-		}
-	})
+		})
+	}
+	if opts.drs {
+		wg.Go(func() {
+			if l, err := c.Istio.NetworkingV1().DestinationRules("").List(ctx, all); err == nil {
+				st.drs = append([]*istionet.DestinationRule{}, l.Items...)
+			}
+		})
+	}
+	if opts.gateways {
+		wg.Go(func() {
+			if l, err := c.Istio.NetworkingV1().Gateways("").List(ctx, all); err == nil {
+				st.istioGWs = append([]*istionet.Gateway{}, l.Items...)
+			}
+		})
+	}
 	wg.Go(func() {
 		if l, err := c.Istio.NetworkingV1().VirtualServices("").List(ctx, all); err == nil {
 			st.vss = append([]*istionet.VirtualService{}, l.Items...)
@@ -100,11 +115,13 @@ func loadMeshSnapshot(ctx context.Context, c *k8s.Clients, opts snapshotOpts) *m
 			st.hrs = append([]gwapi.HTTPRoute{}, l.Items...)
 		}
 	})
-	wg.Go(func() {
-		if l, err := c.Gateway.GatewayV1().Gateways("").List(ctx, all); err == nil {
-			st.gws = append([]gwapi.Gateway{}, l.Items...)
-		}
-	})
+	if opts.gateways {
+		wg.Go(func() {
+			if l, err := c.Gateway.GatewayV1().Gateways("").List(ctx, all); err == nil {
+				st.gws = append([]gwapi.Gateway{}, l.Items...)
+			}
+		})
+	}
 	wg.Wait()
 	return st
 }

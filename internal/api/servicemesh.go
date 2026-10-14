@@ -60,7 +60,7 @@ func (s *Server) handleServiceMesh(w http.ResponseWriter, r *http.Request) {
 	var st *meshSnapshot
 	var nsPolicies, rootPolicies []securityPolicy
 	var wg sync.WaitGroup
-	wg.Go(func() { st = loadMeshSnapshot(ctx, c, snapshotOpts{pods: true}) })
+	wg.Go(func() { st = loadMeshSnapshot(ctx, c, fullSnapshot) })
 	wg.Go(func() { nsPolicies = securityPolicies(ctx, c, ns) })
 	if ns != root {
 		wg.Go(func() { rootPolicies = securityPolicies(ctx, c, root) })
@@ -202,23 +202,31 @@ func targetRefs(one *istiotype.PolicyTargetReference, many []*istiotype.PolicyTa
 // RequestAuthentications in ns; a kind that cannot be listed is left out.
 func securityPolicies(ctx context.Context, c *k8s.Clients, ns string) []securityPolicy {
 	sec, opts := c.Istio.SecurityV1(), metav1.ListOptions{}
-	var out []securityPolicy
-	if l, err := sec.AuthorizationPolicies(ns).List(ctx, opts); err == nil {
-		for _, p := range l.Items {
-			out = append(out, securityPolicy{ref{"authorizationpolicies.security.istio.io", "AuthorizationPolicy", p.Namespace, p.Name}, p.Spec.GetSelector().GetMatchLabels(),
-				targetRefs(p.Spec.GetTargetRef(), p.Spec.GetTargetRefs())})
+	var authz, peer, req []securityPolicy
+	var wg sync.WaitGroup
+	wg.Go(func() {
+		if l, err := sec.AuthorizationPolicies(ns).List(ctx, opts); err == nil {
+			for _, p := range l.Items {
+				authz = append(authz, securityPolicy{ref{"authorizationpolicies.security.istio.io", "AuthorizationPolicy", p.Namespace, p.Name}, p.Spec.GetSelector().GetMatchLabels(),
+					targetRefs(p.Spec.GetTargetRef(), p.Spec.GetTargetRefs())})
+			}
 		}
-	}
-	if l, err := sec.PeerAuthentications(ns).List(ctx, opts); err == nil {
-		for _, p := range l.Items {
-			out = append(out, securityPolicy{ref{"peerauthentications.security.istio.io", "PeerAuthentication", p.Namespace, p.Name}, p.Spec.GetSelector().GetMatchLabels(), nil})
+	})
+	wg.Go(func() {
+		if l, err := sec.PeerAuthentications(ns).List(ctx, opts); err == nil {
+			for _, p := range l.Items {
+				peer = append(peer, securityPolicy{ref{"peerauthentications.security.istio.io", "PeerAuthentication", p.Namespace, p.Name}, p.Spec.GetSelector().GetMatchLabels(), nil})
+			}
 		}
-	}
-	if l, err := sec.RequestAuthentications(ns).List(ctx, opts); err == nil {
-		for _, p := range l.Items {
-			out = append(out, securityPolicy{ref{"requestauthentications.security.istio.io", "RequestAuthentication", p.Namespace, p.Name}, p.Spec.GetSelector().GetMatchLabels(),
-				targetRefs(p.Spec.GetTargetRef(), p.Spec.GetTargetRefs())})
+	})
+	wg.Go(func() {
+		if l, err := sec.RequestAuthentications(ns).List(ctx, opts); err == nil {
+			for _, p := range l.Items {
+				req = append(req, securityPolicy{ref{"requestauthentications.security.istio.io", "RequestAuthentication", p.Namespace, p.Name}, p.Spec.GetSelector().GetMatchLabels(),
+					targetRefs(p.Spec.GetTargetRef(), p.Spec.GetTargetRefs())})
+			}
 		}
-	}
-	return out
+	})
+	wg.Wait()
+	return slices.Concat(authz, peer, req)
 }

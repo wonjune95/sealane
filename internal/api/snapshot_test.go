@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	istioapi "istio.io/api/networking/v1"
@@ -33,20 +34,19 @@ func TestSnapshotListsEndpointsOnce(t *testing.T) {
 	c := &k8s.Clients{Kube: kube, Istio: istiofake.NewSimpleClientset(vsObjs...), Gateway: gwfake.NewSimpleClientset()}
 	endpointCalls := func(what string) {
 		t.Helper()
-		lists, gets := 0, 0
+		lists, gets, svcGets := 0, 0, 0
 		for _, a := range kube.Actions() {
-			if a.GetResource().Resource != "endpoints" {
-				continue
-			}
-			switch a.GetVerb() {
-			case "list":
+			switch res, verb := a.GetResource().Resource, a.GetVerb(); {
+			case res == "endpoints" && verb == "list":
 				lists++
-			case "get":
+			case res == "endpoints" && verb == "get":
 				gets++
+			case res == "services" && verb == "get":
+				svcGets++
 			}
 		}
-		if lists != 1 || gets != 0 {
-			t.Errorf("%s: want 1 endpoints list and 0 gets, got %d lists and %d gets", what, lists, gets)
+		if lists != 1 || gets != 0 || svcGets != 0 {
+			t.Errorf("%s: want 1 endpoints list, 0 endpoints gets, 0 service gets; got %d, %d, %d", what, lists, gets, svcGets)
 		}
 		kube.ClearActions()
 	}
@@ -56,12 +56,18 @@ func TestSnapshotListsEndpointsOnce(t *testing.T) {
 	}
 	endpointCalls("analyze")
 
-	rec := httptest.NewRecorder()
-	newTestMux(t, &stubSource{clients: c}).ServeHTTP(rec, authedReq("GET", "/api/flowmap", nil))
-	if rec.Code != http.StatusOK {
-		t.Fatalf("flowmap: %d %s", rec.Code, rec.Body.String())
+	mux := newTestMux(t, &stubSource{clients: c})
+	for _, path := range []string{"/api/flowmap", "/api/routematch?host=svc0.example.com"} {
+		rec := httptest.NewRecorder()
+		mux.ServeHTTP(rec, authedReq("GET", path, nil))
+		if rec.Code != http.StatusOK {
+			t.Fatalf("%s: %d %s", path, rec.Code, rec.Body.String())
+		}
+		if path != "/api/flowmap" && !strings.Contains(rec.Body.String(), `"exists":true`) {
+			t.Errorf("%s: destination must resolve from the snapshot: %s", path, rec.Body.String())
+		}
+		endpointCalls(path)
 	}
-	endpointCalls("flowmap")
 }
 
 func TestSnapshotListFailureKeepsSkipSemantics(t *testing.T) {

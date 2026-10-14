@@ -58,7 +58,7 @@ func (s *Server) handleFlowMap(w http.ResponseWriter, r *http.Request) {
 	c := clientFrom(ctx)
 	out := flowMap{Gateways: []flowGateway{}, Routes: []flowRoute{}, ServiceEntries: []flowServiceEntry{}}
 
-	st := loadMeshSnapshot(ctx, c, snapshotOpts{})
+	st := loadMeshSnapshot(ctx, c, snapshotOpts{ses: true, gateways: true})
 
 	// Gateways (Gateway API + Istio)
 	for i := range st.gws {

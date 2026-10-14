@@ -95,7 +95,7 @@ func (s *Server) handleRouteMatch(w http.ResponseWriter, r *http.Request) {
 	c := clientFrom(ctx)
 	out := routeMatchResult{Destinations: []routeDest{}, Candidates: []routeCandidate{}}
 	winnerFound := false
-	st := loadMeshSnapshot(ctx, c, snapshotOpts{})
+	st := loadMeshSnapshot(ctx, c, snapshotOpts{drs: true})
 
 	// --- VirtualService: after the hosts match, http rules are tried in declaration order; first match wins ---
 	for _, vs := range st.vss {

@@ -85,6 +85,10 @@ func NewClientFactoryFromKubeconfig(data []byte) (*ClientFactory, error) {
 }
 
 func newFactory(cfg *rest.Config) (*ClientFactory, error) {
+	// One page load issues ~10 concurrent lists; client-go's default 5 QPS / burst 10 is shared process-wide.
+	if cfg.QPS == 0 {
+		cfg.QPS, cfg.Burst = 50, 100
+	}
 	baseDyn, err := dynamic.NewForConfig(cfg)
 	if err != nil {
 		return nil, fmt.Errorf("base dynamic client: %w", err)

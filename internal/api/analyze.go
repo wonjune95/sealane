@@ -56,10 +56,11 @@ func (s *Server) handleAnalyze(w http.ResponseWriter, r *http.Request) {
 // lives in ns (ns == "" → all). Cross-namespace references are always resolved
 // cluster-wide; only the reporting scope is filtered.
 func analyzeMesh(ctx context.Context, c *k8s.Clients, ns string) analysis {
-	return analyzeSnapshot(loadMeshSnapshot(ctx, c, snapshotOpts{pods: true}), ns)
+	return analyzeSnapshot(loadMeshSnapshot(ctx, c, fullSnapshot), ns)
 }
 
-// analyzeSnapshot is analyzeMesh over an already-loaded snapshot (loaded with pods).
+// analyzeSnapshot is analyzeMesh over an already-loaded snapshot. It needs a
+// fullSnapshot: a nil kind reads as "could not be listed" and its checks are skipped.
 func analyzeSnapshot(st *meshSnapshot, ns string) analysis {
 	out := analysis{Findings: []finding{}}
 	if st.pods == nil {

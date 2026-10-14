@@ -30,7 +30,8 @@ import (
 // RS256 id_tokens with whatever nonce/groups the test sets. aud, exp and signKey
 // override the valid defaults ("sealane", +1h, the published key) for negative tests.
 // omitGroupsClaim drops groups from the id_token; /userinfo then serves userinfoGroups
-// (nil = HTTP 500) to the "at" bearer token and counts calls in userinfoCalls.
+// (nil = HTTP 500) to the "at" bearer token and counts calls in userinfoCalls;
+// userinfoSub overrides its sub ("alice").
 type fakeIdP struct {
 	srv          *httptest.Server
 	key          *rsa.PrivateKey
@@ -45,6 +46,7 @@ type fakeIdP struct {
 	omitGroupsClaim bool
 	userinfoGroups  []string
 	userinfoCalls   int
+	userinfoSub     string
 }
 
 func newFakeIdP(t *testing.T) *fakeIdP {
@@ -110,7 +112,11 @@ func newFakeIdP(t *testing.T) *fakeIdP {
 			return
 		}
 		w.Header().Set("Content-Type", "application/json")
-		_ = json.NewEncoder(w).Encode(map[string]any{"sub": "alice", "groups": f.userinfoGroups})
+		sub := "alice"
+		if f.userinfoSub != "" {
+			sub = f.userinfoSub
+		}
+		_ = json.NewEncoder(w).Encode(map[string]any{"sub": sub, "groups": f.userinfoGroups})
 	})
 	return f
 }
@@ -314,6 +320,9 @@ func TestOIDCRefusesUsersWithoutRole(t *testing.T) {
 	if rec.Header().Get("Location") != "/?oidc_error=access_denied" || issuedSession(rec) != nil {
 		t.Fatalf("no-role user: %d %s", rec.Code, rec.Header().Get("Location"))
 	}
+	if idp.userinfoCalls != 1 { // groups: null counts as absent
+		t.Fatalf("userinfo calls = %d, want 1 for a null groups claim", idp.userinfoCalls)
+	}
 }
 
 // oidcLogin runs one sign-in against idp and returns the callback response.
@@ -371,6 +380,11 @@ func TestOIDCUserinfoFailureKeepsLogin(t *testing.T) {
 		if rec.Header().Get("Location") != wantLoc || idp.userinfoCalls != 1 {
 			t.Fatalf("default %q: location = %q, userinfo calls = %d; want %q, 1", defaultRole, rec.Header().Get("Location"), idp.userinfoCalls, wantLoc)
 		}
+		if sc := issuedSession(rec); defaultRole != "" {
+			if id, _ := testSessions.Parse(sc.Value); id.Role != defaultRole {
+				t.Fatalf("role = %q, want %q", id.Role, defaultRole)
+			}
+		}
 		warned := false
 		for _, r := range logs() {
 			warned = warned || (r["msg"] == "oidc userinfo" && r["level"] == "WARN")
@@ -378,6 +392,27 @@ func TestOIDCUserinfoFailureKeepsLogin(t *testing.T) {
 		if !warned {
 			t.Fatalf("default %q: no oidc userinfo warning in %v", defaultRole, logs())
 		}
+	}
+}
+
+func TestOIDCUserinfoSubMismatchIgnored(t *testing.T) {
+	logs := captureLogs(t)
+	idp := newFakeIdP(t)
+	idp.omitGroupsClaim, idp.userinfoGroups, idp.userinfoSub = true, []string{"platform-admins"}, "mallory"
+	mux, _ := newOIDCMux(t, idp, "viewer")
+	sc := issuedSession(oidcLogin(t, mux, idp))
+	if sc == nil {
+		t.Fatal("no session cookie")
+	}
+	if id, _ := testSessions.Parse(sc.Value); id.Role != "viewer" || idp.userinfoCalls != 1 {
+		t.Fatalf("role = %q, userinfo calls = %d; want viewer, 1", id.Role, idp.userinfoCalls)
+	}
+	warned := false
+	for _, r := range logs() {
+		warned = warned || (r["msg"] == "oidc userinfo" && r["level"] == "WARN")
+	}
+	if !warned {
+		t.Fatal("no oidc userinfo warning for a sub mismatch")
 	}
 }
 

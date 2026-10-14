@@ -159,16 +159,20 @@ func (o *OIDC) Exchange(ctx context.Context, code, verifier, nonce string) (Iden
 	if name == "" {
 		name = idt.Subject
 	}
-	// No groups claim at all (an empty list counts as present): ask userinfo, like Argo CD's
-	// enableUserInfoGroups. Gitea, for one, reuses a grant's first scopes and drops groups.
-	if _, ok := claims[o.cfg.GroupsClaim]; !ok {
+	// No groups claim (absent or null; an empty list counts as present): ask userinfo, like
+	// Argo CD's enableUserInfoGroups. Gitea, for one, reuses a grant's first scopes and drops groups.
+	if claims[o.cfg.GroupsClaim] == nil {
 		var uc map[string]any
 		ui, err := p.UserInfo(ctx, oauth2.StaticTokenSource(tok))
 		if err == nil {
 			err = ui.Claims(&uc)
 		}
+		if err == nil && ui.Subject != idt.Subject { // OIDC Core 5.3.2: must match or be ignored
+			err = errors.New("userinfo sub mismatch")
+		}
 		if err != nil {
 			slog.Warn("oidc userinfo", "err", err) // login goes on without groups
+			uc = nil
 		}
 		claims[o.cfg.GroupsClaim] = uc[o.cfg.GroupsClaim]
 	}

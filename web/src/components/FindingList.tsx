@@ -51,7 +51,7 @@ export function FindingList({
                 </span>
               </td>
               <td className="px-3 py-1.5">
-                {f.message} <span className="font-mono text-xs text-faint">{f.code}</span>
+                {f.message} <span className="block font-mono text-xs text-faint sm:ml-1 sm:inline">{f.code}</span>
               </td>
               <td className="px-3 py-1.5">
                 <RefLink r={f.resource} />

@@ -495,5 +495,7 @@
   "services.scope.namespace": "네임스페이스 전체",
   "services.scope.mesh": "메시 전체",
   "services.back": "전체 서비스",
-  "services.loadFailed": "서비스를 불러오지 못했습니다: {message}"
+  "services.loadFailed": "서비스를 불러오지 못했습니다: {message}",
+  "list.showMore": "더 보기 ({total}개 중 {shown}개)",
+  "list.sortBy": "{column} 기준 정렬"
 }

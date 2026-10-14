@@ -6,6 +6,8 @@ import { useNamespace } from '../ui/namespace'
 import { PageHeader } from '../components/PageHeader'
 import { EmptyState } from '../components/EmptyState'
 import { Icon } from '../components/icons'
+import { SortHeader } from '../components/SortHeader'
+import { PAGE, sortBy, toggleSort, type SortState } from '../lib/sort'
 import { t } from '../i18n'
 
 export function Services() {
@@ -13,7 +15,17 @@ export function Services() {
   const namespaces = useNamespaces()
   const { data, isLoading, error } = useServiceList(ns)
   const [search, setSearch] = useState('')
-  const rows = (data ?? []).filter((s) => `${s.namespace} ${s.name}`.toLowerCase().includes(search.toLowerCase()))
+  const [sort, setSort] = useState<SortState | null>(null)
+  const [shown, setShown] = useState(PAGE)
+  const rows = sortBy(
+    (data ?? []).filter((s) => `${s.namespace} ${s.name}`.toLowerCase().includes(search.toLowerCase())),
+    sort,
+    (s, k) => (k === 'name' ? s.name : s.namespace),
+  )
+  const onSort = (k: string) => {
+    setSort((s) => toggleSort(s, k))
+    setShown(PAGE)
+  }
 
   return (
     <div className="mx-auto max-w-6xl space-y-4">
@@ -34,7 +46,10 @@ export function Services() {
             aria-label={t('services.search')}
             placeholder={t('services.search')}
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            onChange={(e) => {
+              setSearch(e.target.value)
+              setShown(PAGE)
+            }}
             className="input-base pl-9"
           />
         </label>
@@ -63,17 +78,18 @@ export function Services() {
       ) : data && rows.length === 0 ? (
         <EmptyState icon="search" title={t('services.empty')} description={t('services.emptyHint')} />
       ) : data ? (
+        <>
         <div className="panel table-scroll">
           <table className="data-table">
             <thead className="border-b border-base bg-slate-50 text-left text-xs uppercase tracking-wide text-muted dark:bg-slate-800/50">
               <tr>
-                <th className="px-3 py-2 font-medium">Namespace</th>
-                <th className="px-3 py-2 font-medium">Name</th>
+                <SortHeader label="Namespace" sortKey="namespace" state={sort} onToggle={onSort} />
+                <SortHeader label="Name" sortKey="name" state={sort} onToggle={onSort} />
                 <th className="px-3 py-2 font-medium">{t('services.ports')}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-              {rows.map((s) => (
+              {rows.slice(0, shown).map((s) => (
                 <tr key={`${s.namespace}/${s.name}`} className="row-hover">
                   <td className="px-3 py-1.5 text-muted">{s.namespace}</td>
                   <td className="px-3 py-1.5">
@@ -87,6 +103,12 @@ export function Services() {
             </tbody>
           </table>
         </div>
+        {rows.length > shown && (
+          <button type="button" className="btn-ghost mx-auto block" onClick={() => setShown((n) => n + PAGE)}>
+            {t('list.showMore', { shown, total: rows.length })}
+          </button>
+        )}
+        </>
       ) : null}
     </div>
   )

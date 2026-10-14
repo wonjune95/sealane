@@ -9,7 +9,8 @@
     "lint": "eslint .",
     "test:cluster-selection": "node tests/cluster-selection.mjs",
     "test:flow-map": "node tests/flow-map.mjs",
-    "test:login-sso": "node tests/login-sso.mjs"
+    "test:login-sso": "node tests/login-sso.mjs",
+    "test:list-sort": "node tests/list-sort.mjs"
   },
   "dependencies": {
     "@codemirror/lang-yaml": "^6.1.3",

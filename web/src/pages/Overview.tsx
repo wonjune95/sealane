@@ -11,11 +11,15 @@ import { CATEGORY_ORDER, accentFor } from '../ui/categories'
 import { Icon } from '../components/icons'
 import { PageHeader } from '../components/PageHeader'
 import { EmptyState } from '../components/EmptyState'
+import { SortHeader } from '../components/SortHeader'
+import { PAGE, sortBy, toggleSort, parseAge, type SortState } from '../lib/sort'
 import { t } from '../i18n'
 
 export function Overview() {
   const { ns, setNs } = useNamespace()
   const [search, setSearch] = useState('')
+  const [sort, setSort] = useState<SortState | null>(null)
+  const [shown, setShown] = useState(PAGE)
   const [cat, setCat] = useState<Category | ''>('')
   const namespaces = useNamespaces()
   const types = useResourceTypes()
@@ -30,11 +34,17 @@ export function Overview() {
   })
 
   const loading = results.some((r) => r.isLoading)
-  const rows = results
-    .flatMap((r) => r.data ?? [])
-    .filter((r) =>
-      `${r.kind} ${r.name} ${r.namespace} ${r.summary}`.toLowerCase().includes(search.toLowerCase()),
-    )
+  const rows = sortBy(
+    results
+      .flatMap((r) => r.data ?? [])
+      .filter((r) => `${r.kind} ${r.name} ${r.namespace} ${r.summary}`.toLowerCase().includes(search.toLowerCase())),
+    sort,
+    (r, k) => (k === 'age' ? parseAge(r.age) : k === 'kind' ? r.kind : k === 'name' ? r.name : r.namespace),
+  )
+  const onSort = (k: string) => {
+    setSort((s) => toggleSort(s, k))
+    setShown(PAGE)
+  }
   const failed = results.some((r) => r.isError) || types.isError
 
   return (
@@ -60,7 +70,10 @@ export function Overview() {
           <Icon name="search" className="pointer-events-none absolute left-3 top-3 h-4 w-4 text-faint" />
           <input
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            onChange={(e) => {
+              setSearch(e.target.value)
+              setShown(PAGE)
+            }}
             placeholder={t('overview.search')}
             aria-label={t('overview.search')}
             className="input-base pl-9"
@@ -117,11 +130,11 @@ export function Overview() {
         <table className="data-table">
           <thead className="border-b border-base bg-slate-50 text-left text-xs uppercase tracking-wide text-muted dark:bg-slate-800/50">
             <tr>
-              <Th>Kind</Th>
-              <Th>Namespace</Th>
-              <Th>Name</Th>
+              <SortHeader label="Kind" sortKey="kind" state={sort} onToggle={onSort} />
+              <SortHeader label="Namespace" sortKey="namespace" state={sort} onToggle={onSort} />
+              <SortHeader label="Name" sortKey="name" state={sort} onToggle={onSort} />
               <Th>Summary</Th>
-              <Th>Age</Th>
+              <SortHeader label="Age" sortKey="age" state={sort} onToggle={onSort} />
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
@@ -142,7 +155,7 @@ export function Overview() {
                 </td>
               </tr>
             )}
-            {rows.map((r) => (
+            {rows.slice(0, shown).map((r) => (
               <tr key={`${r.typeId}/${r.namespace}/${r.name}`} className="row-hover">
                 <Td>
                   <KindBadge kind={r.kind} category={catByType.get(r.typeId)} />
@@ -163,6 +176,11 @@ export function Overview() {
           </tbody>
         </table>
       </div>
+{rows.length > shown && (
+        <button type="button" className="btn-ghost mx-auto block" onClick={() => setShown((n) => n + PAGE)}>
+          {t('list.showMore', { shown: Math.min(shown, rows.length), total: rows.length })}
+        </button>
+      )}
     </div>
   )
 }

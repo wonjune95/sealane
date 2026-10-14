@@ -26,6 +26,7 @@ export function Home() {
   const installed = (types.data ?? []).filter((rt) => rt.installed)
   const audit = useAudit()
   const findings = useAnalysis('', false).data?.findings
+  const warn = (findings?.length ?? 0) > 0
   const kindOf = (typeId: string) => types.data?.find((rt) => rt.typeId === typeId)?.kind ?? typeId
   const results = useQueries({
     queries: installed.map((rt) => ({
@@ -145,7 +146,8 @@ export function Home() {
         />
         <Shortcut
           to="/analysis"
-          icon="shield"
+          icon={warn ? 'warning' : 'shield'}
+          warn={warn}
           title={t('home.analysisTitle')}
           description={
             findings
@@ -317,15 +319,26 @@ function Shortcut({
   icon,
   title,
   description,
+  warn,
 }: {
   to: string
   icon: string
   title: string
   description: string
+  warn?: boolean
 }) {
   return (
-    <Link to={to} className="shortcut-card group">
-      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300">
+    <Link
+      to={to}
+      className={`shortcut-card group ${warn ? 'border-amber-300 bg-amber-50 dark:border-amber-500/40 dark:bg-amber-500/10' : ''}`}
+    >
+      <span
+        className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${
+          warn
+            ? 'text-amber-700 bg-amber-100 dark:text-amber-300 dark:bg-amber-500/20'
+            : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300'
+        }`}
+      >
         <Icon name={icon} className="h-5 w-5" />
       </span>
       <span className="min-w-0">

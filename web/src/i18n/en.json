@@ -495,5 +495,7 @@
   "services.scope.namespace": "namespace-wide",
   "services.scope.mesh": "mesh-wide",
   "services.back": "All services",
-  "services.loadFailed": "Could not load the service: {message}"
+  "services.loadFailed": "Could not load the service: {message}",
+  "list.showMore": "Show more ({shown} of {total})",
+  "list.sortBy": "Sort by {column}"
 }

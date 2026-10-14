@@ -13,12 +13,16 @@ import { PageHeader } from '../components/PageHeader'
 import { EmptyState } from '../components/EmptyState'
 import { DangerConfirm } from '../components/DangerConfirm'
 import { useCapabilities } from '../api/capabilities'
+import { SortHeader } from '../components/SortHeader'
+import { PAGE, sortBy, toggleSort, parseAge, type SortState } from '../lib/sort'
 import { t } from '../i18n'
 
 export function ResourceList() {
   const { type = '' } = useParams()
   const { ns, setNs } = useNamespace()
   const [search, setSearch] = useState('')
+  const [sort, setSort] = useState<SortState | null>(null)
+  const [shown, setShown] = useState(PAGE)
   const [pendingDelete, setPendingDelete] = useState<ResourceSummary | null>(null)
   const caps = useCapabilities().data
   const canWrite = caps?.role === 'admin' || caps?.role === 'editor'
@@ -31,9 +35,17 @@ export function ResourceList() {
   const toast = useToast()
 
   const keyOf = (r: ResourceSummary) => `${r.namespace}/${r.name}`
-  const rows = (data ?? []).filter((r) =>
-    `${r.name} ${r.namespace} ${r.summary} ${r.status ?? ''}`.toLowerCase().includes(search.toLowerCase()),
+  const rows = sortBy(
+    (data ?? []).filter((r) =>
+      `${r.name} ${r.namespace} ${r.summary} ${r.status ?? ''}`.toLowerCase().includes(search.toLowerCase()),
+    ),
+    sort,
+    (r, k) => (k === 'age' ? parseAge(r.age) : k === 'summary' ? `${r.status ?? ''} ${r.summary}` : k === 'name' ? r.name : r.namespace),
   )
+  const onSort = (k: string) => {
+    setSort((s) => toggleSort(s, k))
+    setShown(PAGE)
+  }
   const allKeys = rows.map(keyOf)
   const allSelected = allKeys.length > 0 && allKeys.every((k) => selected.has(k))
 
@@ -143,7 +155,10 @@ export function ResourceList() {
           <input
             aria-label={t('list.searchLabel')}
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            onChange={(e) => {
+              setSearch(e.target.value)
+              setShown(PAGE)
+            }}
             placeholder={t('list.searchPlaceholder')}
             className="input-base pl-9"
           />
@@ -186,10 +201,10 @@ export function ResourceList() {
                   className="rounded border-base text-accent focus:ring-accent"
                 />
               </th>
-              <Th>Namespace</Th>
-              <Th>Name</Th>
-              <Th>Summary</Th>
-              <Th>Age</Th>
+              <SortHeader label="Namespace" sortKey="namespace" state={sort} onToggle={onSort} />
+              <SortHeader label="Name" sortKey="name" state={sort} onToggle={onSort} />
+              <SortHeader label="Summary" sortKey="summary" state={sort} onToggle={onSort} />
+              <SortHeader label="Age" sortKey="age" state={sort} onToggle={onSort} />
               <Th />
             </tr>
           </thead>
@@ -209,7 +224,7 @@ export function ResourceList() {
                 </td>
               </tr>
             )}
-            {rows.map((r) => {
+            {rows.slice(0, shown).map((r) => {
               const k = keyOf(r)
               return (
                 <tr key={k} className="row-hover">
@@ -254,6 +269,11 @@ export function ResourceList() {
           </tbody>
         </table>
       </div>
+{rows.length > shown && (
+        <button type="button" className="btn-ghost mx-auto block" onClick={() => setShown((n) => n + PAGE)}>
+          {t('list.showMore', { shown: Math.min(shown, rows.length), total: rows.length })}
+        </button>
+      )}
       {pendingDelete && (
         <DangerConfirm
           name={pendingDelete.name}

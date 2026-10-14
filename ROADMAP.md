@@ -39,6 +39,10 @@ Sealane is moving from an internal tool to a public project in four releases. Da
 - One-line list summaries for every managed kind.
 - Sortable, paged lists.
 
+## 1.4 (shipped)
+- One concurrent snapshot per request for the flow map, analysis, service view and route check; Endpoints read once; client rate limit raised.
+- Services list with per-Service counts of routes, destination rules, policies and findings.
+
 ## After 1.0 (candidates, not promised)
 - Recipes and wizards for common routing changes.
 - Revision history with rollback.

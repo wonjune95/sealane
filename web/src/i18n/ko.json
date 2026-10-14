@@ -125,7 +125,7 @@
   "home.routeCheckDescription": "요청 조건을 입력하고 매칭되는 라우팅 규칙을 확인하세요.",
   "home.analysisTitle": "메시 분석",
   "home.analysisDescription": "동작하지 않을 라우팅과 그 이유를 찾아보세요.",
-  "home.analysisCounts": "오류 {errors}개 · 경고 {warnings}개",
+  "home.analysisCounts": "오류 {errors} · 경고 {warnings}",
   "home.servicesTitle": "서비스",
   "home.servicesDescription": "서비스에 적용되는 모든 규칙, 게이트웨이, 정책을 확인하세요.",
   "home.resourceStatus": "리소스 현황",

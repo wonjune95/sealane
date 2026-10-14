@@ -25,7 +25,7 @@ export function Home() {
   const types = useResourceTypes()
   const installed = (types.data ?? []).filter((rt) => rt.installed)
   const audit = useAudit()
-  const findings = useAnalysis('').data?.findings
+  const findings = useAnalysis('', false).data?.findings
   const kindOf = (typeId: string) => types.data?.find((rt) => rt.typeId === typeId)?.kind ?? typeId
   const results = useQueries({
     queries: installed.map((rt) => ({

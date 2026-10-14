@@ -22,13 +22,10 @@ const PAGE_NAMES: Record<string, Key> = {
 const MANAGE = '_manage' // cluster names must start with a letter or digit, so this never collides
 
 export function Layout({ children }: { children: ReactNode }) {
-  const { data } = useCapabilities()
+  const { data, isError } = useCapabilities()
   const clusters = useClusters().data
-  // Status pings every cluster, so it fills in after the fast list renders the options.
-  const statuses = useClusters(true).data
   const navigate = useNavigate()
   const cluster = getCluster() || 'local'
-  const connected = (name: string) => (name === 'local' ? true : statuses?.find((c) => c.name === name)?.connected)
   const types = useResourceTypes().data
   const { theme, toggle } = useTheme()
   const location = useLocation()
@@ -90,7 +87,7 @@ export function Layout({ children }: { children: ReactNode }) {
               </span>
               <span className="relative flex items-center gap-1.5">
                 <span
-                  className={`h-1.5 w-1.5 shrink-0 rounded-full ${connected(cluster) ? 'bg-emerald-500' : 'bg-slate-400'}`}
+                  className={`h-1.5 w-1.5 shrink-0 rounded-full ${data && !isError ? 'bg-emerald-500' : 'bg-slate-400'}`}
                 />
                 <select
                   aria-label={t('layout.selectCluster')}
@@ -101,8 +98,6 @@ export function Layout({ children }: { children: ReactNode }) {
                   {(clusters?.length ? clusters : [{ name: 'local' }]).map((c) => (
                     <option key={c.name} value={c.name}>
                       {c.name}
-                      {connected(c.name) !== undefined &&
-                        ` · ${t(connected(c.name) ? 'settings.cluster.connected' : 'settings.cluster.failed')}`}
                     </option>
                   ))}
                   <option value={MANAGE}>{t('layout.manageClusters')}</option>

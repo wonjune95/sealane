@@ -12,10 +12,10 @@ export interface Finding {
 }
 export interface Analysis { findings: Finding[]; skipped?: string[]; checked: number }
 
-export function useAnalysis(ns: string) {
+export function useAnalysis(ns: string, poll = true) {
   return useQuery({
     queryKey: ['analyze', ns],
     queryFn: () => apiGet<Analysis>(`/api/analyze${ns ? `?ns=${encodeURIComponent(ns)}` : ''}`),
-    refetchInterval: 30_000,
+    refetchInterval: poll ? 30_000 : false,
   })
 }

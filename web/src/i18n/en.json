@@ -125,7 +125,7 @@
   "home.routeCheckDescription": "Enter request conditions and see which routing rules match.",
   "home.analysisTitle": "Mesh analysis",
   "home.analysisDescription": "Find routing that will not work and why.",
-  "home.analysisCounts": "{errors} errors · {warnings} warnings",
+  "home.analysisCounts": "Errors {errors} · Warnings {warnings}",
   "home.servicesTitle": "Services",
   "home.servicesDescription": "See every rule, gateway and policy that applies to a Service.",
   "home.resourceStatus": "Resource status",

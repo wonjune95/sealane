@@ -20,7 +20,7 @@ You can edit it with `kubectl` as well; a key is a cluster name and its value is
 
 ## Switching clusters
 
-The header cluster picker switches the current cluster and shows its connection status (on phones, the picker sits at the top of the navigation drawer). Every API call takes a `?cluster=` parameter (default `local`). The CRD catalog and schema caches are kept per cluster, so clusters with different CRDs installed (Istio only, Gateway API only, different versions) are handled safely; each cluster shows only the kinds it has.
+The header cluster picker switches the current cluster and shows whether its API answers (on phones, the picker sits at the top of the navigation drawer). Every API call takes a `?cluster=` parameter (default `local`). The CRD catalog and schema caches are kept per cluster, so clusters with different CRDs installed (Istio only, Gateway API only, different versions) are handled safely; each cluster shows only the kinds it has.
 
 ## Limits
 

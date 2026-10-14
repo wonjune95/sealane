@@ -5,6 +5,11 @@ export interface ServiceRef {
   namespace: string
   name: string
   ports: number[]
+  // set by /api/services?mesh=true (omitted when 0)
+  routes?: number
+  destinationRules?: number
+  policies?: number
+  findings?: number
 }
 
 export function useServices(ns: string) {

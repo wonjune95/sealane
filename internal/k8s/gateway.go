@@ -21,6 +21,11 @@ type ServiceRef struct {
 	Namespace string  `json:"namespace"`
 	Name      string  `json:"name"`
 	Ports     []int32 `json:"ports"`
+	// Services page counts, set only for /api/services?mesh=true.
+	Routes           int `json:"routes,omitempty"` // VirtualServices for its host + HTTPRoutes to it
+	DestinationRules int `json:"destinationRules,omitempty"`
+	Policies         int `json:"policies,omitempty"`
+	Findings         int `json:"findings,omitempty"`
 }
 
 // ListGateways returns both Gateway API and Istio gateways in a namespace. A

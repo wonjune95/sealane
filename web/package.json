@@ -7,7 +7,7 @@
     "build": "tsc --noEmit && node -e \"require('fs').rmSync('../internal/assets/dist/assets',{recursive:true,force:true})\" && vite build",
     "preview": "vite preview",
     "lint": "eslint .",
-    "test:ui": "node tests/cluster-selection.mjs && node tests/flow-map.mjs && node tests/login-sso.mjs && node tests/analysis.mjs && node tests/list-sort.mjs && node tests/vs-form.mjs && node tests/httproute-form.mjs && node tests/dr-form.mjs && node tests/routecheck.mjs",
+    "test:ui": "node tests/cluster-selection.mjs && node tests/flow-map.mjs && node tests/login-sso.mjs && node tests/analysis.mjs && node tests/list-sort.mjs && node tests/vs-form.mjs && node tests/httproute-form.mjs && node tests/dr-form.mjs && node tests/routecheck.mjs && node tests/services.mjs",
     "test:cluster-selection": "node tests/cluster-selection.mjs",
     "test:flow-map": "node tests/flow-map.mjs",
     "test:login-sso": "node tests/login-sso.mjs",
@@ -15,7 +15,8 @@
     "test:vs-form": "node tests/vs-form.mjs",
     "test:httproute-form": "node tests/httproute-form.mjs",
     "test:dr-form": "node tests/dr-form.mjs",
-    "test:routecheck": "node tests/routecheck.mjs"
+    "test:routecheck": "node tests/routecheck.mjs",
+    "test:services": "node tests/services.mjs"
   },
   "dependencies": {
     "@codemirror/lang-yaml": "^6.1.3",

@@ -8,7 +8,15 @@ import { EmptyState } from '../components/EmptyState'
 import { Icon } from '../components/icons'
 import { SortHeader } from '../components/SortHeader'
 import { PAGE, sortBy, toggleSort, type SortState } from '../lib/sort'
-import { t } from '../i18n'
+import { t, type Key } from '../i18n'
+
+type Count = 'routes' | 'destinationRules' | 'policies' | 'findings'
+const COUNTS: [Count, Key][] = [
+  ['routes', 'services.colRoutes'],
+  ['destinationRules', 'services.colRules'],
+  ['policies', 'services.colPolicies'],
+  ['findings', 'services.colFindings'],
+]
 
 export function Services() {
   const { ns, setNs } = useNamespace()
@@ -20,7 +28,7 @@ export function Services() {
   const rows = sortBy(
     (data ?? []).filter((s) => `${s.namespace} ${s.name}`.toLowerCase().includes(search.toLowerCase())),
     sort,
-    (s, k) => (k === 'name' ? s.name : s.namespace),
+    (s, k) => (k === 'name' ? s.name : k === 'namespace' ? s.namespace : (s[k as Count] ?? 0)),
   )
   const onSort = (k: string) => {
     setSort((s) => toggleSort(s, k))
@@ -86,6 +94,9 @@ export function Services() {
                 <SortHeader label="Namespace" sortKey="namespace" state={sort} onToggle={onSort} />
                 <SortHeader label="Name" sortKey="name" state={sort} onToggle={onSort} />
                 <th className="px-3 py-2 font-medium">{t('services.ports')}</th>
+                {COUNTS.map(([k, label]) => (
+                  <SortHeader key={k} label={t(label)} sortKey={k} state={sort} onToggle={onSort} />
+                ))}
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
@@ -98,6 +109,22 @@ export function Services() {
                     </Link>
                   </td>
                   <td className="px-3 py-1.5 font-mono text-xs text-muted">{s.ports.join(', ') || '—'}</td>
+                  {COUNTS.map(([k]) => {
+                    const n = s[k] ?? 0
+                    return (
+                      <td key={k} className="px-3 py-1.5 tabular-nums">
+                        {n === 0 ? (
+                          <span className="text-muted">—</span>
+                        ) : k === 'findings' ? (
+                          <span className="chip bg-red-500/10 text-red-600 dark:text-red-400" title={t('services.findingsTitle', { n })}>
+                            {n}
+                          </span>
+                        ) : (
+                          n
+                        )}
+                      </td>
+                    )
+                  })}
                 </tr>
               ))}
             </tbody>

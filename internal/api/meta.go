@@ -138,10 +138,11 @@ func (s *Server) handleGateways(w http.ResponseWriter, r *http.Request) {
 }
 
 // handleServices lists services (+ ports) for backendRef selection and the
-// "service does not exist" warning badge.
+// "service does not exist" warning badge; ?mesh=true adds the Services page counts.
 func (s *Server) handleServices(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	svcs, err := clientFrom(ctx).ListServices(ctx, r.URL.Query().Get("ns"))
+	ns := r.URL.Query().Get("ns")
+	svcs, err := clientFrom(ctx).ListServices(ctx, ns)
 	if err != nil {
 		if apierrors.IsForbidden(err) {
 			writeJSON(w, http.StatusOK, []any{})
@@ -149,6 +150,9 @@ func (s *Server) handleServices(w http.ResponseWriter, r *http.Request) {
 		}
 		writeK8sError(w, err)
 		return
+	}
+	if r.URL.Query().Get("mesh") == "true" {
+		addMeshCounts(ctx, clientFrom(ctx), ns, svcs)
 	}
 	writeJSON(w, http.StatusOK, svcs)
 }

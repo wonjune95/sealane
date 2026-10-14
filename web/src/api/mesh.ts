@@ -11,7 +11,7 @@ export interface ServiceMesh {
 }
 
 export function useServiceList(ns: string) {
-  return useQuery({ queryKey: ['services-all', ns], queryFn: () => apiGet<ServiceRef[]>(`/api/services?ns=${encodeURIComponent(ns)}`) })
+  return useQuery({ queryKey: ['services-all', ns], queryFn: () => apiGet<ServiceRef[]>(`/api/services?ns=${encodeURIComponent(ns)}&mesh=true`) })
 }
 export function useServiceMesh(ns: string, name: string) {
   return useQuery({ queryKey: ['service-mesh', ns, name], queryFn: () => apiGet<ServiceMesh>(`/api/services/${ns}/${name}/mesh`), refetchInterval: 30_000 })

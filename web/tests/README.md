@@ -11,6 +11,7 @@ npm run test:vs-form
 npm run test:httproute-form
 npm run test:dr-form
 npm run test:routecheck
+npm run test:services
 ```
 
 `npm run test:ui` runs every fixture-based check; CI runs it on each push (dev server on `127.0.0.1:5173`, `SEALANE_TEST_URL` set).
@@ -30,6 +31,8 @@ The checks replace API responses with fixtures. They verify that a removed clust
 `npm run test:dr-form` covers the curated DestinationRule form: a new DR built through the form (host with the missing-Service badge, labelled subsets, TLS mode) checked against the YAML tab, the Form tab lock for unsupported fields (connectionPool), a lossless edit of an existing DR, typing a label key through an existing one, and unset selects dropping tls and trafficPolicy, fixture-based.
 
 `npm run test:routecheck` covers the request console: a route-check destination whose Service does not expose the request port shows the red port pill, and an Envoy 503 with no upstream shows the no-cluster hint, fixture-based.
+
+`npm run test:services` covers the Services list counts: the request carries `mesh=true`, the Routes, Rules, Policies and Findings columns (a dash for zero, a red pill for findings) and sorting by Findings, fixture-based (`SEALANE_SCREENSHOT=<path>` also saves a screenshot).
 
 The flow map checks cover mixed ingress/egress parents, missing gateways, search and namespace filters retaining related paths, problem paths, keyboard selection, scaled drag, layout reset, 320–1440px layouts, reduced motion, and empty/error/retry states.
 

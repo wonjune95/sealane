@@ -11,6 +11,7 @@ import (
 
 	istioapi "istio.io/api/networking/v1"
 	istiotype "istio.io/api/type/v1beta1"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 
@@ -52,10 +53,7 @@ func (s *Server) handleServiceMesh(w http.ResponseWriter, r *http.Request) {
 		writeK8sError(w, err)
 		return
 	}
-	root := os.Getenv("ISTIO_NAMESPACE")
-	if root == "" {
-		root = "istio-system"
-	}
+	root := istioRoot()
 	// The snapshot and the namespace-scoped policy lists load side by side.
 	var st *meshSnapshot
 	var nsPolicies, rootPolicies []securityPolicy
@@ -66,7 +64,21 @@ func (s *Server) handleServiceMesh(w http.ResponseWriter, r *http.Request) {
 		wg.Go(func() { rootPolicies = securityPolicies(ctx, c, root) })
 	}
 	wg.Wait()
+	writeJSON(w, http.StatusOK, serviceMeshOf(st, svc, nsPolicies, rootPolicies, root, analyzeSnapshot(st, "").Findings))
+}
 
+// istioRoot is the Istio root namespace, where selector-less policies apply mesh-wide.
+func istioRoot() string {
+	if root := os.Getenv("ISTIO_NAMESPACE"); root != "" {
+		return root
+	}
+	return "istio-system"
+}
+
+// serviceMeshOf assembles the service view of svc from a fullSnapshot, the security
+// policies in svc's namespace and in the root namespace, and the cluster-wide findings.
+func serviceMeshOf(st *meshSnapshot, svc *corev1.Service, nsPolicies, rootPolicies []securityPolicy, root string, findings []finding) serviceMesh {
+	ns, name := svc.Namespace, svc.Name
 	key := ns + "/" + name
 	out := serviceMesh{Namespace: ns, Name: name, Selector: svc.Spec.Selector, Ports: []int32{},
 		Endpoints: readyEndpoints(st, ns, name), VirtualServices: []vsRef{}, DestinationRules: []ref{},
@@ -168,7 +180,7 @@ func (s *Server) handleServiceMesh(w http.ResponseWriter, r *http.Request) {
 	for _, r := range slices.Concat(out.DestinationRules, out.HTTPRoutes, out.Gateways) {
 		listed[r] = true
 	}
-	for _, f := range analyzeSnapshot(st, "").Findings {
+	for _, f := range findings {
 		if f.Service == key || listed[f.Resource] {
 			out.Findings = append(out.Findings, f)
 		}
@@ -182,7 +194,43 @@ func (s *Server) handleServiceMesh(w http.ResponseWriter, r *http.Request) {
 	slices.SortFunc(out.HTTPRoutes, byRef)
 	slices.SortFunc(out.Gateways, byRef)
 	slices.SortFunc(out.Policies, func(a, b policyRef) int { return byRef(a.ref, b.ref) })
-	writeJSON(w, http.StatusOK, out)
+	return out
+}
+
+// addMeshCounts fills each Service's route, DestinationRule, policy and finding
+// counts (GET /api/services?mesh=true) from one snapshot and one policy list.
+// ponytail: builds the full service view once per Service (services x routing resources);
+// index the resources by host if clusters with thousands of Services make the list slow.
+func addMeshCounts(ctx context.Context, c *k8s.Clients, ns string, svcs []k8s.ServiceRef) {
+	root := istioRoot()
+	var st *meshSnapshot
+	var pols, rootPols []securityPolicy
+	var wg sync.WaitGroup
+	wg.Go(func() { st = loadMeshSnapshot(ctx, c, fullSnapshot) })
+	wg.Go(func() { pols = securityPolicies(ctx, c, ns) }) // ns == "": every namespace, root included
+	if ns != "" && ns != root {
+		wg.Go(func() { rootPols = securityPolicies(ctx, c, root) })
+	}
+	wg.Wait()
+	byNS := map[string][]securityPolicy{}
+	for _, p := range slices.Concat(pols, rootPols) {
+		byNS[p.Namespace] = append(byNS[p.Namespace], p)
+	}
+	findings := analyzeSnapshot(st, "").Findings
+	for i := range svcs {
+		svc := st.services[svcs[i].Namespace+"/"+svcs[i].Name]
+		if svc == nil {
+			continue
+		}
+		m := serviceMeshOf(st, svc, byNS[svc.Namespace], byNS[root], root, findings)
+		for _, v := range m.VirtualServices {
+			if v.Match == "host" {
+				svcs[i].Routes++
+			}
+		}
+		svcs[i].Routes += len(m.HTTPRoutes)
+		svcs[i].DestinationRules, svcs[i].Policies, svcs[i].Findings = len(m.DestinationRules), len(m.Policies), len(m.Findings)
+	}
 }
 
 type securityPolicy struct {

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"log/slog"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/wonjune95/sealane/internal/auth"
@@ -32,15 +33,30 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "BadRequest", "invalid request body")
 		return
 	}
+	keys := []string{"u:" + in.Username, "ip:" + clientIP(r)}
+	for _, k := range keys {
+		if d := s.loginThrottle.blocked(k); d > 0 {
+			w.Header().Set("Retry-After", strconv.Itoa(int(d.Seconds())+1))
+			writeError(w, http.StatusTooManyRequests, "TooManyAttempts", "too many failed sign-in attempts; try again later")
+			return
+		}
+	}
 	role, err := s.accounts.Authenticate(in.Username, in.Password)
 	if err != nil {
 		slog.Warn("login failed", "user", in.Username)
 		status := http.StatusUnauthorized
 		if !errors.Is(err, auth.ErrBadCredentials) {
 			status = http.StatusInternalServerError // misconfigured account entry
+		} else {
+			for _, k := range keys {
+				s.loginThrottle.fail(k)
+			}
 		}
 		writeError(w, status, "Unauthorized", err.Error())
 		return
+	}
+	for _, k := range keys {
+		s.loginThrottle.reset(k)
 	}
 	id := auth.Identity{Name: in.Username, Role: role, Provider: auth.ProviderLocal}
 	setSessionCookie(w, s.sessions.Sign(id, sessionTTL))

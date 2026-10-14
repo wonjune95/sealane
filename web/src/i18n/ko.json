@@ -60,6 +60,7 @@
   "login.passwordPlaceholder": "비밀번호를 입력하세요",
   "login.busy": "로그인 중…",
   "login.submit": "로그인",
+  "login.throttled": "로그인 실패가 너무 많습니다. 1분 뒤에 다시 시도하세요.",
   "login.help1": "계정이 필요하거나 로그인이 어려우신가요?",
   "login.help2": "워크스페이스 관리자에게 문의하세요.",
   "app.checkingCluster": "클러스터 선택을 확인하는 중…",

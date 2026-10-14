@@ -48,10 +48,12 @@ type Server struct {
 	requestTester bool // live request tester (Helm opt-in) — needs pods/exec
 
 	oidc *auth.OIDC // nil = local accounts only
+
+	loginThrottle *throttle
 }
 
 func NewServer(dev bool, factory ClientSource, accounts *auth.Store, sessions *auth.Sessions, accountsCM AccountsCMRef, clustersSecret ClustersSecretRef) *Server {
-	return &Server{dev: dev, factory: factory, accounts: accounts, sessions: sessions, accountsCM: accountsCM, clustersSecret: clustersSecret}
+	return &Server{dev: dev, factory: factory, accounts: accounts, sessions: sessions, accountsCM: accountsCM, clustersSecret: clustersSecret, loginThrottle: newThrottle()}
 }
 
 // EnableRequestTester turns on the in-pod request tester (admin only, Helm opt-in).

@@ -60,6 +60,7 @@
   "login.passwordPlaceholder": "Enter your password",
   "login.busy": "Signing in…",
   "login.submit": "Sign in",
+  "login.throttled": "Too many failed attempts. Wait a minute and try again.",
   "login.help1": "Need an account or having trouble signing in?",
   "login.help2": "Contact your workspace administrator.",
   "app.checkingCluster": "Checking cluster selection…",

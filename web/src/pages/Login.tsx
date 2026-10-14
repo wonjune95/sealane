@@ -35,7 +35,7 @@ export function Login() {
       await apiPost('/api/login', { username: username.trim(), password })
       window.location.reload()
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : String(err))
+      setError(err instanceof ApiError ? (err.status === 429 ? t('login.throttled') : err.message) : String(err))
       setBusy(false)
     }
   }

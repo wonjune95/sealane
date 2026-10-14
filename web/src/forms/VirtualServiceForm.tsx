@@ -3,7 +3,7 @@ import type { ServiceRef } from '../api/services'
 import { useSubsets, type SubsetRef } from '../api/subsets'
 import { replace } from './httproute'
 import type { VirtualServiceFormModel, VSRuleModel, VSMatchModel, VSDestinationModel } from './virtualservice'
-import { Field, Section, Row, input } from './parts'
+import { Field, Section, Row, Missing, input } from './parts'
 import { t } from '../i18n'
 
 const del = 'text-sm text-red-600 hover:underline dark:text-red-400'
@@ -85,14 +85,6 @@ export function VirtualServiceForm({
         ))}
       </Section>
     </div>
-  )
-}
-
-// External hosts (with a dot or wildcard) are never flagged.
-function Missing({ host, services }: { host: string; services: ServiceRef[] }) {
-  if (host === '' || /[.*]/.test(host) || services.some((s) => s.name === host)) return null
-  return (
-    <span className="whitespace-nowrap rounded bg-amber-100 px-1.5 py-0.5 text-xs text-amber-700 dark:bg-amber-500/15 dark:text-amber-300" title={t('form.serviceNotInNs')}>⚠ {t('form.missing')}</span>
   )
 }
 

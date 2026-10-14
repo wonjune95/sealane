@@ -73,9 +73,10 @@ spec:
   # trafficPolicy:       # ${t('edit.tpl.drTrafficPolicy')}
   #   loadBalancer:
   #     simple: ROUND_ROBIN
-  # subsets:             # ${t('edit.tpl.drSubsets')}
-  #   - name: v1
-  #     labels: { version: v1 }
+  subsets:               # ${t('edit.tpl.drSubsets')}
+    - name: v1
+      labels:
+        version: v1
 `,
   'gateways.networking.istio.io': `apiVersion: networking.istio.io/v1
 kind: Gateway

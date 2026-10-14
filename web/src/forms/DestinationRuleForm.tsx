@@ -1,0 +1,105 @@
+import type { ServiceRef } from '../api/services'
+import { replace } from './httproute'
+import { LB_SIMPLE, TLS_MODES, type DestinationRuleFormModel, type DRSubsetModel } from './destinationrule'
+import { Field, Section, Missing, input } from './parts'
+import { t } from '../i18n'
+
+const del = 'text-sm text-red-600 hover:underline dark:text-red-400'
+const add = 'text-sm text-accent hover:underline'
+
+export function DestinationRuleForm({
+  model,
+  onChange,
+  services,
+  lockIdentity,
+}: {
+  model: DestinationRuleFormModel
+  onChange: (m: DestinationRuleFormModel) => void
+  services: ServiceRef[]
+  lockIdentity: boolean
+}) {
+  const set = (patch: Partial<DestinationRuleFormModel>) => onChange({ ...model, ...patch })
+
+  return (
+    <div className="space-y-6 panel p-5 shadow-sm">
+      <datalist id="dr-svc-list">
+        {services.map((s) => <option key={s.name} value={s.name} />)}
+      </datalist>
+
+      {/* identity */}
+      <div className="grid grid-cols-2 gap-4">
+        <Field label="Name" required>
+          <input className={input} value={model.name} disabled={lockIdentity}
+            onChange={(e) => set({ name: e.target.value })} />
+        </Field>
+        <Field label="Namespace" required>
+          <input className={input} value={model.namespace} disabled={lockIdentity}
+            onChange={(e) => set({ namespace: e.target.value })} />
+        </Field>
+      </div>
+
+      <Field label="Host" required>
+        <div className="flex items-center gap-2">
+          <input className={input} list="dr-svc-list" value={model.host} placeholder="reviews / reviews.shop.svc.cluster.local"
+            onChange={(e) => set({ host: e.target.value })} />
+          <Missing host={model.host} services={services} />
+        </div>
+      </Field>
+
+      <Section title="Subsets" onAdd={() => set({ subsets: [...model.subsets, { name: '', labels: [] }] })}>
+        {model.subsets.map((s, si) => (
+          <SubsetCard key={si} s={s}
+            onChange={(ns) => set({ subsets: replace(model.subsets, si, ns) })}
+            onRemove={() => set({ subsets: model.subsets.filter((_, j) => j !== si) })} />
+        ))}
+      </Section>
+
+      <Section title="Traffic policy">
+        <div className="grid grid-cols-2 gap-4">
+          <Field label="TLS mode">
+            <select className={input} value={model.tlsMode ?? ''}
+              onChange={(e) => set({ tlsMode: (e.target.value || undefined) as DestinationRuleFormModel['tlsMode'] })}>
+              <option value="">{t('form.unset')}</option>
+              {TLS_MODES.map((v) => <option key={v} value={v}>{v}</option>)}
+            </select>
+          </Field>
+          <Field label="Load balancer">
+            <select className={input} value={model.lbSimple ?? ''}
+              onChange={(e) => set({ lbSimple: (e.target.value || undefined) as DestinationRuleFormModel['lbSimple'] })}>
+              <option value="">{t('form.unset')}</option>
+              {LB_SIMPLE.map((v) => <option key={v} value={v}>{v}</option>)}
+            </select>
+          </Field>
+        </div>
+      </Section>
+    </div>
+  )
+}
+
+function SubsetCard({ s, onChange, onRemove }: { s: DRSubsetModel; onChange: (s: DRSubsetModel) => void; onRemove: () => void }) {
+  const set = (patch: Partial<DRSubsetModel>) => onChange({ ...s, ...patch })
+  return (
+    <div className="space-y-2 rounded border border-base p-3">
+      <div className="flex items-center gap-2">
+        <span className="text-xs text-muted">name<span className="text-red-500">*</span></span>
+        <input className={`${input} max-w-xs`} value={s.name} placeholder="v1"
+          onChange={(e) => set({ name: e.target.value })} />
+        <button onClick={onRemove} className={`ml-auto ${del}`}>{t('form.deleteSubset')}</button>
+      </div>
+      {s.labels.map((l, li) => (
+        <div key={li} className="flex items-center gap-2 pl-6">
+          {/* Committed on blur: a half-typed key (app on the way to app-tier) must not
+              collide with an existing label key mid-word. */}
+          <input key={`${li}:${l.key}`} className={input} defaultValue={l.key} placeholder="label"
+            onBlur={(e) => e.target.value !== l.key && set({ labels: replace(s.labels, li, { ...l, key: e.target.value }) })} />
+          <span className="text-faint">=</span>
+          <input className={input} value={l.value} placeholder="value"
+            onChange={(e) => set({ labels: replace(s.labels, li, { ...l, value: e.target.value }) })} />
+          <button onClick={() => set({ labels: s.labels.filter((_, j) => j !== li) })} className={del}>×</button>
+        </div>
+      ))}
+      <button onClick={() => set({ labels: [...s.labels, { key: '', value: '' }] })}
+        className={`pl-6 ${add}`}>+ {t('form.addLabel')}</button>
+    </div>
+  )
+}

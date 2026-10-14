@@ -5,6 +5,8 @@ import { HTTPRouteForm } from './HTTPRouteForm'
 import { isHTTPRepresentable, toHTTPForm, fromHTTPForm } from './httproute'
 import { VirtualServiceForm } from './VirtualServiceForm'
 import { isVSRepresentable, toVSForm, fromVSForm } from './virtualservice'
+import { DestinationRuleForm } from './DestinationRuleForm'
+import { isDRRepresentable, toDRForm, fromDRForm } from './destinationrule'
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
@@ -55,6 +57,20 @@ export const FORMS: Record<string, FormIntegration> = {
         model={p.model}
         onChange={p.onChange}
         gateways={p.gateways}
+        services={p.services}
+        lockIdentity={p.lockIdentity}
+      />
+    ),
+  },
+  'destinationrules.networking.istio.io': {
+    isRepresentable: isDRRepresentable,
+    toModel: toDRForm,
+    fromModel: fromDRForm,
+    needsServices: true,
+    render: (p) => (
+      <DestinationRuleForm
+        model={p.model}
+        onChange={p.onChange}
         services={p.services}
         lockIdentity={p.lockIdentity}
       />

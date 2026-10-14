@@ -70,6 +70,10 @@ To try it, apply [`examples/demo-mesh.yaml`](https://github.com/wonjune95/sealan
 
 The three pod checks need `pods` list (in the chart's ClusterRole from 1.1.0). Without it they are skipped and the page says so (`"skipped": ["pods"]`); only pod labels, container names, phase and the injection opt-out are read. The sidecar check also needs `namespaces` list and is skipped silently without it; with `?ns=` it reports the namespace of that name. If Services cannot be listed, the existence checks are skipped; a kind whose CRD is not installed is skipped silently.
 
+The Services list can be narrowed to services that have any routes, destination rules, policies or findings ("Only services with mesh config").
+
+Opening a finding's resource link lands on the YAML tab with the offending field highlighted and named in a banner (`?focus=` carries the path, for example `spec.http[1].route[0].destination.subset`).
+
 ## Service view
 **Services** (`/services`, then one Service) shows everything that applies to a Service (API `/api/services/{ns}/{name}/mesh`): its selector, ports and ready endpoints; VirtualServices whose hosts name it or that route to it (a bare `*` host never counts); DestinationRules for its host, wildcards included; HTTPRoutes with it as a backend; the gateways those routes bind; the security policies (AuthorizationPolicy, PeerAuthentication, RequestAuthentication) that apply; and the analysis findings that concern it or any resource listed on the page (for example a bound Gateway whose selector matches no pod). The Services list itself shows per-Service counts of routes (VirtualServices for its host plus HTTPRoutes to it), destination rules, policies and findings, computed by the same rules (API `/api/services?mesh=true`).
 

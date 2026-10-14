@@ -43,6 +43,11 @@ Sealane is moving from an internal tool to a public project in four releases. Da
 - One concurrent snapshot per request for the flow map, analysis, service view and route check; Endpoints read once; client rate limit raised.
 - Services list with per-Service counts of routes, destination rules, policies and findings.
 
+## 1.5 (shipped)
+- Sidecar-injection check in the analysis (native sidecars included).
+- Findings open the offending field in the editor.
+- "Only services with mesh config" filter on the Services list.
+
 ## After 1.0 (candidates, not promised)
 - Recipes and wizards for common routing changes.
 - Revision history with rollback.

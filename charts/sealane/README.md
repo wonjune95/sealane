@@ -3,7 +3,7 @@
 Routing console for Istio and Gateway API. Single stateless binary, no CRDs or operators.
 
 ```bash
-helm install sealane oci://ghcr.io/wonjune95/charts/sealane --version 1.4.0 -n sealane --create-namespace
+helm install sealane oci://ghcr.io/wonjune95/charts/sealane --version 1.5.0 -n sealane --create-namespace
 kubectl -n sealane port-forward svc/sealane 8080:8080   # http://localhost:8080 — admin / admin, then change the password
 ```
 

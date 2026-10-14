@@ -47,6 +47,7 @@ jobs:
 
   ui-tests:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     defaults:
       run:
         working-directory: web
@@ -67,6 +68,8 @@ jobs:
       - run: npm run test:ui
         env:
           SEALANE_TEST_URL: http://127.0.0.1:5173
+      - if: failure()
+        run: cat /tmp/vite.log
 
   helm:
     runs-on: ubuntu-latest

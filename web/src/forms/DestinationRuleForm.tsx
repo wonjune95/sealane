@@ -91,7 +91,13 @@ function SubsetCard({ s, onChange, onRemove }: { s: DRSubsetModel; onChange: (s:
           {/* Committed on blur: a half-typed key (app on the way to app-tier) must not
               collide with an existing label key mid-word. */}
           <input key={`${li}:${l.key}`} className={input} defaultValue={l.key} placeholder="label"
-            onBlur={(e) => e.target.value !== l.key && set({ labels: replace(s.labels, li, { ...l, key: e.target.value }) })} />
+            onBlur={(e) => {
+              const v = e.target.value
+              if (v === l.key) return
+              // Labels are a map: committing a key another row already has would drop a row.
+              if (s.labels.some((o, j) => j !== li && o.key === v)) e.target.value = l.key
+              else set({ labels: replace(s.labels, li, { ...l, key: v }) })
+            }} />
           <span className="text-faint">=</span>
           <input className={input} value={l.value} placeholder="value"
             onChange={(e) => set({ labels: replace(s.labels, li, { ...l, value: e.target.value }) })} />

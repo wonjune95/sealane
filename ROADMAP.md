@@ -29,6 +29,11 @@ Sealane is moving from an internal tool to a public project in four releases. Da
 - IdP groups in the `login` log line.
 - Option to hide the local login form when SSO is configured (`oidc.hideLocalLogin`).
 
+## 1.2 (shipped)
+- Sidebar gives its height back to the resource-kind list; the header cluster picker shows a connection dot and links to cluster management.
+- Home cards for mesh analysis (error and warning counts) and the Services view.
+- Fixes for the severity pill wrapping in Korean and toolbar search boxes at narrow widths.
+
 ## 1.3 (shipped)
 - Curated forms for VirtualService and DestinationRule.
 - One-line list summaries for every managed kind.

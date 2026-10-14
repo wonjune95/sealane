@@ -79,6 +79,8 @@ func TestSummarize(t *testing.T) {
 		{"gatewayclasses.gateway.networking.k8s.io", "", obj(nil)},
 		{"gateways.gateway.networking.k8s.io", "listeners: 2 · a.example.com, b.example.com", obj(map[string]any{"listeners": sl(
 			map[string]any{"hostname": "a.example.com"}, map[string]any{"hostname": "b.example.com"})})},
+		{"gateways.gateway.networking.k8s.io", "listeners: 2 · shop.example.com", obj(map[string]any{"listeners": sl(
+			map[string]any{"port": int64(80), "hostname": "shop.example.com"}, map[string]any{"port": int64(443), "hostname": "shop.example.com"})})},
 		{"gateways.gateway.networking.k8s.io", "listeners: 1", obj(map[string]any{"listeners": sl(map[string]any{"port": int64(80)})})},
 		{"gateways.gateway.networking.k8s.io", "", obj(nil)},
 		{"grpcroutes.gateway.networking.k8s.io", "a.example.com", obj(map[string]any{"hostnames": sl("a.example.com")})},

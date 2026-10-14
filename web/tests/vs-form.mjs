@@ -173,6 +173,37 @@ try {
     'x-user-id': { exact: '' },
   })
 
+  // Renaming a header onto an existing name (x-env → x-user) is refused, not merged.
+  await formTab.click()
+  await headerNames.nth(1).fill('x-user')
+  await headerNames.nth(1).blur()
+  assert.equal(await headerNames.nth(1).inputValue(), 'x-env')
+  assert.deepEqual((await editorYaml()).spec.http[0].match[0].headers, {
+    'x-user': { exact: 'qa' },
+    'x-env': { prefix: 'stg' },
+    'x-user-id': { exact: '' },
+  })
+
+  // Mid-edit YAML where a list is briefly a map must not crash the editor; the
+  // Form tab locks until the YAML is representable again.
+  const setYaml = (text) =>
+    page.locator('.cm-content').evaluate((el, t) => {
+      const v = el.cmTile.view
+      v.dispatch({ changes: { from: 0, to: v.state.doc.length, insert: t } })
+    }, text)
+  const valid = await page.locator('.cm-content').evaluate((el) => el.cmTile.view.state.doc.toString())
+  await setYaml(valid.replace(/^  http:\n[\s\S]*$/m, '  http:\n    route: []\n'))
+  await page.waitForTimeout(300)
+  assert.deepEqual(errors, [])
+  assert.ok(await formTab.isDisabled(), 'Form tab is locked while http is a map')
+  await setYaml(valid)
+  await page.waitForFunction(() => {
+    const b = [...document.querySelectorAll('button')].find((x) => x.textContent.trim() === 'Form')
+    return b && !b.disabled
+  })
+  await formTab.click()
+  await section('HTTP rules').waitFor()
+
   assert.deepEqual(errors, [])
   console.log('vs-form: ok')
 } finally {

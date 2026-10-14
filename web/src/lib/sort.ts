@@ -8,7 +8,7 @@ export function toggleSort(s: SortState | null, key: string): SortState {
   if (!s || s.key !== key) return { key, dir: 'asc' }
   return { key, dir: s.dir === 'asc' ? 'desc' : 'asc' }
 }
-const UNIT: Record<string, number> = { d: 86400, h: 3600, m: 60, s: 1 }
+const UNIT: Record<string, number> = { y: 31536000, d: 86400, h: 3600, m: 60, s: 1 }
 // "3d22h" -> seconds; "" -> -1; unknown tokens ignored.
 export function parseAge(age: string): number {
   if (!age) return -1

@@ -28,6 +28,9 @@ const items = Array.from({ length: 120 }, (_, i) => {
     age: ages[n % 3],
   }
 })
+// Years must count: 2y10d is older than 400d (lexically and by-days it is not).
+items.find((r) => r.name === 'vs-000').age = '2y10d'
+items.find((r) => r.name === 'vs-001').age = '400d'
 const types = [
   { typeId: TYPE, kind: 'VirtualService', category: 'traffic', namespaced: true, installed: true, dangerous: false },
 ]
@@ -72,13 +75,19 @@ try {
   await age.click()
   assert.equal(await first(4), '12m')
   await age.click()
-  assert.equal(await first(4), '3d22h')
+  assert.equal(await first(4), '2y10d')
+  assert.equal(await rows.nth(1).locator('td').nth(4).innerText(), '400d')
 
   // Search resets the window.
   await page.getByRole('button', { name: /Show more/ }).click()
   assert.equal(await rows.count(), 100)
   await page.getByRole('textbox', { name: 'Search resources' }).fill('vs-')
   assert.equal(await rows.count(), 50)
+
+  // Select-all ticks only the 50 shown rows, not all 120 matches.
+  await page.getByRole('checkbox', { name: 'Select all shown resources' }).check()
+  assert.equal(await page.locator('tbody input[type="checkbox"]:checked').count(), 50)
+  await page.getByRole('button', { name: /Download.*\(50\)/ }).waitFor()
   assert.deepEqual(errors, [])
   console.log('ok')
 } finally {

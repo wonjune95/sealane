@@ -12,7 +12,7 @@ import { YamlEditor } from '../components/YamlEditor'
 import { DangerConfirm } from '../components/DangerConfirm'
 import { DiffModal } from '../components/DiffModal'
 import { cleanManifest } from '../lib/download'
-import { FORMS } from '../forms/registry'
+import { FORMS, type FormIntegration } from '../forms/registry'
 import { AutoForm } from '../forms/AutoForm'
 import { useToast } from '../components/Toast'
 import { KindBadge } from '../components/KindBadge'
@@ -125,6 +125,17 @@ function genericTemplate(rt: ResourceType): string {
 
 type Tab = 'form' | 'yaml'
 
+// Mid-edit YAML can have a list typed as a map (`http: {route: []}`); the
+// representability checks assume the schema shape and may throw — treat that
+// as "not representable" instead of unmounting the editor with unsaved text.
+function safeRepresentable(curated: FormIntegration, obj: any): boolean {
+  try {
+    return curated.isRepresentable(obj)
+  } catch {
+    return false
+  }
+}
+
 export function ResourceEdit() {
   const { type = '', ns: nsParam, name: nameParam } = useParams()
   const navigate = useNavigate()
@@ -183,7 +194,7 @@ export function ResourceEdit() {
     }
   }
   // Curated form requires a representable object; auto-form handles any spec.
-  const formAvailable = !parseErr && !!obj && (curated ? curated.isRepresentable(obj) : hasAuto)
+  const formAvailable = !parseErr && !!obj && (curated ? safeRepresentable(curated, obj) : hasAuto)
   const formNs = obj?.metadata?.namespace || 'default'
   const gateways = useGateways(curated?.needsGateways && tab === 'form' ? formNs : '')
   const services = useServices(curated?.needsServices && tab === 'form' ? formNs : '')

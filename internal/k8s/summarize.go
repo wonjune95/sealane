@@ -99,9 +99,11 @@ var summarizers = map[string]func(*unstructured.Unstructured) string{
 		ls, _, _ := unstructured.NestedSlice(u.Object, "spec", "listeners")
 		s := countSummary("listeners", len(ls))
 		var hosts []string
+		seen := map[string]bool{}
 		for _, l := range ls {
 			if m, ok := l.(map[string]any); ok {
-				if h, _, _ := unstructured.NestedString(m, "hostname"); h != "" {
+				if h, _, _ := unstructured.NestedString(m, "hostname"); h != "" && !seen[h] {
+					seen[h] = true
 					hosts = append(hosts, h)
 				}
 			}

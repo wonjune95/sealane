@@ -46,7 +46,7 @@ export function ResourceList() {
     setSort((s) => toggleSort(s, k))
     setShown(PAGE)
   }
-  const allKeys = rows.map(keyOf)
+  const allKeys = rows.slice(0, shown).map(keyOf)
   const allSelected = allKeys.length > 0 && allKeys.every((k) => selected.has(k))
 
   function toggle(k: string) {

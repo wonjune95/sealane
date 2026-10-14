@@ -29,6 +29,8 @@ import (
 // fakeIdP is a minimal OpenID provider: discovery, JWKS and a token endpoint that mints
 // RS256 id_tokens with whatever nonce/groups the test sets. aud, exp and signKey
 // override the valid defaults ("sealane", +1h, the published key) for negative tests.
+// omitGroupsClaim drops groups from the id_token; /userinfo then serves userinfoGroups
+// (nil = HTTP 500) to the "at" bearer token and counts calls in userinfoCalls.
 type fakeIdP struct {
 	srv          *httptest.Server
 	key          *rsa.PrivateKey
@@ -39,6 +41,10 @@ type fakeIdP struct {
 	aud          string
 	exp          time.Time
 	signKey      *rsa.PrivateKey
+
+	omitGroupsClaim bool
+	userinfoGroups  []string
+	userinfoCalls   int
 }
 
 func newFakeIdP(t *testing.T) *fakeIdP {
@@ -55,7 +61,7 @@ func newFakeIdP(t *testing.T) *fakeIdP {
 	mux.HandleFunc("GET /.well-known/openid-configuration", func(w http.ResponseWriter, _ *http.Request) {
 		_ = json.NewEncoder(w).Encode(map[string]any{
 			"issuer": iss, "authorization_endpoint": iss + "/authorize", "token_endpoint": iss + "/token",
-			"jwks_uri": iss + "/jwks", "id_token_signing_alg_values_supported": []string{"RS256"},
+			"jwks_uri": iss + "/jwks", "userinfo_endpoint": iss + "/userinfo", "id_token_signing_alg_values_supported": []string{"RS256"},
 		})
 	})
 	mux.HandleFunc("GET /jwks", func(w http.ResponseWriter, _ *http.Request) {
@@ -88,7 +94,23 @@ func newFakeIdP(t *testing.T) *fakeIdP {
 			"iss": iss, "sub": "alice", "aud": aud, "iat": time.Now().Unix(),
 			"exp": exp.Unix(), "nonce": f.nonce, "email": f.email, "groups": f.groups,
 		}
+		if f.omitGroupsClaim {
+			delete(claims, "groups")
+		}
 		_ = json.NewEncoder(w).Encode(map[string]any{"access_token": "at", "token_type": "Bearer", "id_token": signRS256(t, signKey, claims)})
+	})
+	mux.HandleFunc("GET /userinfo", func(w http.ResponseWriter, r *http.Request) {
+		if r.Header.Get("Authorization") != "Bearer at" {
+			w.WriteHeader(http.StatusUnauthorized)
+			return
+		}
+		f.userinfoCalls++
+		if f.userinfoGroups == nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]any{"sub": "alice", "groups": f.userinfoGroups})
 	})
 	return f
 }
@@ -291,6 +313,71 @@ func TestOIDCRefusesUsersWithoutRole(t *testing.T) {
 	rec := callback(t, mux, "code=good-code&state="+url.QueryEscape(q.Get("state")), cookie)
 	if rec.Header().Get("Location") != "/?oidc_error=access_denied" || issuedSession(rec) != nil {
 		t.Fatalf("no-role user: %d %s", rec.Code, rec.Header().Get("Location"))
+	}
+}
+
+// oidcLogin runs one sign-in against idp and returns the callback response.
+func oidcLogin(t *testing.T, mux *http.ServeMux, idp *fakeIdP) *httptest.ResponseRecorder {
+	t.Helper()
+	q, cookie := startLogin(t, mux)
+	_, nonce, _, _ := testSessions.ParseState(cookie.Value)
+	idp.nonce = nonce
+	return callback(t, mux, "code=good-code&state="+url.QueryEscape(q.Get("state")), cookie)
+}
+
+func TestOIDCGroupsFromUserinfoWhenTokenLacksClaim(t *testing.T) {
+	logs := captureLogs(t)
+	idp := newFakeIdP(t)
+	idp.omitGroupsClaim, idp.userinfoGroups = true, []string{"platform-admins"}
+	mux, _ := newOIDCMux(t, idp, "viewer")
+	sc := issuedSession(oidcLogin(t, mux, idp))
+	if sc == nil {
+		t.Fatal("no session cookie")
+	}
+	if id, _ := testSessions.Parse(sc.Value); id.Role != "admin" || idp.userinfoCalls != 1 {
+		t.Fatalf("role = %q, userinfo calls = %d; want admin, 1", id.Role, idp.userinfoCalls)
+	}
+	var login map[string]any
+	for _, rec := range logs() {
+		if rec["msg"] == "login" {
+			login = rec
+		}
+	}
+	if g, _ := login["groups"].([]any); len(g) != 1 || g[0] != "platform-admins" {
+		t.Fatalf("login log groups = %v, want [platform-admins]", login["groups"])
+	}
+}
+
+func TestOIDCEmptyGroupsClaimSkipsUserinfo(t *testing.T) {
+	idp := newFakeIdP(t)
+	idp.groups, idp.userinfoGroups = []string{}, []string{"platform-admins"}
+	mux, _ := newOIDCMux(t, idp, "viewer")
+	sc := issuedSession(oidcLogin(t, mux, idp))
+	if sc == nil {
+		t.Fatal("no session cookie")
+	}
+	if id, _ := testSessions.Parse(sc.Value); id.Role != "viewer" || idp.userinfoCalls != 0 {
+		t.Fatalf("role = %q, userinfo calls = %d; want viewer, 0", id.Role, idp.userinfoCalls)
+	}
+}
+
+func TestOIDCUserinfoFailureKeepsLogin(t *testing.T) {
+	for defaultRole, wantLoc := range map[string]string{"viewer": "/", "": "/?oidc_error=access_denied"} {
+		logs := captureLogs(t)
+		idp := newFakeIdP(t)
+		idp.omitGroupsClaim = true // userinfoGroups nil → /userinfo answers 500
+		mux, _ := newOIDCMux(t, idp, defaultRole)
+		rec := oidcLogin(t, mux, idp)
+		if rec.Header().Get("Location") != wantLoc || idp.userinfoCalls != 1 {
+			t.Fatalf("default %q: location = %q, userinfo calls = %d; want %q, 1", defaultRole, rec.Header().Get("Location"), idp.userinfoCalls, wantLoc)
+		}
+		warned := false
+		for _, r := range logs() {
+			warned = warned || (r["msg"] == "oidc userinfo" && r["level"] == "WARN")
+		}
+		if !warned {
+			t.Fatalf("default %q: no oidc userinfo warning in %v", defaultRole, logs())
+		}
 	}
 }
 

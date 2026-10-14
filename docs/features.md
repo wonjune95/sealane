@@ -85,8 +85,10 @@ Policies are marked by scope: **workload** (the policy selector matches the Serv
 - Form ↔ YAML stay in sync. If the object uses advanced fields the form can't express, the form tab locks with a "YAML only" notice → no field loss.
 
 ## UI
-**Workspace navigation** — the sidebar always shows the current cluster, followed by the main screens (cluster overview, all resources, traffic flow, mesh analysis, services, request console) and the installed resource kinds grouped by category. A **single search box** narrows a long list of kinds, and each one carries its count.
+**Workspace navigation** — the sidebar lists the main screens (cluster overview, all resources, traffic flow, mesh analysis, services, request console) and the installed resource kinds grouped by category. A **single search box** narrows a long list of kinds, and each one carries its count.
 
+- **Cluster switcher** — the header picker shows the selected cluster with a connection dot, each cluster's status, and a shortcut to cluster management.
+- **Home shortcuts** — cards for traffic flow, the request console, mesh analysis (with live error and warning counts) and services.
 - **Light/dark** — the theme syncs across tabs and carries into the YAML editor. The accent color lives in one CSS variable (`--accent`), so a one-line change reskins the app.
 - **Responsive** — no horizontal scrolling down to 320px; navigation collapses into a drawer on narrow screens.
 - **Accessibility** — confirm dialogs trap keyboard focus and close on Escape. High-risk resources still require typing the name to proceed.

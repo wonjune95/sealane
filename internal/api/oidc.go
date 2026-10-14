@@ -27,9 +27,9 @@ func (s *Server) handleAuthMethods(w http.ResponseWriter, _ *http.Request) {
 	out := map[string]any{"local": !s.dev}
 	if s.oidc != nil {
 		out["oidc"] = map[string]any{"enabled": true, "displayName": s.oidc.DisplayName()}
-	}
-	if s.localHidden {
-		out["localHidden"] = true
+		if s.localHidden { // without SSO the password form is the only way in, so never hide it
+			out["localHidden"] = true
+		}
 	}
 	writeJSON(w, http.StatusOK, out)
 }

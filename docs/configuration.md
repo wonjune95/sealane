@@ -30,7 +30,7 @@ Single sign-on is configured through `OIDC_*` variables (the chart's `oidc.*` va
 | `OIDC_GROUPS_CLAIM` / `OIDC_USERNAME_CLAIM` | `groups` / `email` | ID-token claims for groups and the username (falls back to `sub`) |
 | `OIDC_ROLES_ADMIN` / `OIDC_ROLES_EDITOR` / `OIDC_ROLES_VIEWER` | (empty) | comma-separated IdP groups per role; highest wins |
 | `OIDC_DEFAULT_ROLE` | (empty = refuse; the chart sets `viewer`) | role for users with no matching group: `admin`, `editor`, `viewer` or empty |
-| `LOCAL_LOGIN` | (empty = form shown) | `hidden` hides the local username/password form on the login page when SSO is on; the API still accepts local logins and `/?local=1` shows the form |
+| `LOCAL_LOGIN` | (empty = form shown) | `hidden` hides the local username/password form on the login page; no effect without single sign-on; the API still accepts local logins and `/?local=1` shows the form |
 | `OIDC_DISPLAY_NAME` | `SSO` | login button label ("Sign in with …") |
 
 ## Helm values

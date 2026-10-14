@@ -191,6 +191,18 @@ func TestAuthMethodsLocalHiddenOnlyWhenSet(t *testing.T) {
 	}
 }
 
+func TestAuthMethodsLocalHiddenNeedsOIDC(t *testing.T) {
+	srv := NewServer(false, &stubSource{}, auth.NewStore(t.TempDir()), testSessions, AccountsCMRef{}, ClustersSecretRef{})
+	srv.HideLocalLogin(true)
+	mux := http.NewServeMux()
+	srv.Routes(mux)
+	rec := httptest.NewRecorder()
+	mux.ServeHTTP(rec, httptest.NewRequest("GET", "/api/auth/methods", nil))
+	if strings.Contains(rec.Body.String(), "localHidden") {
+		t.Fatalf("localHidden without OIDC: %s", rec.Body.String())
+	}
+}
+
 func TestOIDCFullFlowMapsHighestRole(t *testing.T) {
 	logs := captureLogs(t)
 	idp := newFakeIdP(t)

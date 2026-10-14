@@ -30,7 +30,7 @@ export function FindingList({
       <table className="data-table">
         <thead className="border-b border-base bg-slate-50 text-left text-xs uppercase tracking-wide text-muted dark:bg-slate-800/50">
           <tr>
-            <th className="px-3 py-2">{t('analysis.severity')}</th>
+            <th className="w-24 whitespace-nowrap px-3 py-2">{t('analysis.severity')}</th>
             <th className="px-3 py-2">{t('analysis.finding')}</th>
             <th className="px-3 py-2">{t('analysis.resource')}</th>
             <th className="px-3 py-2">{t('analysis.related')}</th>
@@ -41,7 +41,7 @@ export function FindingList({
             <tr key={i} className="row-hover align-top">
               <td className="px-3 py-1.5">
                 <span
-                  className={`rounded-full border px-2 py-0.5 text-xs font-medium ${
+                  className={`whitespace-nowrap rounded-full border px-2 py-0.5 text-xs font-medium ${
                     f.severity === 'error'
                       ? 'border-red-500/20 bg-red-500/5 text-red-600 dark:text-red-400'
                       : 'border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-300'

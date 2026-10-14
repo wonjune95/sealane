@@ -138,7 +138,7 @@ export function ResourceList() {
         </div>
       )}
       <div className="panel flex flex-wrap items-center gap-3 p-3">
-        <label className="relative min-w-0 flex-1 sm:max-w-sm">
+        <label className="relative min-w-0 flex-1 basis-full sm:min-w-[14rem] sm:max-w-sm sm:basis-auto">
           <Icon name="search" className="pointer-events-none absolute left-3 top-3 h-4 w-4 text-faint" />
           <input
             aria-label={t('list.searchLabel')}
@@ -149,7 +149,7 @@ export function ResourceList() {
           />
         </label>
         {rt?.namespaced && (
-          <label className="flex items-center gap-2 text-xs text-muted">
+          <label className="flex shrink-0 items-center gap-2 text-xs text-muted">
             <span>Namespace</span>
             <select
               className="input-base !w-auto max-w-56"

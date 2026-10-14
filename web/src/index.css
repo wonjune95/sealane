@@ -213,7 +213,7 @@ button:disabled {
     @apply flex h-full w-[248px] shrink-0 flex-col border-r border-base bg-white dark:bg-slate-900;
   }
   .nav-link {
-    @apply flex min-h-10 items-center gap-3 rounded-lg px-3 text-[13px] font-medium text-slate-500 hover:bg-slate-50 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-100;
+    @apply flex min-h-9 items-center gap-3 rounded-lg px-3 py-1.5 text-[13px] font-medium text-slate-500 hover:bg-slate-50 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-100;
   }
   .nav-link.active {
     @apply bg-blue-50 text-blue-700 dark:bg-blue-500/15 dark:text-blue-300;
@@ -270,9 +270,6 @@ button:disabled {
   }
   .menu-panel {
     @apply absolute right-0 z-40 mt-2 w-64 rounded-xl border border-base bg-white p-2 shadow-lg dark:bg-slate-900;
-  }
-  .workspace-card {
-    @apply rounded-lg border border-base bg-slate-50 p-3 dark:bg-slate-950/50;
   }
   .stat-card {
     @apply panel relative overflow-hidden p-5;

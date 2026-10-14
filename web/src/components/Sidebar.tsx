@@ -38,37 +38,23 @@ export function Sidebar({ onNavigate, onClose }: { onNavigate?: () => void; onCl
           </button>
         </div>
       )}
-      <div className="px-4 pb-3 pt-5">
-        <div className="workspace-card">
-          <div className="mb-2 text-[9px] font-semibold uppercase tracking-[.14em] text-muted">
-            {t('sidebar.currentWorkspace')}
-          </div>
-          <div className="flex items-center gap-2.5">
-            <span className="flex h-7 w-7 items-center justify-center rounded-md border border-base bg-white text-muted dark:bg-slate-800">
-              <Icon name="network" className="h-4 w-4" />
-            </span>
-            <span className="min-w-0 flex-1 truncate text-xs font-semibold text-strong">
-              {getCluster() || 'local'}
-            </span>
-            <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" title={t('sidebar.apiConnected')} />
-          </div>
-          {onClose && clusters && clusters.length > 1 && (
-            <select
-              aria-label={t('layout.selectCluster')}
-              className="input-base mt-3 text-xs"
-              value={getCluster() || 'local'}
-              onChange={(e) => setCluster(e.target.value)}
-            >
-              {clusters.map((c) => (
-                <option key={c.name} value={c.name}>
-                  {c.name}
-                </option>
-              ))}
-            </select>
-          )}
+      {onClose && clusters && clusters.length > 1 && (
+        <div className="border-b border-base px-4 py-2">
+          <select
+            aria-label={t('layout.selectCluster')}
+            className="input-base text-xs"
+            value={getCluster() || 'local'}
+            onChange={(e) => setCluster(e.target.value)}
+          >
+            {clusters.map((c) => (
+              <option key={c.name} value={c.name}>
+                {c.name}
+              </option>
+            ))}
+          </select>
         </div>
-      </div>
-      <div className="space-y-1 px-3 pb-4">
+      )}
+      <div className="space-y-0.5 px-3 pb-3 pt-3">
         {LINKS.map((l) => (
           <NavLink key={l.to} to={l.to} end={l.to === '/'} className={topLink} onClick={onNavigate}>
             <Icon name={l.icon} className="h-[18px] w-[18px]" />

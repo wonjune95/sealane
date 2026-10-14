@@ -6,6 +6,7 @@ import { useCapabilities } from '../api/capabilities'
 import { useResourceTypes, CATEGORY_LABELS, type Category } from '../api/resourceTypes'
 import { CATEGORY_ORDER, CATEGORY_ICON, accentFor } from '../ui/categories'
 import { useAudit, type AuditEntry } from '../api/audit'
+import { useAnalysis } from '../api/analyze'
 import { Icon } from '../components/icons'
 import { PageHeader } from '../components/PageHeader'
 import { EmptyState } from '../components/EmptyState'
@@ -24,6 +25,7 @@ export function Home() {
   const types = useResourceTypes()
   const installed = (types.data ?? []).filter((rt) => rt.installed)
   const audit = useAudit()
+  const findings = useAnalysis('').data?.findings
   const kindOf = (typeId: string) => types.data?.find((rt) => rt.typeId === typeId)?.kind ?? typeId
   const results = useQueries({
     queries: installed.map((rt) => ({
@@ -128,7 +130,7 @@ export function Home() {
           warning={dangerousActive > 0}
         />
       </div>
-      <div className="grid gap-3 lg:grid-cols-2">
+      <div className="grid gap-3 md:grid-cols-2">
         <Shortcut
           to="/flowmap"
           icon="route"
@@ -140,6 +142,25 @@ export function Home() {
           icon="terminal"
           title={t('home.routeCheckTitle')}
           description={t('home.routeCheckDescription')}
+        />
+        <Shortcut
+          to="/analysis"
+          icon="shield"
+          title={t('home.analysisTitle')}
+          description={
+            findings
+              ? t('home.analysisCounts', {
+                  errors: findings.filter((f) => f.severity === 'error').length,
+                  warnings: findings.filter((f) => f.severity === 'warning').length,
+                })
+              : t('home.analysisDescription')
+          }
+        />
+        <Shortcut
+          to="/services"
+          icon="network"
+          title={t('home.servicesTitle')}
+          description={t('home.servicesDescription')}
         />
       </div>
       <section aria-labelledby="resource-status-title">

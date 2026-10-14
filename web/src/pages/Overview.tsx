@@ -56,7 +56,7 @@ export function Overview() {
       )}
       {/* toolbar */}
       <div className="panel flex flex-wrap items-center gap-3 p-3 text-sm">
-        <label className="relative min-w-0 flex-1 sm:max-w-xs">
+        <label className="relative min-w-0 flex-1 basis-full sm:min-w-[14rem] sm:max-w-xs sm:basis-auto">
           <Icon name="search" className="pointer-events-none absolute left-3 top-3 h-4 w-4 text-faint" />
           <input
             value={search}
@@ -169,7 +169,7 @@ export function Overview() {
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <label className="flex items-center gap-1.5 text-muted">
+    <label className="flex shrink-0 items-center gap-1.5 text-muted">
       <span className="text-xs">{label}</span>
       {children}
     </label>

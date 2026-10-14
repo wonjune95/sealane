@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
-import { Link, useLocation } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useCapabilities } from '../api/capabilities'
 import { useClusters } from '../api/clusters'
 import { useResourceTypes } from '../api/resourceTypes'
@@ -16,11 +16,19 @@ const PAGE_NAMES: Record<string, Key> = {
   '/routecheck': 'nav.routecheck',
   '/settings': 'nav.settings',
   '/guard': 'nav.guard',
+  '/analysis': 'nav.analysis',
+  '/services': 'nav.services',
 }
+const MANAGE = '_manage' // cluster names must start with a letter or digit, so this never collides
 
 export function Layout({ children }: { children: ReactNode }) {
   const { data } = useCapabilities()
   const clusters = useClusters().data
+  // Status pings every cluster, so it fills in after the fast list renders the options.
+  const statuses = useClusters(true).data
+  const navigate = useNavigate()
+  const cluster = getCluster() || 'local'
+  const connected = (name: string) => (name === 'local' ? true : statuses?.find((c) => c.name === name)?.connected)
   const types = useResourceTypes().data
   const { theme, toggle } = useTheme()
   const location = useLocation()
@@ -28,7 +36,7 @@ export function Layout({ children }: { children: ReactNode }) {
   const drawer = useRef<HTMLDialogElement>(null)
   const menuButton = useRef<HTMLButtonElement>(null)
   const resource = types?.find((rt) => location.pathname.split('/')[2] === rt.typeId)
-  const pageKey = PAGE_NAMES[location.pathname]
+  const pageKey = PAGE_NAMES[location.pathname] ?? (location.pathname.startsWith('/services/') ? 'nav.services' : undefined)
   const page = pageKey ? t(pageKey) : (resource?.kind ?? t('nav.resource'))
 
   useEffect(() => {
@@ -74,20 +82,34 @@ export function Layout({ children }: { children: ReactNode }) {
           <span className="truncate font-medium text-strong">{page}</span>
         </div>
         <div className="ml-auto flex items-center gap-1.5 pr-3 md:gap-3 md:pr-6">
-          <label className="hidden items-center gap-2 rounded-lg border border-base px-2.5 py-1.5 text-xs sm:flex">
+          <label className="hidden items-center gap-2 rounded-lg border border-base py-1 pl-2.5 pr-2 text-xs hover:bg-slate-50 sm:flex dark:hover:bg-slate-800">
             <Icon name="network" className="h-4 w-4 text-muted" />
-            <span className="sr-only">{t('layout.selectCluster')}</span>
-            <select
-              value={getCluster() || 'local'}
-              onChange={(e) => setCluster(e.target.value)}
-              className="max-w-36 bg-transparent font-medium text-strong focus:outline-none"
-            >
-              {(clusters?.length ? clusters : [{ name: 'local' }]).map((c) => (
-                <option key={c.name} value={c.name}>
-                  {c.name}
-                </option>
-              ))}
-            </select>
+            <span className="flex flex-col">
+              <span className="hidden text-[9px] font-semibold uppercase leading-3 tracking-[.12em] text-muted md:block">
+                {t('layout.cluster')}
+              </span>
+              <span className="relative flex items-center gap-1.5">
+                <span
+                  className={`h-1.5 w-1.5 shrink-0 rounded-full ${connected(cluster) ? 'bg-emerald-500' : 'bg-slate-400'}`}
+                />
+                <select
+                  aria-label={t('layout.selectCluster')}
+                  value={cluster}
+                  onChange={(e) => (e.target.value === MANAGE ? navigate('/settings') : setCluster(e.target.value))}
+                  className="max-w-40 appearance-none bg-transparent pr-5 font-medium leading-5 text-strong focus:outline-none"
+                >
+                  {(clusters?.length ? clusters : [{ name: 'local' }]).map((c) => (
+                    <option key={c.name} value={c.name}>
+                      {c.name}
+                      {connected(c.name) !== undefined &&
+                        ` · ${t(connected(c.name) ? 'settings.cluster.connected' : 'settings.cluster.failed')}`}
+                    </option>
+                  ))}
+                  <option value={MANAGE}>{t('layout.manageClusters')}</option>
+                </select>
+                <Icon name="down" className="pointer-events-none absolute right-0 h-3.5 w-3.5 text-faint" />
+              </span>
+            </span>
           </label>
           {data?.devMode && (
             <span className="chip hidden bg-amber-50 text-amber-700 sm:inline-flex dark:bg-amber-500/10 dark:text-amber-300">

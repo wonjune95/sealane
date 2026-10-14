@@ -88,6 +88,8 @@ func (s *Server) Routes(mux *http.ServeMux) {
 	mux.Handle("GET /api/flowmap", s.withAuth(http.HandlerFunc(s.handleFlowMap)))
 	// Route simulator — computes from config alone which rule a request matches (no traffic)
 	mux.Handle("GET /api/routematch", s.withAuth(http.HandlerFunc(s.handleRouteMatch)))
+	// Mesh analysis — cross-resource checks from config alone (plus pods when readable)
+	mux.Handle("GET /api/analyze", s.withAuth(http.HandlerFunc(s.handleAnalyze)))
 	// Live request tester (opt-in + admin) — runs curl inside the chosen pod
 	mux.Handle("GET /api/pods", s.withAuth(http.HandlerFunc(s.handlePods)))
 	mux.Handle("POST /api/requesttest", s.withAuth(http.HandlerFunc(s.handleRequestTest)))

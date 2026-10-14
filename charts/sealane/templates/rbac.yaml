@@ -25,15 +25,13 @@ rules:
       - gateway.networking.k8s.io
     resources: ["*"]
     verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
-  # Reads for form dropdowns / namespace picker + ready endpoint counts for the flow map
+  # Reads for form dropdowns / namespace picker, ready endpoint counts for the flow map,
+  # and pods for the analysis page (subset and gateway selectors that match nothing).
   - apiGroups: [""]
-    resources: ["namespaces", "services", "endpoints"]
+    resources: ["namespaces", "services", "endpoints", "pods"]
     verbs: ["get", "list"]
   {{- if (default dict .Values.requestTester).enabled }}
-  # Request tester (opt-in): pick a source pod and run curl inside it. exec is effectively arbitrary command execution, so it is only granted when requestTester.enabled=true.
-  - apiGroups: [""]
-    resources: ["pods"]
-    verbs: ["get", "list"]
+  # Request tester (opt-in): run curl inside a pod. exec is effectively arbitrary command execution, so it is only granted when requestTester.enabled=true.
   - apiGroups: [""]
     resources: ["pods/exec"]
     verbs: ["create"]

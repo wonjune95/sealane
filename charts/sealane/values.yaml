@@ -27,7 +27,7 @@ accountsConfigMap: sealane-accounts
 clustersSecret: sealane-clusters
 
 # Request tester: runs curl inside a pod you pick to send a real HTTP request.
-# Enabling it grants the ServiceAccount pods get/list and pods/exec, which is effectively
+# Enabling it grants the ServiceAccount pods/exec, which is effectively
 # "run any command in any pod" — keep it off unless you need it (admin-only in the UI).
 requestTester:
   enabled: false

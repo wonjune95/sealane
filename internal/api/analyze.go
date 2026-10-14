@@ -8,7 +8,6 @@ import (
 	"strings"
 
 	istioapi "istio.io/api/networking/v1"
-	istionet "istio.io/client-go/pkg/apis/networking/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -49,18 +48,6 @@ const (
 	typeGateway   = "gateways.gateway.networking.k8s.io"
 )
 
-// meshState is everything analyzeMesh reads, fetched once. Indexes whose list
-// fails (CRD not installed, RBAC) stay nil and the checks that need them are skipped.
-type meshState struct {
-	services map[string]*corev1.Service // ns/name; nil when Services cannot be listed
-	pods     map[string][]labels.Set    // ns → pod label sets; nil when pods are not readable
-	podsOK   bool
-	ses      []flowServiceEntry
-	drs      []*istionet.DestinationRule  // nil when DestinationRules cannot be listed
-	istioGWs map[string]*istioapi.Gateway // ns/name; nil when Istio Gateways cannot be listed
-	epCache  map[string]int               // ns/name → ready endpoints, read once per Service
-}
-
 func (s *Server) handleAnalyze(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, analyzeMesh(r.Context(), clientFrom(r.Context()), r.URL.Query().Get("ns")))
 }
@@ -69,9 +56,13 @@ func (s *Server) handleAnalyze(w http.ResponseWriter, r *http.Request) {
 // lives in ns (ns == "" → all). Cross-namespace references are always resolved
 // cluster-wide; only the reporting scope is filtered.
 func analyzeMesh(ctx context.Context, c *k8s.Clients, ns string) analysis {
+	return analyzeSnapshot(loadMeshSnapshot(ctx, c, snapshotOpts{pods: true}), ns)
+}
+
+// analyzeSnapshot is analyzeMesh over an already-loaded snapshot (loaded with pods).
+func analyzeSnapshot(st *meshSnapshot, ns string) analysis {
 	out := analysis{Findings: []finding{}}
-	st := loadMeshState(ctx, c)
-	if !st.podsOK {
+	if st.pods == nil {
 		out.Skipped = append(out.Skipped, "pods")
 	}
 	inScope := func(resNS string) bool { return ns == "" || resNS == ns }
@@ -93,50 +84,54 @@ func analyzeMesh(ctx context.Context, c *k8s.Clients, ns string) analysis {
 	// --- VirtualServices ---
 	type gwHost struct{ gw, host string }
 	claims := map[gwHost][]ref{}
-	if vss, err := c.Istio.NetworkingV1().VirtualServices("").List(ctx, metav1.ListOptions{}); err == nil {
-		for i := range vss.Items {
-			v := vss.Items[i]
-			self := ref{TypeID: typeVS, Kind: "VirtualService", Namespace: v.Namespace, Name: v.Name}
-			check(v.Namespace)
-			for _, g := range v.Spec.Gateways {
-				if g == "mesh" {
-					continue
-				}
-				full := istioGatewayKey(g, v.Namespace)
-				if _, ok := st.istioGWs[full]; !ok && st.istioGWs != nil {
-					add(finding{Severity: "error", Code: "vs-gateway-missing", Resource: self,
-						Message: fmt.Sprintf("gateway %q does not exist", full)})
-				}
-				for _, h := range v.Spec.Hosts {
-					k := gwHost{full, h}
-					if rs := claims[k]; len(rs) == 0 || rs[len(rs)-1] != self { // same gateway or host listed twice
-						claims[k] = append(rs, self)
-					}
+	var gwIndex map[string]bool // ns/name of Istio Gateways; nil when they cannot be listed
+	if st.istioGWs != nil {
+		gwIndex = map[string]bool{}
+		for _, g := range st.istioGWs {
+			gwIndex[g.Namespace+"/"+g.Name] = true
+		}
+	}
+	for _, v := range st.vss {
+		self := ref{TypeID: typeVS, Kind: "VirtualService", Namespace: v.Namespace, Name: v.Name}
+		check(v.Namespace)
+		for _, g := range v.Spec.Gateways {
+			if g == "mesh" {
+				continue
+			}
+			full := istioGatewayKey(g, v.Namespace)
+			if gwIndex != nil && !gwIndex[full] {
+				add(finding{Severity: "error", Code: "vs-gateway-missing", Resource: self,
+					Message: fmt.Sprintf("gateway %q does not exist", full)})
+			}
+			for _, h := range v.Spec.Hosts {
+				k := gwHost{full, h}
+				if rs := claims[k]; len(rs) == 0 || rs[len(rs)-1] != self { // same gateway or host listed twice
+					claims[k] = append(rs, self)
 				}
 			}
-			for _, d := range vsDestinations(&v.Spec) {
-				b := resolveDestination(d.Host, v.Namespace, 0)
-				if b.External {
-					continue
+		}
+		for _, d := range vsDestinations(&v.Spec) {
+			b := resolveDestination(d.Host, v.Namespace, 0)
+			if b.External {
+				continue
+			}
+			svc, ok := st.services[svcKey(b)]
+			if !ok && st.services != nil {
+				fqdn := b.Name + "." + b.Namespace + ".svc.cluster.local"
+				if serviceEntryFor(st.ses, d.Host) != "" || serviceEntryFor(st.ses, fqdn) != "" {
+					continue // VM / multicluster host backed by a ServiceEntry
 				}
-				svc, ok := st.services[svcKey(b)]
-				if !ok && st.services != nil {
-					fqdn := b.Name + "." + b.Namespace + ".svc.cluster.local"
-					if serviceEntryFor(st.ses, d.Host) != "" || serviceEntryFor(st.ses, fqdn) != "" {
-						continue // VM / multicluster host backed by a ServiceEntry
-					}
-					add(finding{Severity: "error", Code: "vs-host-missing", Resource: self, Service: svcKey(b),
-						Message: fmt.Sprintf("destination %q is not a Service (looked for %s)", d.Host, svcKey(b))})
-					continue
-				}
-				if ok && st.noEndpoints(ctx, c, svc) {
-					add(finding{Severity: "warning", Code: "backend-no-endpoints", Resource: self, Service: svcKey(b),
-						Message: fmt.Sprintf("Service %s has no ready endpoints", svcKey(b))})
-				}
-				if d.Subset != "" && !st.subsetDefined(b, d.Subset) {
-					add(finding{Severity: "error", Code: "vs-subset-undefined", Resource: self, Service: svcKey(b),
-						Message: fmt.Sprintf("subset %q is not defined in any DestinationRule for %s", d.Subset, svcKey(b))})
-				}
+				add(finding{Severity: "error", Code: "vs-host-missing", Resource: self, Service: svcKey(b),
+					Message: fmt.Sprintf("destination %q is not a Service (looked for %s)", d.Host, svcKey(b))})
+				continue
+			}
+			if ok && st.noEndpoints(svc) {
+				add(finding{Severity: "warning", Code: "backend-no-endpoints", Resource: self, Service: svcKey(b),
+					Message: fmt.Sprintf("Service %s has no ready endpoints", svcKey(b))})
+			}
+			if d.Subset != "" && !st.subsetDefined(b, d.Subset) {
+				add(finding{Severity: "error", Code: "vs-subset-undefined", Resource: self, Service: svcKey(b),
+					Message: fmt.Sprintf("subset %q is not defined in any DestinationRule for %s", d.Subset, svcKey(b))})
 			}
 		}
 	}
@@ -172,7 +167,7 @@ func analyzeMesh(ctx context.Context, c *k8s.Clients, ns string) analysis {
 			}
 			continue
 		}
-		if !st.podsOK || len(svc.Spec.Selector) == 0 {
+		if st.pods == nil || len(svc.Spec.Selector) == 0 {
 			continue
 		}
 		for _, ss := range dr.Spec.Subsets {
@@ -191,63 +186,58 @@ func analyzeMesh(ctx context.Context, c *k8s.Clients, ns string) analysis {
 	}
 
 	// --- Istio Gateways: selector → pods ---
-	for key, g := range st.istioGWs {
-		gns, name, _ := strings.Cut(key, "/")
-		check(gns)
-		if st.podsOK && len(g.Selector) > 0 && !st.anyPodMatches("", g.Selector) {
+	for _, g := range st.istioGWs {
+		check(g.Namespace)
+		if st.pods != nil && len(g.Spec.Selector) > 0 && !st.anyPodMatches("", g.Spec.Selector) {
 			add(finding{Severity: "warning", Code: "gateway-selector-no-pods",
-				Resource: ref{TypeID: typeIstioGW, Kind: "Gateway", Namespace: gns, Name: name},
-				Message:  fmt.Sprintf("selector %s matches no pod in any namespace", labels.Set(g.Selector).String())})
+				Resource: ref{TypeID: typeIstioGW, Kind: "Gateway", Namespace: g.Namespace, Name: g.Name},
+				Message:  fmt.Sprintf("selector %s matches no pod in any namespace", labels.Set(g.Spec.Selector).String())})
 		}
 	}
 
 	// --- HTTPRoutes: status, backends ---
-	if hrs, err := c.Gateway.GatewayV1().HTTPRoutes("").List(ctx, metav1.ListOptions{}); err == nil {
-		for i := range hrs.Items {
-			hr := &hrs.Items[i]
-			self := ref{TypeID: typeHTTPRoute, Kind: "HTTPRoute", Namespace: hr.Namespace, Name: hr.Name}
-			check(hr.Namespace)
-			for _, p := range hr.Status.Parents {
-				for _, cond := range p.Conditions {
-					if (cond.Type == "Accepted" || cond.Type == "ResolvedRefs") && cond.Status == metav1.ConditionFalse {
-						add(finding{Severity: "error", Code: "httproute-not-accepted", Resource: self,
-							Message: condText(cond)})
-					}
+	for i := range st.hrs {
+		hr := &st.hrs[i]
+		self := ref{TypeID: typeHTTPRoute, Kind: "HTTPRoute", Namespace: hr.Namespace, Name: hr.Name}
+		check(hr.Namespace)
+		for _, p := range hr.Status.Parents {
+			for _, cond := range p.Conditions {
+				if (cond.Type == "Accepted" || cond.Type == "ResolvedRefs") && cond.Status == metav1.ConditionFalse {
+					add(finding{Severity: "error", Code: "httproute-not-accepted", Resource: self,
+						Message: condText(cond)})
 				}
 			}
-			for _, rule := range hr.Spec.Rules {
-				for _, br := range rule.BackendRefs {
-					if br.Kind != nil && *br.Kind != "Service" {
-						continue
-					}
-					b := flowBackend{Namespace: hr.Namespace, Name: string(br.Name)}
-					if br.Namespace != nil {
-						b.Namespace = string(*br.Namespace)
-					}
-					svc, ok := st.services[svcKey(b)]
-					if !ok && st.services != nil {
-						add(finding{Severity: "error", Code: "httproute-backend-missing", Resource: self, Service: svcKey(b),
-							Message: fmt.Sprintf("backend Service %s does not exist", svcKey(b))})
-					} else if ok && st.noEndpoints(ctx, c, svc) {
-						add(finding{Severity: "warning", Code: "backend-no-endpoints", Resource: self, Service: svcKey(b),
-							Message: fmt.Sprintf("Service %s has no ready endpoints", svcKey(b))})
-					}
+		}
+		for _, rule := range hr.Spec.Rules {
+			for _, br := range rule.BackendRefs {
+				if br.Kind != nil && *br.Kind != "Service" {
+					continue
+				}
+				b := flowBackend{Namespace: hr.Namespace, Name: string(br.Name)}
+				if br.Namespace != nil {
+					b.Namespace = string(*br.Namespace)
+				}
+				svc, ok := st.services[svcKey(b)]
+				if !ok && st.services != nil {
+					add(finding{Severity: "error", Code: "httproute-backend-missing", Resource: self, Service: svcKey(b),
+						Message: fmt.Sprintf("backend Service %s does not exist", svcKey(b))})
+				} else if ok && st.noEndpoints(svc) {
+					add(finding{Severity: "warning", Code: "backend-no-endpoints", Resource: self, Service: svcKey(b),
+						Message: fmt.Sprintf("Service %s has no ready endpoints", svcKey(b))})
 				}
 			}
 		}
 	}
 
 	// --- Gateway API Gateways: status ---
-	if gws, err := c.Gateway.GatewayV1().Gateways("").List(ctx, metav1.ListOptions{}); err == nil {
-		for i := range gws.Items {
-			g := &gws.Items[i]
-			check(g.Namespace)
-			for _, cond := range g.Status.Conditions {
-				if (cond.Type == "Accepted" || cond.Type == "Programmed") && cond.Status == metav1.ConditionFalse {
-					add(finding{Severity: "error", Code: "gateway-not-programmed",
-						Resource: ref{TypeID: typeGateway, Kind: "Gateway", Namespace: g.Namespace, Name: g.Name},
-						Message:  cond.Type + " is False: " + condText(cond)})
-				}
+	for i := range st.gws {
+		g := &st.gws[i]
+		check(g.Namespace)
+		for _, cond := range g.Status.Conditions {
+			if (cond.Type == "Accepted" || cond.Type == "Programmed") && cond.Status == metav1.ConditionFalse {
+				add(finding{Severity: "error", Code: "gateway-not-programmed",
+					Resource: ref{TypeID: typeGateway, Kind: "Gateway", Namespace: g.Namespace, Name: g.Name},
+					Message:  cond.Type + " is False: " + condText(cond)})
 			}
 		}
 	}
@@ -316,60 +306,15 @@ func vsDestinations(spec *istioapi.VirtualService) []*istioapi.Destination {
 	return out
 }
 
-func loadMeshState(ctx context.Context, c *k8s.Clients) *meshState {
-	st := &meshState{epCache: map[string]int{}}
-	if svcs, err := c.Kube.CoreV1().Services("").List(ctx, metav1.ListOptions{}); err == nil {
-		st.services = map[string]*corev1.Service{}
-		for i := range svcs.Items {
-			s := &svcs.Items[i]
-			st.services[s.Namespace+"/"+s.Name] = s
-		}
-	}
-	// ponytail: lists every Pod object (full specs) just for its labels on every refresh;
-	// switch to a labels-only k8s.io/client-go/metadata list if large clusters feel it.
-	if pods, err := c.Kube.CoreV1().Pods("").List(ctx, metav1.ListOptions{}); err == nil {
-		st.podsOK = true
-		st.pods = map[string][]labels.Set{}
-		for i := range pods.Items {
-			p := &pods.Items[i]
-			st.pods[p.Namespace] = append(st.pods[p.Namespace], labels.Set(p.Labels))
-		}
-	}
-	if ses, err := c.Istio.NetworkingV1().ServiceEntries("").List(ctx, metav1.ListOptions{}); err == nil {
-		for _, se := range ses.Items {
-			st.ses = append(st.ses, flowServiceEntry{Namespace: se.Namespace, Name: se.Name, Hosts: se.Spec.Hosts})
-		}
-	}
-	if drs, err := c.Istio.NetworkingV1().DestinationRules("").List(ctx, metav1.ListOptions{}); err == nil {
-		st.drs = append([]*istionet.DestinationRule{}, drs.Items...) // non-nil even when empty
-	}
-	if gws, err := c.Istio.NetworkingV1().Gateways("").List(ctx, metav1.ListOptions{}); err == nil {
-		st.istioGWs = map[string]*istioapi.Gateway{}
-		for _, g := range gws.Items {
-			st.istioGWs[g.Namespace+"/"+g.Name] = &g.Spec
-		}
-	}
-	return st
-}
-
-// noEndpoints reports whether svc has zero ready endpoints, reading each Service's
-// Endpoints once per analysis. ExternalName Services never have endpoints, so they never count.
-func (st *meshState) noEndpoints(ctx context.Context, c *k8s.Clients, svc *corev1.Service) bool {
-	if svc.Spec.Type == corev1.ServiceTypeExternalName {
-		return false
-	}
-	key := svc.Namespace + "/" + svc.Name
-	n, ok := st.epCache[key]
-	if !ok {
-		n = readyEndpoints(ctx, c, svc.Namespace, svc.Name)
-		st.epCache[key] = n
-	}
-	return n == 0
+// noEndpoints reports whether svc has zero ready endpoints.
+// ExternalName Services never have endpoints, so they never count.
+func (st *meshSnapshot) noEndpoints(svc *corev1.Service) bool {
+	return svc.Spec.Type != corev1.ServiceTypeExternalName && readyEndpoints(st, svc.Namespace, svc.Name) == 0
 }
 
 // subsetDefined reports whether some DestinationRule for Service b defines subset.
 // Unknown (DestinationRules not listable) counts as defined so nothing is reported.
-func (st *meshState) subsetDefined(b flowBackend, subset string) bool {
+func (st *meshSnapshot) subsetDefined(b flowBackend, subset string) bool {
 	if st.drs == nil {
 		return true
 	}
@@ -387,7 +332,7 @@ func (st *meshState) subsetDefined(b flowBackend, subset string) bool {
 }
 
 // anyPodMatches reports whether a label selector matches a pod in ns ("" = any namespace).
-func (st *meshState) anyPodMatches(ns string, sel map[string]string) bool {
+func (st *meshSnapshot) anyPodMatches(ns string, sel map[string]string) bool {
 	s := labels.SelectorFromSet(labels.Set(sel))
 	check := func(sets []labels.Set) bool {
 		for _, ls := range sets {

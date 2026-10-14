@@ -10,7 +10,6 @@ import (
 	"strings"
 
 	istioapi "istio.io/api/networking/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	gwapi "sigs.k8s.io/gateway-api/apis/v1"
 )
 
@@ -96,45 +95,44 @@ func (s *Server) handleRouteMatch(w http.ResponseWriter, r *http.Request) {
 	c := clientFrom(ctx)
 	out := routeMatchResult{Destinations: []routeDest{}, Candidates: []routeCandidate{}}
 	winnerFound := false
+	st := loadMeshSnapshot(ctx, c, snapshotOpts{})
 
 	// --- VirtualService: after the hosts match, http rules are tried in declaration order; first match wins ---
-	if vss, err := c.Istio.NetworkingV1().VirtualServices("").List(ctx, metav1.ListOptions{}); err == nil {
-		for _, vs := range vss.Items {
-			if !hostsMatch(vs.Spec.Hosts, host, vs.Namespace) {
-				continue
+	for _, vs := range st.vss {
+		if !hostsMatch(vs.Spec.Hosts, host, vs.Namespace) {
+			continue
+		}
+		for i, h := range vs.Spec.Http {
+			ok, reason := matchVSRule(h.Match, path, method, headers, query, host)
+			cand := routeCandidate{
+				Kind: "VirtualService", TypeID: "virtualservices.networking.istio.io",
+				Namespace: vs.Namespace, Name: vs.Name, RuleIndex: i, Matched: ok, Reason: reason,
 			}
-			for i, h := range vs.Spec.Http {
-				ok, reason := matchVSRule(h.Match, path, method, headers, query, host)
-				cand := routeCandidate{
-					Kind: "VirtualService", TypeID: "virtualservices.networking.istio.io",
-					Namespace: vs.Namespace, Name: vs.Name, RuleIndex: i, Matched: ok, Reason: reason,
-				}
-				if ok && !winnerFound {
-					winnerFound = true
-					cand.Winner = true
-					out.Matched = true
-					for _, rt := range h.Route {
-						if rt.Destination == nil {
-							continue
-						}
-						var port int32
-						if rt.Destination.Port != nil {
-							port = int32(rt.Destination.Port.Number)
-						}
-						b := resolveDestination(rt.Destination.Host, vs.Namespace, port)
-						out.Destinations = append(out.Destinations, routeDest{
-							Host: rt.Destination.Host, Namespace: b.Namespace, Name: b.Name,
-							Subset: rt.Destination.Subset, Port: port, Weight: rt.Weight, External: b.External,
-						})
+			if ok && !winnerFound {
+				winnerFound = true
+				cand.Winner = true
+				out.Matched = true
+				for _, rt := range h.Route {
+					if rt.Destination == nil {
+						continue
 					}
-					if len(h.Route) == 0 {
-						out.Notes = append(out.Notes, "matched rule has no route (redirect/delegate/fault are not modeled)")
+					var port int32
+					if rt.Destination.Port != nil {
+						port = int32(rt.Destination.Port.Number)
 					}
+					b := resolveDestination(rt.Destination.Host, vs.Namespace, port)
+					out.Destinations = append(out.Destinations, routeDest{
+						Host: rt.Destination.Host, Namespace: b.Namespace, Name: b.Name,
+						Subset: rt.Destination.Subset, Port: port, Weight: rt.Weight, External: b.External,
+					})
 				}
-				out.Candidates = append(out.Candidates, cand)
-				if ok {
-					break // within this VS, rules after the first match are not evaluated
+				if len(h.Route) == 0 {
+					out.Notes = append(out.Notes, "matched rule has no route (redirect/delegate/fault are not modeled)")
 				}
+			}
+			out.Candidates = append(out.Candidates, cand)
+			if ok {
+				break // within this VS, rules after the first match are not evaluated
 			}
 		}
 	}
@@ -147,23 +145,21 @@ func (s *Server) handleRouteMatch(w http.ResponseWriter, r *http.Request) {
 		ns   string
 	}
 	var hits []hrHit
-	if hrs, err := c.Gateway.GatewayV1().HTTPRoutes("").List(ctx, metav1.ListOptions{}); err == nil {
-		for i := range hrs.Items {
-			hr := &hrs.Items[i]
-			if !hostnamesMatch(hr.Spec.Hostnames, host) {
-				continue
+	for i := range st.hrs {
+		hr := &st.hrs[i]
+		if !hostnamesMatch(hr.Spec.Hostnames, host) {
+			continue
+		}
+		for ri, rule := range hr.Spec.Rules {
+			ok, reason, rank := matchHTTPRouteRule(rule.Matches, path, method, headers, query)
+			cand := routeCandidate{
+				Kind: "HTTPRoute", TypeID: "httproutes.gateway.networking.k8s.io",
+				Namespace: hr.Namespace, Name: hr.Name, RuleIndex: ri, Matched: ok, Reason: reason,
 			}
-			for ri, rule := range hr.Spec.Rules {
-				ok, reason, rank := matchHTTPRouteRule(rule.Matches, path, method, headers, query)
-				cand := routeCandidate{
-					Kind: "HTTPRoute", TypeID: "httproutes.gateway.networking.k8s.io",
-					Namespace: hr.Namespace, Name: hr.Name, RuleIndex: ri, Matched: ok, Reason: reason,
-				}
-				if ok {
-					hits = append(hits, hrHit{cand: cand, rank: rank, rule: rule, ns: hr.Namespace})
-				} else {
-					out.Candidates = append(out.Candidates, cand)
-				}
+			if ok {
+				hits = append(hits, hrHit{cand: cand, rank: rank, rule: rule, ns: hr.Namespace})
+			} else {
+				out.Candidates = append(out.Candidates, cand)
 			}
 		}
 	}
@@ -213,11 +209,9 @@ func (s *Server) handleRouteMatch(w http.ResponseWriter, r *http.Request) {
 
 	// --- Verify destinations: service exists, endpoint count, subset defined ---
 	var drs []subsetDef
-	if list, err := c.Istio.NetworkingV1().DestinationRules("").List(ctx, metav1.ListOptions{}); err == nil {
-		for _, dr := range list.Items {
-			for _, ss := range dr.Spec.Subsets {
-				drs = append(drs, subsetDef{DR: dr.Name, Namespace: dr.Namespace, Host: dr.Spec.Host, Subset: ss.Name})
-			}
+	for _, dr := range st.drs {
+		for _, ss := range dr.Spec.Subsets {
+			drs = append(drs, subsetDef{DR: dr.Name, Namespace: dr.Namespace, Host: dr.Spec.Host, Subset: ss.Name})
 		}
 	}
 	for i := range out.Destinations {
@@ -229,9 +223,9 @@ func (s *Server) handleRouteMatch(w http.ResponseWriter, r *http.Request) {
 		if d.Name == "" {
 			continue
 		}
-		if svc, err := c.Kube.CoreV1().Services(d.Namespace).Get(ctx, d.Name, metav1.GetOptions{}); err == nil {
+		if svc, ok := st.services[d.Namespace+"/"+d.Name]; ok {
 			d.Exists = true
-			d.Endpoints = readyEndpoints(ctx, c, d.Namespace, d.Name)
+			d.Endpoints = readyEndpoints(st, d.Namespace, d.Name)
 			port := d.Port
 			if port == 0 {
 				port = reqPort

@@ -1,15 +1,9 @@
 package api
 
 import (
-	"context"
 	"net/http"
 	"sort"
 	"strings"
-
-	istioapi "istio.io/api/networking/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
-	"github.com/wonjune95/sealane/internal/k8s"
 )
 
 // Config-based ingress traffic flow map: Gateway → Route (VS/HTTPRoute) → Service.
@@ -64,156 +58,115 @@ func (s *Server) handleFlowMap(w http.ResponseWriter, r *http.Request) {
 	c := clientFrom(ctx)
 	out := flowMap{Gateways: []flowGateway{}, Routes: []flowRoute{}, ServiceEntries: []flowServiceEntry{}}
 
+	st := loadMeshSnapshot(ctx, c, snapshotOpts{})
+
 	// Gateways (Gateway API + Istio)
-	if gws, err := c.Gateway.GatewayV1().Gateways("").List(ctx, metav1.ListOptions{}); err == nil {
-		for i := range gws.Items {
-			g := &gws.Items[i]
-			hosts := []string{}
-			for _, l := range g.Spec.Listeners {
-				if l.Hostname != nil && *l.Hostname != "" {
-					hosts = append(hosts, string(*l.Hostname))
-				}
+	for i := range st.gws {
+		g := &st.gws[i]
+		hosts := []string{}
+		for _, l := range g.Spec.Listeners {
+			if l.Hostname != nil && *l.Hostname != "" {
+				hosts = append(hosts, string(*l.Hostname))
 			}
-			out.Gateways = append(out.Gateways, flowGateway{
-				Kind: "Gateway", TypeID: "gateways.gateway.networking.k8s.io",
-				Namespace: g.Namespace, Name: g.Name, Hosts: dedupe(hosts),
-			})
 		}
+		out.Gateways = append(out.Gateways, flowGateway{
+			Kind: "Gateway", TypeID: "gateways.gateway.networking.k8s.io",
+			Namespace: g.Namespace, Name: g.Name, Hosts: dedupe(hosts),
+		})
 	}
-	if gws, err := c.Istio.NetworkingV1().Gateways("").List(ctx, metav1.ListOptions{}); err == nil {
-		for _, g := range gws.Items {
-			hosts := []string{}
-			for _, srv := range g.Spec.Servers {
-				for _, h := range srv.Hosts {
-					// for "ns/host", keep only host
-					if _, after, found := strings.Cut(h, "/"); found {
-						h = after
-					}
-					if h != "*" {
-						hosts = append(hosts, h)
-					}
+	for _, g := range st.istioGWs {
+		hosts := []string{}
+		for _, srv := range g.Spec.Servers {
+			for _, h := range srv.Hosts {
+				// for "ns/host", keep only host
+				if _, after, found := strings.Cut(h, "/"); found {
+					h = after
+				}
+				if h != "*" {
+					hosts = append(hosts, h)
 				}
 			}
-			out.Gateways = append(out.Gateways, flowGateway{
-				Kind: "IstioGateway", TypeID: "gateways.networking.istio.io",
-				Namespace: g.Namespace, Name: g.Name, Hosts: dedupe(hosts),
-				Egress: g.Spec.Selector["istio"] == "egressgateway" || strings.Contains(g.Name, "egress"),
-			})
 		}
+		out.Gateways = append(out.Gateways, flowGateway{
+			Kind: "IstioGateway", TypeID: "gateways.networking.istio.io",
+			Namespace: g.Namespace, Name: g.Name, Hosts: dedupe(hosts),
+			Egress: g.Spec.Selector["istio"] == "egressgateway" || strings.Contains(g.Name, "egress"),
+		})
 	}
 
 	// ServiceEntry — registry of external destinations leaving the mesh (egress flow)
-	if ses, err := c.Istio.NetworkingV1().ServiceEntries("").List(ctx, metav1.ListOptions{}); err == nil {
-		for _, se := range ses.Items {
-			out.ServiceEntries = append(out.ServiceEntries, flowServiceEntry{
-				TypeID:    "serviceentries.networking.istio.io",
-				Namespace: se.Namespace, Name: se.Name,
-				Hosts: append([]string{}, se.Spec.Hosts...),
-			})
-		}
-	}
-
-	// index for checking that services exist
-	svcExists := map[string]bool{}
-	if svcs, err := c.Kube.CoreV1().Services("").List(ctx, metav1.ListOptions{}); err == nil {
-		for i := range svcs.Items {
-			svcExists[svcs.Items[i].Namespace+"/"+svcs.Items[i].Name] = true
-		}
-	}
+	out.ServiceEntries = append(out.ServiceEntries, st.ses...)
 
 	// HTTPRoute → Gateway API gateways
-	if hrs, err := c.Gateway.GatewayV1().HTTPRoutes("").List(ctx, metav1.ListOptions{}); err == nil {
-		for i := range hrs.Items {
-			hr := &hrs.Items[i]
-			fr := flowRoute{
-				Kind: "HTTPRoute", TypeID: "httproutes.gateway.networking.k8s.io",
-				Namespace: hr.Namespace, Name: hr.Name,
-				Hosts: []string{}, Gateways: []string{}, Backends: []flowBackend{},
+	for i := range st.hrs {
+		hr := &st.hrs[i]
+		fr := flowRoute{
+			Kind: "HTTPRoute", TypeID: "httproutes.gateway.networking.k8s.io",
+			Namespace: hr.Namespace, Name: hr.Name,
+			Hosts: []string{}, Gateways: []string{}, Backends: []flowBackend{},
+		}
+		for _, h := range hr.Spec.Hostnames {
+			fr.Hosts = append(fr.Hosts, string(h))
+		}
+		for _, p := range hr.Spec.ParentRefs {
+			if p.Kind != nil && *p.Kind != "Gateway" {
+				continue
 			}
-			for _, h := range hr.Spec.Hostnames {
-				fr.Hosts = append(fr.Hosts, string(h))
+			ns := hr.Namespace
+			if p.Namespace != nil {
+				ns = string(*p.Namespace)
 			}
-			for _, p := range hr.Spec.ParentRefs {
-				if p.Kind != nil && *p.Kind != "Gateway" {
+			fr.Gateways = append(fr.Gateways, ns+"/"+string(p.Name))
+		}
+		for _, rule := range hr.Spec.Rules {
+			for _, b := range rule.BackendRefs {
+				if b.Kind != nil && *b.Kind != "Service" {
 					continue
 				}
 				ns := hr.Namespace
-				if p.Namespace != nil {
-					ns = string(*p.Namespace)
+				if b.Namespace != nil {
+					ns = string(*b.Namespace)
 				}
-				fr.Gateways = append(fr.Gateways, ns+"/"+string(p.Name))
-			}
-			for _, rule := range hr.Spec.Rules {
-				for _, b := range rule.BackendRefs {
-					if b.Kind != nil && *b.Kind != "Service" {
-						continue
-					}
-					ns := hr.Namespace
-					if b.Namespace != nil {
-						ns = string(*b.Namespace)
-					}
-					var port int32
-					if b.Port != nil {
-						port = int32(*b.Port)
-					}
-					fr.Backends = append(fr.Backends, flowBackend{Namespace: ns, Name: string(b.Name), Port: port})
+				var port int32
+				if b.Port != nil {
+					port = int32(*b.Port)
 				}
+				fr.Backends = append(fr.Backends, flowBackend{Namespace: ns, Name: string(b.Name), Port: port})
 			}
-			out.Routes = append(out.Routes, fr)
 		}
+		out.Routes = append(out.Routes, fr)
 	}
 
 	// VirtualService → Istio gateways (mesh-only VSs are skipped since they are not ingress flow)
-	if vss, err := c.Istio.NetworkingV1().VirtualServices("").List(ctx, metav1.ListOptions{}); err == nil {
-		for _, vs := range vss.Items {
-			fr := flowRoute{
-				Kind: "VirtualService", TypeID: "virtualservices.networking.istio.io",
-				Namespace: vs.Namespace, Name: vs.Name,
-				Hosts: append([]string{}, vs.Spec.Hosts...), Gateways: []string{}, Backends: []flowBackend{},
-			}
-			for _, g := range vs.Spec.Gateways {
-				if g == "mesh" {
-					continue
-				}
-				if !strings.Contains(g, "/") {
-					g = vs.Namespace + "/" + g
-				}
-				fr.Gateways = append(fr.Gateways, g)
-			}
-			if len(fr.Gateways) == 0 {
+	for _, vs := range st.vss {
+		fr := flowRoute{
+			Kind: "VirtualService", TypeID: "virtualservices.networking.istio.io",
+			Namespace: vs.Namespace, Name: vs.Name,
+			Hosts: append([]string{}, vs.Spec.Hosts...), Gateways: []string{}, Backends: []flowBackend{},
+		}
+		for _, g := range vs.Spec.Gateways {
+			if g == "mesh" {
 				continue
 			}
-			addDest := func(d *istioapi.Destination) {
-				if d == nil {
-					return
-				}
-				var port int32
-				if d.Port != nil {
-					port = int32(d.Port.Number)
-				}
-				fr.Backends = append(fr.Backends, resolveDestination(d.Host, vs.Namespace, port))
+			if !strings.Contains(g, "/") {
+				g = vs.Namespace + "/" + g
 			}
-			for _, h := range vs.Spec.Http {
-				for _, rt := range h.Route {
-					addDest(rt.Destination)
-				}
-			}
-			for _, t := range vs.Spec.Tls {
-				for _, rt := range t.Route {
-					addDest(rt.Destination)
-				}
-			}
-			for _, t := range vs.Spec.Tcp {
-				for _, rt := range t.Route {
-					addDest(rt.Destination)
-				}
-			}
-			out.Routes = append(out.Routes, fr)
+			fr.Gateways = append(fr.Gateways, g)
 		}
+		if len(fr.Gateways) == 0 {
+			continue
+		}
+		for _, d := range vsDestinations(&vs.Spec) {
+			var port int32
+			if d.Port != nil {
+				port = int32(d.Port.Number)
+			}
+			fr.Backends = append(fr.Backends, resolveDestination(d.Host, vs.Namespace, port))
+		}
+		out.Routes = append(out.Routes, fr)
 	}
 
-	// fill in backend existence + ready endpoint count (once per service)
-	epCount := map[string]int{}
+	// fill in backend existence + ready endpoint count
 	for i := range out.Routes {
 		for j := range out.Routes[i].Backends {
 			b := &out.Routes[i].Backends[j]
@@ -221,17 +174,9 @@ func (s *Server) handleFlowMap(w http.ResponseWriter, r *http.Request) {
 				b.ServiceEntry = serviceEntryFor(out.ServiceEntries, b.Name)
 				continue
 			}
-			key := b.Namespace + "/" + b.Name
-			b.Exists = svcExists[key]
-			if !b.Exists {
-				continue
+			if _, b.Exists = st.services[b.Namespace+"/"+b.Name]; b.Exists {
+				b.Endpoints = readyEndpoints(st, b.Namespace, b.Name)
 			}
-			if n, ok := epCount[key]; ok {
-				b.Endpoints = n
-				continue
-			}
-			b.Endpoints = readyEndpoints(ctx, c, b.Namespace, b.Name)
-			epCount[key] = b.Endpoints
 		}
 	}
 
@@ -273,18 +218,6 @@ func resolveDestination(host, ns string, port int32) flowBackend {
 		return flowBackend{Name: host, Port: port, External: true}
 	}
 	return flowBackend{Namespace: ns, Name: host, Port: port}
-}
-
-func readyEndpoints(ctx context.Context, c *k8s.Clients, ns, name string) int {
-	ep, err := c.Kube.CoreV1().Endpoints(ns).Get(ctx, name, metav1.GetOptions{})
-	if err != nil {
-		return 0
-	}
-	n := 0
-	for _, sub := range ep.Subsets {
-		n += len(sub.Addresses)
-	}
-	return n
 }
 
 func dedupe(in []string) []string {

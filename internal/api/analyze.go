@@ -243,6 +243,32 @@ func analyzeSnapshot(st *meshSnapshot, ns string) analysis {
 		}
 	}
 
+	// --- Namespaces: injection on, running pods without a sidecar ---
+	// A Namespace is cluster-scoped (Resource.Namespace ""), so it is scoped by name, not through add.
+	bare := map[string][]string{}
+	for _, p := range st.pods {
+		if p.phase == string(corev1.PodRunning) && !p.sidecar && !p.injectOptOut {
+			bare[p.ns] = append(bare[p.ns], p.name)
+		}
+	}
+	for _, n := range st.namespaces {
+		if !n.injection {
+			continue
+		}
+		check(n.name)
+		names := bare[n.name]
+		if !inScope(n.name) || len(names) == 0 {
+			continue // also when pods could not be listed (bare is empty)
+		}
+		sort.Strings(names)
+		msg := fmt.Sprintf("%d running pod(s) without a sidecar in an injection-enabled namespace: %s", len(names), strings.Join(names[:min(3, len(names))], ", "))
+		if len(names) > 3 {
+			msg += fmt.Sprintf(" +%d", len(names)-3)
+		}
+		out.Findings = append(out.Findings, finding{Severity: "warning", Code: "namespace-injection-no-sidecar", Message: msg,
+			Resource: ref{TypeID: "namespaces", Kind: "Namespace", Namespace: "", Name: n.name}})
+	}
+
 	sort.SliceStable(out.Findings, func(i, j int) bool {
 		a, b := out.Findings[i], out.Findings[j]
 		if a.Severity != b.Severity {
@@ -335,19 +361,8 @@ func (st *meshSnapshot) subsetDefined(b flowBackend, subset string) bool {
 // anyPodMatches reports whether a label selector matches a pod in ns ("" = any namespace).
 func (st *meshSnapshot) anyPodMatches(ns string, sel map[string]string) bool {
 	s := labels.SelectorFromSet(labels.Set(sel))
-	check := func(sets []labels.Set) bool {
-		for _, ls := range sets {
-			if s.Matches(ls) {
-				return true
-			}
-		}
-		return false
-	}
-	if ns != "" {
-		return check(st.pods[ns])
-	}
-	for _, sets := range st.pods {
-		if check(sets) {
+	for _, p := range st.pods {
+		if (ns == "" || p.ns == ns) && s.Matches(p.labels) {
 			return true
 		}
 	}

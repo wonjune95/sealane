@@ -34,7 +34,7 @@ func TestSnapshotListsEndpointsOnce(t *testing.T) {
 	c := &k8s.Clients{Kube: kube, Istio: istiofake.NewSimpleClientset(vsObjs...), Gateway: gwfake.NewSimpleClientset()}
 	endpointCalls := func(what string) {
 		t.Helper()
-		lists, gets, svcGets := 0, 0, 0
+		lists, gets, svcGets, nsLists := 0, 0, 0, 0
 		for _, a := range kube.Actions() {
 			switch res, verb := a.GetResource().Resource, a.GetVerb(); {
 			case res == "endpoints" && verb == "list":
@@ -43,10 +43,15 @@ func TestSnapshotListsEndpointsOnce(t *testing.T) {
 				gets++
 			case res == "services" && verb == "get":
 				svcGets++
+			case res == "namespaces" && verb == "list":
+				nsLists++
 			}
 		}
 		if lists != 1 || gets != 0 || svcGets != 0 {
 			t.Errorf("%s: want 1 endpoints list, 0 endpoints gets, 0 service gets; got %d, %d, %d", what, lists, gets, svcGets)
+		}
+		if wantNS := map[bool]int{true: 1}[what == "analyze"]; nsLists != wantNS {
+			t.Errorf("%s: want %d namespaces lists (analysis only), got %d", what, wantNS, nsLists)
 		}
 		kube.ClearActions()
 	}

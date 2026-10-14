@@ -240,3 +240,94 @@ func TestAnalyzeExternalNameGatewayRefsAndScopedChecked(t *testing.T) {
 		t.Errorf("scoped checked: want 1, got %d", n)
 	}
 }
+
+func TestAnalyzeInjection(t *testing.T) {
+	nsObj := func(name string, labels map[string]string) *corev1.Namespace {
+		return &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: name, Labels: labels}}
+	}
+	running := func(ns, name string, labels map[string]string, init, containers []string) *corev1.Pod {
+		p := pod(ns, name, labels)
+		p.Status.Phase = corev1.PodRunning
+		for _, n := range init {
+			p.Spec.InitContainers = append(p.Spec.InitContainers, corev1.Container{Name: n})
+		}
+		for _, n := range containers {
+			p.Spec.Containers = append(p.Spec.Containers, corev1.Container{Name: n})
+		}
+		return p
+	}
+	injected := func(ns string) []runtime.Object {
+		done := running(ns, "job", nil, nil, []string{"app"})
+		done.Status.Phase = corev1.PodSucceeded
+		return []runtime.Object{
+			running(ns, "native", nil, []string{"istio-proxy"}, []string{"app"}), // native sidecar (init container)
+			running(ns, "classic", nil, nil, []string{"app", "istio-proxy"}),
+			running(ns, "bare", nil, nil, []string{"app"}),
+			running(ns, "optout", map[string]string{"sidecar.istio.io/inject": "false"}, nil, []string{"app"}),
+			done,
+		}
+	}
+	analyze := func(kube *kubefake.Clientset, ns string) analysis {
+		c := &k8s.Clients{Kube: kube, Istio: istiofake.NewSimpleClientset(), Gateway: gwfake.NewSimpleClientset()}
+		return analyzeMesh(context.Background(), c, ns)
+	}
+
+	// (a) one finding naming only the pod without a sidecar; (c) a namespace without the label → nothing
+	objs := append(injected("mesh"), nsObj("mesh", map[string]string{"istio-injection": "enabled"}), nsObj("plain", nil))
+	objs = append(objs, running("plain", "bare", nil, nil, []string{"app"}))
+	kube := kubefake.NewSimpleClientset(objs...)
+	a := analyze(kube, "")
+	var fs []finding
+	for _, f := range a.Findings {
+		if f.Code == "namespace-injection-no-sidecar" {
+			fs = append(fs, f)
+		}
+	}
+	want := finding{Severity: "warning", Code: "namespace-injection-no-sidecar",
+		Message:  "1 running pod(s) without a sidecar in an injection-enabled namespace: bare",
+		Resource: ref{TypeID: "namespaces", Kind: "Namespace", Namespace: "", Name: "mesh"}}
+	if len(fs) != 1 || fs[0].Severity != want.Severity || fs[0].Message != want.Message || fs[0].Resource != want.Resource {
+		t.Fatalf("want %+v, got %+v", want, fs)
+	}
+	if a.Checked != 1 {
+		t.Errorf("Checked counts injection-enabled namespaces: want 1, got %d", a.Checked)
+	}
+
+	// (e) ns filter scopes by Name
+	if got := codes(analyze(kube, "mesh"))["namespace-injection-no-sidecar"]; got != 1 {
+		t.Errorf("ns=mesh: want 1 finding, got %d", got)
+	}
+	if got := codes(analyze(kube, "plain"))["namespace-injection-no-sidecar"]; got != 0 {
+		t.Errorf("ns=plain: want 0 findings, got %d", got)
+	}
+
+	// (b) opt-out by annotation too; istio.io/rev counts as injection; more than three names are truncated
+	optout := running("rev", "anno", nil, nil, []string{"app"})
+	optout.Annotations = map[string]string{"sidecar.istio.io/inject": "false"}
+	objs = []runtime.Object{nsObj("rev", map[string]string{"istio.io/rev": "canary"}), optout}
+	if got := codes(analyze(kubefake.NewSimpleClientset(objs...), ""))["namespace-injection-no-sidecar"]; got != 0 {
+		t.Errorf("opt-out pods only: want no finding, got %d", got)
+	}
+	for _, n := range []string{"a", "b", "c", "d", "e"} {
+		objs = append(objs, running("rev", n, nil, nil, []string{"app"}))
+	}
+	a = analyze(kubefake.NewSimpleClientset(objs...), "")
+	if len(a.Findings) != 1 || a.Findings[0].Message != "5 running pod(s) without a sidecar in an injection-enabled namespace: a, b, c +2" {
+		t.Errorf("istio.io/rev namespace: got %+v", a.Findings)
+	}
+
+	// (d) pods Forbidden → no finding, skipped stays [pods]; namespaces failing → no finding
+	for _, res := range []string{"pods", "namespaces"} {
+		kube = kubefake.NewSimpleClientset(append(injected("mesh"), nsObj("mesh", map[string]string{"istio-injection": "enabled"}))...)
+		kube.PrependReactor("list", res, func(ktesting.Action) (bool, runtime.Object, error) {
+			return true, nil, apierrors.NewForbidden(schema.GroupResource{Resource: res}, "", nil)
+		})
+		a = analyze(kube, "")
+		if codes(a)["namespace-injection-no-sidecar"] != 0 {
+			t.Errorf("%s forbidden: want no finding, got %v", res, a.Findings)
+		}
+		if res == "pods" && (len(a.Skipped) != 1 || a.Skipped[0] != "pods") {
+			t.Errorf("pods forbidden: want skipped=[pods], got %v", a.Skipped)
+		}
+	}
+}

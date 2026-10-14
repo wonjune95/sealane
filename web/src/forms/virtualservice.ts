@@ -105,9 +105,13 @@ export function fromVSForm(base: Any, m: VirtualServiceFormModel): Any {
       ...(r.match.length ? {
         match: r.match.map((x) => ({
           ...(x.uriType ? { uri: { [x.uriType]: x.uriValue ?? '' } } : {}),
-          ...(x.headers.length
-            ? { headers: Object.fromEntries(x.headers.map((h) => [h.name, { [h.type]: h.value }])) }
-            : {}),
+          // Headers are a map: the first row with a name wins, later duplicates are
+          // dropped rather than overwriting its value.
+          ...(x.headers.length ? {
+            headers: Object.fromEntries(x.headers
+              .filter((h, i) => x.headers.findIndex((o) => o.name === h.name) === i)
+              .map((h) => [h.name, { [h.type]: h.value }])),
+          } : {}),
         })),
       } : {}),
       ...(r.route.length ? {

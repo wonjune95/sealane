@@ -189,8 +189,10 @@ function MatchBox({ m, onChange, onRemove }: { m: VSMatchModel; onChange: (m: VS
       </div>
       {m.headers.map((h, hi) => (
         <div key={hi} className="flex items-center gap-2 pl-6">
-          <input className={input} value={h.name} placeholder="header"
-            onChange={(e) => set({ headers: replace(m.headers, hi, { ...h, name: e.target.value }) })} />
+          {/* Committed on blur: a half-typed name (x-user on the way to x-user-id)
+              must not collide with an existing header key mid-word. */}
+          <input key={`${hi}:${h.name}`} className={input} defaultValue={h.name} placeholder="header"
+            onBlur={(e) => e.target.value !== h.name && set({ headers: replace(m.headers, hi, { ...h, name: e.target.value }) })} />
           <select className={`${input} w-28`} value={h.type}
             onChange={(e) => set({ headers: replace(m.headers, hi, { ...h, type: e.target.value as typeof h.type }) })}>
             <option value="exact">exact</option>

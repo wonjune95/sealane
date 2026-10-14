@@ -11,7 +11,8 @@
     "test:flow-map": "node tests/flow-map.mjs",
     "test:login-sso": "node tests/login-sso.mjs",
     "test:list-sort": "node tests/list-sort.mjs",
-    "test:vs-form": "node tests/vs-form.mjs"
+    "test:vs-form": "node tests/vs-form.mjs",
+    "test:httproute-form": "node tests/httproute-form.mjs"
   },
   "dependencies": {
     "@codemirror/lang-yaml": "^6.1.3",

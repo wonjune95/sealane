@@ -87,7 +87,9 @@ export function fromHTTPForm(base: Any, m: HTTPRouteFormModel): Any {
     ...(p.namespace ? { namespace: p.namespace } : {}),
     ...(p.sectionName ? { sectionName: p.sectionName } : {}),
   }))
-  obj.spec.hostnames = m.hostnames.filter((h) => h.trim() !== '')
+  // Blank rows stay (a new "+ Add" row must survive the YAML round trip);
+  // the dry-run flags a hostname left empty.
+  obj.spec.hostnames = m.hostnames
   obj.spec.rules = m.rules.map((r) => ({
     matches: [{ path: { type: r.pathType, value: r.pathValue } }],
     backendRefs: r.backendRefs.map((b) => ({

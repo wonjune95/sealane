@@ -160,6 +160,19 @@ try {
   want.spec.http[0].timeout = '6s'
   assert.deepEqual(edited, want)
 
+  // Typing a new header name through an existing one (x-user → x-user-id) never
+  // collapses the rows or overwrites x-user's value.
+  await formTab.click()
+  await page.getByRole('button', { name: '+ Add header' }).first().click()
+  const headerNames = page.getByPlaceholder('header', { exact: true })
+  await headerNames.nth(2).pressSequentially('x-user-id')
+  await headerNames.nth(2).blur()
+  assert.deepEqual((await editorYaml()).spec.http[0].match[0].headers, {
+    'x-user': { exact: 'qa' },
+    'x-env': { prefix: 'stg' },
+    'x-user-id': { exact: '' },
+  })
+
   assert.deepEqual(errors, [])
   console.log('vs-form: ok')
 } finally {

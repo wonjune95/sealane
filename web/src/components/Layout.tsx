@@ -100,7 +100,7 @@ export function Layout({ children }: { children: ReactNode }) {
                       {c.name}
                     </option>
                   ))}
-                  <option value={MANAGE}>{t('layout.manageClusters')}</option>
+                  {data?.role === 'admin' && <option value={MANAGE}>{t('layout.manageClusters')}</option>}
                 </select>
                 <Icon name="down" className="pointer-events-none absolute right-0 h-3.5 w-3.5 text-faint" />
               </span>

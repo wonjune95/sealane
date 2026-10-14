@@ -9,6 +9,7 @@ import { Login } from './pages/Login'
 import { Home } from './pages/Home'
 import { Overview } from './pages/Overview'
 import { FlowMap } from './pages/FlowMap'
+import { Analysis } from './pages/Analysis'
 import { RouteCheck } from './pages/RouteCheck'
 import { ResourceList } from './pages/ResourceList'
 import { ResourceEdit } from './pages/ResourceEdit'
@@ -61,6 +62,7 @@ export function App() {
         <Route path="/" element={<Home />} />
         <Route path="/overview" element={<Overview />} />
         <Route path="/flowmap" element={<FlowMap />} />
+        <Route path="/analysis" element={<Analysis />} />
         <Route path="/routecheck" element={<RouteCheck />} />
         <Route path="/resources/:type" element={<ResourceList key={location.pathname} />} />
         <Route path="/resources/:type/new" element={<ResourceEdit key={location.pathname} />} />

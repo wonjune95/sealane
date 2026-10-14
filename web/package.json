@@ -10,7 +10,8 @@
     "test:cluster-selection": "node tests/cluster-selection.mjs",
     "test:flow-map": "node tests/flow-map.mjs",
     "test:login-sso": "node tests/login-sso.mjs",
-    "test:list-sort": "node tests/list-sort.mjs"
+    "test:list-sort": "node tests/list-sort.mjs",
+    "test:vs-form": "node tests/vs-form.mjs"
   },
   "dependencies": {
     "@codemirror/lang-yaml": "^6.1.3",

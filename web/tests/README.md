@@ -7,6 +7,7 @@ npm run test:cluster-selection
 npm run test:flow-map
 npm run test:login-sso
 npm run test:list-sort
+npm run test:vs-form
 ```
 
 The checks replace API responses with fixtures. They verify that a removed cluster selection recovers before capabilities requests, login still works, valid registrations retain their selection, and connection or list failures offer recovery. No Kubernetes API or actual login credentials are used.
@@ -16,6 +17,8 @@ The checks replace API responses with fixtures. They verify that a removed clust
 `node tests/analysis.mjs` covers the Mesh analysis page (severity filter, search, skipped-pods banner, resource links), fixture-based.
 
 `npm run test:list-sort` covers sortable columns (Name, Age by duration) and the 50-row "Show more" paging on the resource list, fixture-based.
+
+`npm run test:vs-form` covers the curated VirtualService form: a new VS built through the form (hosts, gateways, URI match, weighted subsets) checked against the YAML tab, the subset suggestions per destination host, the Form tab lock for unsupported fields (fault), and a lossless edit of an existing VS, fixture-based.
 
 The flow map checks cover mixed ingress/egress parents, missing gateways, search and namespace filters retaining related paths, problem paths, keyboard selection, scaled drag, layout reset, 320–1440px layouts, reduced motion, and empty/error/retry states.
 

@@ -53,8 +53,8 @@ metadata:
 spec:
   hosts:                 # ${t('edit.tpl.vsHosts')}
     - ''
-  gateways:              # ${t('edit.tpl.vsGateways')}
-    - ''
+  # gateways:            # ${t('edit.tpl.vsGateways')}
+  #   - my-gateway
   http:                  # ${t('edit.tpl.vsHttp')}
     - route:
         - destination:

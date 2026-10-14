@@ -20,7 +20,7 @@ export interface HTTPRouteFormModel {
 /* eslint-disable @typescript-eslint/no-explicit-any */
 type Any = any
 
-const allowed = (obj: Any, keys: string[]) =>
+export const allowed = (obj: Any, keys: string[]) =>
   Object.keys(obj ?? {}).every((k) => keys.includes(k))
 
 // isHTTPRepresentable reports whether the form can losslessly edit this object's
@@ -95,6 +95,10 @@ export function fromHTTPForm(base: Any, m: HTTPRouteFormModel): Any {
     })),
   }))
   return obj
+}
+
+export function replace<T>(arr: T[], i: number, v: T): T[] {
+  return arr.map((x, j) => (j === i ? v : x))
 }
 
 export const toYaml = (obj: unknown): string => dump(obj)

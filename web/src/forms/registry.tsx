@@ -3,6 +3,8 @@ import type { GatewayRef } from '../api/gateways'
 import type { ServiceRef } from '../api/services'
 import { HTTPRouteForm } from './HTTPRouteForm'
 import { isHTTPRepresentable, toHTTPForm, fromHTTPForm } from './httproute'
+import { VirtualServiceForm } from './VirtualServiceForm'
+import { isVSRepresentable, toVSForm, fromVSForm } from './virtualservice'
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
@@ -34,6 +36,22 @@ export const FORMS: Record<string, FormIntegration> = {
     needsServices: true,
     render: (p) => (
       <HTTPRouteForm
+        model={p.model}
+        onChange={p.onChange}
+        gateways={p.gateways}
+        services={p.services}
+        lockIdentity={p.lockIdentity}
+      />
+    ),
+  },
+  'virtualservices.networking.istio.io': {
+    isRepresentable: isVSRepresentable,
+    toModel: toVSForm,
+    fromModel: fromVSForm,
+    needsGateways: true,
+    needsServices: true,
+    render: (p) => (
+      <VirtualServiceForm
         model={p.model}
         onChange={p.onChange}
         gateways={p.gateways}

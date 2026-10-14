@@ -43,7 +43,8 @@ export function Settings() {
         title={t('settings.title')}
         description={t('settings.description')}
       />
-      <div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)]">
+      <div className="grid items-start gap-5 xl:grid-cols-2">
+        <div className="space-y-5">
         <div className="panel rounded-xl p-5">
           <h3 className="mb-4 flex items-center gap-2 text-sm font-semibold text-strong">
             <Icon name="user" className="h-4 w-4 text-accent" />
@@ -105,13 +106,12 @@ export function Settings() {
           </button>
         </form>
         )}
-      </div>
-      <div className="grid items-start gap-5 xl:grid-cols-2">
+        </div>
         {caps.data?.role === 'admin' ? (
-          <>
+          <div className="space-y-5">
             <AccountsPanel me={caps.data.user ?? ''} />
             <ClustersPanel />
-          </>
+          </div>
         ) : (
           <p className="text-xs text-muted">{t('settings.askAdmin')}</p>
         )}

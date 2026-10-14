@@ -65,10 +65,13 @@ func (t *throttle) trim(key string) []time.Time {
 	return ts
 }
 
-// clientIP is the first X-Forwarded-For entry, else the RemoteAddr host.
+// clientIP is the last X-Forwarded-For entry (the address the nearest proxy saw;
+// proxies that append put the client-supplied entries before it), else the RemoteAddr host.
+// A client that reaches the pod directly can still set the header; the per-user key holds regardless.
 func clientIP(r *http.Request) string {
 	if xff := r.Header.Get("X-Forwarded-For"); xff != "" {
-		return strings.TrimSpace(strings.Split(xff, ",")[0])
+		parts := strings.Split(xff, ",")
+		return strings.TrimSpace(parts[len(parts)-1])
 	}
 	host, _, err := net.SplitHostPort(r.RemoteAddr)
 	if err != nil {

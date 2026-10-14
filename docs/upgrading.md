@@ -79,4 +79,4 @@ helm upgrade sealane oci://ghcr.io/wonjune95/charts/sealane --version 1.1.0 -n <
 ```
 
 - The ClusterRole gains `pods` get/list (labels for the [mesh analysis](features.md#mesh-analysis) pod checks). The chart and `install.yaml` apply it; with a hand-maintained ClusterRole that lacks it, the analysis page skips the pod checks and says so. The request tester now adds only `pods/exec`.
-- The local login form throttles repeated failures: five failed sign-ins per user or source IP inside ten minutes block that key for a minute (HTTP 429).
+- The local login form throttles repeated failures: five failed sign-ins inside ten minutes, counted per user name and per client address as reported by your proxy (the last `X-Forwarded-For` entry, else the connection address), block that key for a minute (HTTP 429). The per-user limit holds even if a client forges the header.

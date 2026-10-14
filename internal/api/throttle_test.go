@@ -84,6 +84,10 @@ func TestClientIP(t *testing.T) {
 		t.Fatal(clientIP(r))
 	}
 	r.Header.Set("X-Forwarded-For", "203.0.113.9, 10.0.0.1")
+	if clientIP(r) != "10.0.0.1" {
+		t.Fatal(clientIP(r))
+	}
+	r.Header.Set("X-Forwarded-For", "203.0.113.9")
 	if clientIP(r) != "203.0.113.9" {
 		t.Fatal(clientIP(r))
 	}

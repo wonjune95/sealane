@@ -22,8 +22,8 @@ What Sealane does out of the box:
 - **Cookies** — the session cookie is HMAC-signed, `HttpOnly` and `SameSite=Lax`, and expires after 12 hours. The role is inside the signed value, so it cannot be edited client-side.
 - **Server-side role checks** — every mutating request is checked against the role (403); the UI only mirrors that.
 - **Image and pod** — distroless, non-root (uid 65532), `readOnlyRootFilesystem`. No runtime downloads; the frontend is embedded in the binary.
-- **Narrow RBAC** — the ServiceAccount can change only the managed Istio and Gateway API kinds and patch only its own accounts ConfigMap and clusters Secret. It reads Namespaces, Services, Endpoints and Pods cluster-wide (pods only for their labels, on the analysis page); `requestTester.enabled` adds only `pods/exec`.
-- **Login throttle** — five failed local sign-ins per user or source IP inside ten minutes block that key for a minute (429 with `Retry-After`). Counters are in memory, per pod.
+- **Narrow RBAC** — the ServiceAccount can change only the managed Istio and Gateway API kinds and patch only its own accounts ConfigMap and clusters Secret. It reads Namespaces, Services, Endpoints and Pods cluster-wide (pods only for their labels, for mesh analysis: the Analysis page and the Service view); `requestTester.enabled` adds only `pods/exec`.
+- **Login throttle** — five failed local sign-ins inside ten minutes, counted per user name and per client address as reported by your proxy (the last `X-Forwarded-For` entry, else the connection address), block that key for a minute (429 with `Retry-After`). The per-user limit holds even if a client forges the header, which also means anyone can lock a named account for a minute at a time with five wrong passwords. Counters are in memory, per pod.
 - **SSO** — authorization code flow with PKCE; the ID token's signature, audience, expiry and nonce are verified; IdP error details stay in the server log. See [Authentication](authentication.md#single-sign-on-oidc).
 
 What you should do:

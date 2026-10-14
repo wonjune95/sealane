@@ -50,7 +50,7 @@ To try it, apply [`examples/demo-mesh.yaml`](https://github.com/wonjune95/sealan
 ![Request console — a real response sent from inside a pod](img/screenshot-requesttest.png)
 
 ## Mesh analysis
-**Mesh analysis** (`/analysis`, API `/api/analyze?ns=`) runs cross-resource checks that explain why traffic would not flow. Like the flow map it reads routing configuration only, refreshes every 30 seconds and filters by namespace (references are still resolved cluster-wide).
+**Mesh analysis** (`/analysis`, API `/api/analyze?ns=`) runs cross-resource checks that explain why traffic would not flow. It reads configuration, Endpoints and pod labels (no metrics or traffic), refreshes every 30 seconds and filters by namespace (references are still resolved cluster-wide).
 
 | Code | Severity | On | When |
 |---|---|---|---|
@@ -71,7 +71,7 @@ The two pod checks need `pods` list (in the chart's ClusterRole from 1.1.0). Wit
 ## Service view
 **Services** (`/services`, then one Service) shows everything that applies to a Service (API `/api/services/{ns}/{name}/mesh`): its selector, ports and ready endpoints; VirtualServices whose hosts name it or that route to it (a bare `*` host never counts); DestinationRules for its host, wildcards included; HTTPRoutes with it as a backend; the gateways those routes bind; the security policies (AuthorizationPolicy, PeerAuthentication, RequestAuthentication) that apply; and the analysis findings that concern it.
 
-Policies are marked by scope: **workload** (the policy selector matches the Service selector, or a `targetRef` names the Service), **namespace** (no selector, same namespace) or **mesh** (no selector, Istio root namespace). Workload scope is a heuristic: it compares the policy selector with the Service selector, not with pod labels, so a policy that selects pods by a label the Service selector lacks is not shown.
+Policies are marked by scope: **workload** (the policy selector matches the Service selector, or a `targetRef` names the Service), **namespace** (no selector, same namespace) or **mesh** (no selector, in the Istio namespace: `istioNamespace`, default `istio-system`). Workload scope is a heuristic: it compares the policy selector with the Service selector, not with pod labels, so a policy that selects pods by a label the Service selector lacks is not shown.
 
 ## Role-aware UI + change history
 - The UI checks the signed-in user's role up front (local account or SSO): for viewers, forms and apply/delete buttons turn **read-only**. The server enforces the same rule (403), so the UI can't be bypassed.

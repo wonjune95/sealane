@@ -41,7 +41,7 @@ type podInfo struct {
 
 type nsInfo struct {
 	name      string
-	injection bool // istio-injection=enabled or any istio.io/rev label
+	injection bool // istio-injection=enabled, or an istio.io/rev label with no istio-injection label (Istio webhook selectors)
 }
 
 func hasProxy(cs []corev1.Container) bool {
@@ -113,7 +113,8 @@ func loadMeshSnapshot(ctx context.Context, c *k8s.Clients, opts snapshotOpts) *m
 				st.namespaces = make([]nsInfo, 0, len(l.Items))
 				for _, n := range l.Items {
 					_, rev := n.Labels["istio.io/rev"]
-					st.namespaces = append(st.namespaces, nsInfo{name: n.Name, injection: rev || n.Labels["istio-injection"] == "enabled"})
+					inj, hasInj := n.Labels["istio-injection"]
+					st.namespaces = append(st.namespaces, nsInfo{name: n.Name, injection: inj == "enabled" || (!hasInj && rev)})
 				}
 			}
 		})

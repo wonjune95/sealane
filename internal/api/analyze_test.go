@@ -316,6 +316,16 @@ func TestAnalyzeInjection(t *testing.T) {
 		t.Errorf("istio.io/rev namespace: got %+v", a.Findings)
 	}
 
+	// istio-injection present with any other value disables rev-based injection; enabled plus rev stays on
+	objs = []runtime.Object{
+		nsObj("off", map[string]string{"istio-injection": "disabled", "istio.io/rev": "x"}), running("off", "bare", nil, nil, []string{"app"}),
+		nsObj("both", map[string]string{"istio-injection": "enabled", "istio.io/rev": "x"}), running("both", "bare", nil, nil, []string{"app"}),
+	}
+	a = analyze(kubefake.NewSimpleClientset(objs...), "")
+	if len(a.Findings) != 1 || a.Findings[0].Resource.Name != "both" || a.Checked != 1 {
+		t.Errorf("istio-injection overrides istio.io/rev: want one finding on both and Checked=1, got %+v, Checked=%d", a.Findings, a.Checked)
+	}
+
 	// (d) pods Forbidden → no finding, skipped stays [pods]; namespaces failing → no finding
 	for _, res := range []string{"pods", "namespaces"} {
 		kube = kubefake.NewSimpleClientset(append(injected("mesh"), nsObj("mesh", map[string]string{"istio-injection": "enabled"}))...)
@@ -328,6 +338,9 @@ func TestAnalyzeInjection(t *testing.T) {
 		}
 		if res == "pods" && (len(a.Skipped) != 1 || a.Skipped[0] != "pods") {
 			t.Errorf("pods forbidden: want skipped=[pods], got %v", a.Skipped)
+		}
+		if res == "namespaces" && len(a.Skipped) != 0 {
+			t.Errorf("namespaces forbidden: want nothing skipped, got %v", a.Skipped)
 		}
 	}
 }

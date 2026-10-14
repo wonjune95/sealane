@@ -76,6 +76,11 @@ CREATED_VS=1
 expect 200 "$(api GET "/api/resources/$TYPE")" "list"
 jq -e --arg n "$NAME" --arg ns "$NS" 'map(select(.name==$n and .namespace==$ns)) | length == 1' "$BODY" >/dev/null || fail "created VirtualService missing from list"
 expect 200 "$(api GET /api/flowmap)" "flow map"
+expect 200 "$(api GET "/api/analyze?ns=$NS")" "analyze"
+jq -e --arg n "$NAME" '.findings | map(select(.code=="vs-host-missing" and .resource.name==$n)) | length == 1' "$BODY" >/dev/null || fail "analyze did not report the dangling destination"
+jq -e '(.skipped // []) | index("pods") == null' "$BODY" >/dev/null || fail "pods must be readable with the chart RBAC"
+expect 200 "$(api GET /api/services/default/kubernetes/mesh)" "service mesh view"
+jq -e '.findings | type == "array"' "$BODY" >/dev/null || fail "service mesh view shape"
 expect 204 "$(api DELETE "/api/resources/$TYPE/$NS/$NAME")" "delete"
 CREATED_VS=
 expect 200 "$(api GET "/api/resources/$TYPE")" "list after delete"

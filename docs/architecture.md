@@ -53,7 +53,7 @@ Permissions come in two separate layers — cluster permissions and user permiss
 
 | Layer | Owner | Scope |
 |---|---|---|
-| Cluster (K8s RBAC) | pod ServiceAccount | CRUD on managed CRDs (`*.networking.istio.io`, `security/telemetry.istio.io`, `*.gateway.networking.k8s.io`) + read namespaces/services/endpoints + patch accounts CM / clusters Secret. Configured by Helm. |
+| Cluster (K8s RBAC) | pod ServiceAccount | CRUD on managed CRDs (`*.networking.istio.io`, `security/telemetry.istio.io`, `*.gateway.networking.k8s.io`) + read namespaces/services/endpoints/pods + patch accounts CM / clusters Secret. Configured by Helm. |
 | User (app roles) | accounts ConfigMap, or IdP groups for SSO users | `admin` = write + account/cluster management, `editor` = write, `viewer` = read-only. The server gates every mutating request (403). |
 
 Account management: admins use the **account management UI** on the settings page, or edit the `sealane-accounts` ConfigMap directly (add key = add account, edit role string = change role, delete key = delete account). Local users change their own password on the settings page; SSO users manage their password at the identity provider.

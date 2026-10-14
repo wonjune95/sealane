@@ -69,3 +69,14 @@ Two behaviors change:
 
 - The new `SHUTDOWN_DELAY` (default `5s`) makes the pod wait before it closes the listener on SIGTERM, so termination takes 5 seconds longer. Set `SHUTDOWN_DELAY=0s` to turn it off (from 1.0.1 through the `extraEnv` value; on 1.0.0 with `kubectl -n <namespace> set env deploy/sealane SHUTDOWN_DELAY=0s`).
 - Cookies are marked `Secure` automatically when `OIDC_REDIRECT_URL` is `https://`. If TLS terminates elsewhere and Sealane is still reached over plain http on that URL, logins would fail. Keep the redirect URL on the scheme users actually use.
+
+## From 1.0.x to 1.1.x
+
+1.1 has no breaking changes; values, environment variables, the accounts ConfigMap, the clusters Secret and existing sessions keep working.
+
+```bash
+helm upgrade sealane oci://ghcr.io/wonjune95/charts/sealane --version 1.1.0 -n <namespace> --reset-then-reuse-values
+```
+
+- The ClusterRole gains `pods` get/list (labels for the [mesh analysis](features.md#mesh-analysis) pod checks). The chart and `install.yaml` apply it; with a hand-maintained ClusterRole that lacks it, the analysis page skips the pod checks and says so. The request tester now adds only `pods/exec`.
+- The local login form throttles repeated failures: five failed sign-ins per user or source IP inside ten minutes block that key for a minute (HTTP 429).

@@ -22,7 +22,8 @@ What Sealane does out of the box:
 - **Cookies** — the session cookie is HMAC-signed, `HttpOnly` and `SameSite=Lax`, and expires after 12 hours. The role is inside the signed value, so it cannot be edited client-side.
 - **Server-side role checks** — every mutating request is checked against the role (403); the UI only mirrors that.
 - **Image and pod** — distroless, non-root (uid 65532), `readOnlyRootFilesystem`. No runtime downloads; the frontend is embedded in the binary.
-- **Narrow RBAC** — the ServiceAccount can change only the managed Istio and Gateway API kinds and patch only its own accounts ConfigMap and clusters Secret.
+- **Narrow RBAC** — the ServiceAccount can change only the managed Istio and Gateway API kinds and patch only its own accounts ConfigMap and clusters Secret. It reads Namespaces, Services, Endpoints and Pods cluster-wide (pods only for their labels, on the analysis page); `requestTester.enabled` adds only `pods/exec`.
+- **Login throttle** — five failed local sign-ins per user or source IP inside ten minutes block that key for a minute (429 with `Retry-After`). Counters are in memory, per pod.
 - **SSO** — authorization code flow with PKCE; the ID token's signature, audience, expiry and nonce are verified; IdP error details stay in the server log. See [Authentication](authentication.md#single-sign-on-oidc).
 
 What you should do:
@@ -35,7 +36,7 @@ What you should do:
 
 ## The request tester
 
-The real request sender (**Send** in the request console) runs `curl` inside a pod you pick, through `pods/exec`. Enabling it with `requestTester.enabled=true` gives Sealane's ServiceAccount `pods` read and `pods/exec` create cluster-wide — effectively arbitrary command execution in any pod. That is why it ships off. When enabled it is admin-only, builds argv without a shell, validates input (scheme, method, header newlines), caps timeout and response size, and audit-logs every request with user, source pod and target URL. Route check (the simulator) needs none of this and is safe for viewers.
+The real request sender (**Send** in the request console) runs `curl` inside a pod you pick, through `pods/exec`. Enabling it with `requestTester.enabled=true` gives Sealane's ServiceAccount `pods/exec` create cluster-wide — effectively arbitrary command execution in any pod. That is why it ships off. When enabled it is admin-only, builds argv without a shell, validates input (scheme, method, header newlines), caps timeout and response size, and audit-logs every request with user, source pod and target URL. Route check (the simulator) needs none of this and is safe for viewers.
 
 ## Verifying release signatures
 
@@ -43,9 +44,9 @@ Images and charts are signed keyless with cosign (GitHub OIDC identity via Sigst
 
 ```bash
 cosign verify --certificate-identity-regexp 'https://github.com/wonjune95/sealane/' \
-  --certificate-oidc-issuer https://token.actions.githubusercontent.com ghcr.io/wonjune95/sealane:1.0.1
+  --certificate-oidc-issuer https://token.actions.githubusercontent.com ghcr.io/wonjune95/sealane:1.1.0
 cosign verify --certificate-identity-regexp 'https://github.com/wonjune95/sealane/' \
-  --certificate-oidc-issuer https://token.actions.githubusercontent.com ghcr.io/wonjune95/charts/sealane:1.0.1
+  --certificate-oidc-issuer https://token.actions.githubusercontent.com ghcr.io/wonjune95/charts/sealane:1.1.0
 ```
 
 Use cosign 3.x. From 1.0.0 on, signatures are stored as OCI referrers (Sigstore bundles) next to the image and chart rather than as `.sig` tags; cosign 3.x verifies both forms, older cosign only the tags.

@@ -15,17 +15,30 @@ Sealane is moving from an internal tool to a public project in four releases. Da
 - OIDC login (any provider; Keycloak, Dex and Google examples) with group-to-role mapping. Local accounts stay.
 - Documentation site at https://wonjune95.github.io/sealane/.
 
-## v1.0 — Policy and ecosystem (shipped in 1.0.0, this release)
+## v1.0 — Policy and ecosystem (shipped in 1.0.0)
 - Versioning and support policy, governance and adopters files.
 - End-to-end tests against two Istio versions, and an upgrade test from 0.8 to 1.0.
 - Release notes kept in the repository.
 - Ecosystem submission kit (Artifact Hub, announcement, integration page and Landscape drafts).
 
+## 1.1 (shipped)
+- Mesh analysis: cross-resource checks for routes, subsets, gateways and selectors that lead nowhere.
+- Service view: everything that routes to, configures or secures one Service.
+- Status pills in resource lists from Gateway API conditions and Istio validation messages.
+- Local login throttle.
+- IdP groups in the `login` log line.
+- Option to hide the local login form when SSO is configured (`oidc.hideLocalLogin`).
+
 ## After 1.0 (candidates, not promised)
+- Recipes and wizards for common routing changes.
+- Revision history with rollback.
+- OIDC refresh and logout at the IdP.
+- Metrics overlay on the flow map.
+- Conversion from Istio routing to Gateway API.
+- Bulk export and import.
 - Kubernetes impersonation mode: act as the signed-in user instead of the ServiceAccount.
 - Error codes for server messages, so the UI can translate them.
 - Korean translation of the docs site.
-- OIDC refresh and logout at the IdP.
 - Gateway API policy kinds as they reach the standard channel.
 
 ## Not planned

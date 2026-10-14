@@ -28,6 +28,12 @@ func authzPolicy(ns, name string, sel map[string]string) *securityv1.Authorizati
 	return p
 }
 
+func targeted(ns, name string, one *istiotype.PolicyTargetReference, many []*istiotype.PolicyTargetReference) *securityv1.AuthorizationPolicy {
+	p := authzPolicy(ns, name, nil)
+	p.Spec.TargetRef, p.Spec.TargetRefs = one, many
+	return p
+}
+
 func TestServiceMesh(t *testing.T) {
 	t.Setenv("ISTIO_NAMESPACE", "istio-system")
 	kube := kubefake.NewSimpleClientset(svc("apps", "shop", map[string]string{"app": "shop"}))
@@ -43,10 +49,15 @@ func TestServiceMesh(t *testing.T) {
 		vs("apps", "shop-vs", []string{"shop"}, nil, &istioapi.Destination{Host: "shop"}),
 		vs("apps", "caller", []string{"other"}, nil, &istioapi.Destination{Host: "shop"}),
 		vs("apps", "elsewhere", []string{"other"}, nil, &istioapi.Destination{Host: "other"}),
+		vs("edge", "catch-all", []string{"*"}, []string{"edge/public"}, &istioapi.Destination{Host: "other.apps.svc.cluster.local"}),
 		&istionet.DestinationRule{ObjectMeta: metav1.ObjectMeta{Namespace: "apps", Name: "shop-dr"}, Spec: istioapi.DestinationRule{Host: "shop.apps.svc.cluster.local"}},
+		&istionet.DestinationRule{ObjectMeta: metav1.ObjectMeta{Namespace: "apps", Name: "apps-wide"}, Spec: istioapi.DestinationRule{Host: "*.apps.svc.cluster.local"}},
 		authzPolicy("apps", "allow", map[string]string{"app": "shop"}),
 		authzPolicy("apps", "ns-wide", nil),
 		authzPolicy("apps", "unrelated", map[string]string{"app": "cart"}),
+		targeted("apps", "by-target", &istiotype.PolicyTargetReference{Kind: "Service", Name: "shop"}, nil),
+		targeted("apps", "other-target", &istiotype.PolicyTargetReference{Kind: "Service", Name: "cart"}, nil),
+		targeted("istio-system", "ingress-only", nil, []*istiotype.PolicyTargetReference{{Group: "gateway.networking.k8s.io", Kind: "Gateway", Name: "ingress"}}),
 		&securityv1.PeerAuthentication{ObjectMeta: metav1.ObjectMeta{Namespace: "istio-system", Name: "default"}},
 	)
 	c := &k8s.Clients{Kube: kube, Istio: istio, Gateway: gwfake.NewSimpleClientset(hr)}
@@ -68,7 +79,7 @@ func TestServiceMesh(t *testing.T) {
 	if len(vsMatch) != 2 || vsMatch["shop-vs"] != "host" || vsMatch["caller"] != "destination" {
 		t.Errorf("virtualServices: %+v", m.VirtualServices)
 	}
-	if len(m.DestinationRules) != 1 || m.DestinationRules[0].Name != "shop-dr" {
+	if len(m.DestinationRules) != 2 || m.DestinationRules[0].Name != "apps-wide" || m.DestinationRules[1].Name != "shop-dr" {
 		t.Errorf("destinationRules: %+v", m.DestinationRules)
 	}
 	if len(m.HTTPRoutes) != 1 || m.HTTPRoutes[0].Name != "shop-route" {
@@ -82,7 +93,7 @@ func TestServiceMesh(t *testing.T) {
 	for _, p := range m.Policies {
 		scopes[p.Namespace+"/"+p.Name] = p.Scope
 	}
-	want := map[string]string{"apps/allow": "workload", "apps/ns-wide": "namespace", "istio-system/default": "mesh"}
+	want := map[string]string{"apps/allow": "workload", "apps/by-target": "workload", "apps/ns-wide": "namespace", "istio-system/default": "mesh"}
 	if len(scopes) != len(want) {
 		t.Errorf("policies: %+v", m.Policies)
 	}
@@ -120,6 +131,9 @@ func TestServiceMeshIstioGatewaysAndEmptySlices(t *testing.T) {
 	mux := newTestMux(t, &stubSource{clients: c})
 	rec := httptest.NewRecorder()
 	mux.ServeHTTP(rec, authedReq("GET", "/api/services/apps/shop/mesh", nil))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("want 200, got %d %s", rec.Code, rec.Body.String())
+	}
 	var m serviceMesh
 	if err := json.Unmarshal(rec.Body.Bytes(), &m); err != nil {
 		t.Fatal(err)

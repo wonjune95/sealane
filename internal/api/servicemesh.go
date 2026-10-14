@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	istioapi "istio.io/api/networking/v1"
+	istiotype "istio.io/api/type/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 
@@ -57,13 +58,16 @@ func (s *Server) handleServiceMesh(w http.ResponseWriter, r *http.Request) {
 	for _, p := range svc.Spec.Ports {
 		out.Ports = append(out.Ports, p.Port)
 	}
+	fqdn := name + "." + ns + ".svc.cluster.local"
 	isSvc := func(b flowBackend) bool { return !b.External && b.Namespace+"/"+b.Name == key }
 	gws := map[ref]bool{}
 
 	if vss, err := c.Istio.NetworkingV1().VirtualServices("").List(ctx, metav1.ListOptions{}); err == nil {
 		for _, v := range vss.Items {
 			match := ""
-			if hostsMatch(v.Spec.Hosts, name+"."+ns+".svc.cluster.local", v.Namespace) {
+			// a bare "*" host is a gateway catch-all, never "the VS for this Service"
+			hosts := slices.DeleteFunc(slices.Clone(v.Spec.Hosts), func(h string) bool { return h == "*" })
+			if hostsMatch(hosts, fqdn, v.Namespace) {
 				match = "host"
 			} else if slices.ContainsFunc(vsDestinations(&v.Spec), func(d *istioapi.Destination) bool {
 				return isSvc(resolveDestination(d.Host, v.Namespace, 0))
@@ -84,7 +88,7 @@ func (s *Server) handleServiceMesh(w http.ResponseWriter, r *http.Request) {
 	}
 	if drs, err := c.Istio.NetworkingV1().DestinationRules("").List(ctx, metav1.ListOptions{}); err == nil {
 		for _, dr := range drs.Items {
-			if isSvc(resolveDestination(dr.Spec.Host, dr.Namespace, 0)) {
+			if hostsMatch([]string{dr.Spec.Host}, fqdn, dr.Namespace) {
 				out.DestinationRules = append(out.DestinationRules, ref{typeDR, "DestinationRule", dr.Namespace, dr.Name})
 			}
 		}
@@ -128,6 +132,12 @@ func (s *Server) handleServiceMesh(w http.ResponseWriter, r *http.Request) {
 	// ponytail: workload scope compares the policy selector with the Service selector, not with pod labels; a policy that selects pods by a label the Service selector lacks is missed.
 	for _, p := range securityPolicies(ctx, c, ns) {
 		switch {
+		case len(p.targets) > 0: // targetRef(s) replace the selector; cross-namespace refs are not supported
+			if slices.ContainsFunc(p.targets, func(t *istiotype.PolicyTargetReference) bool {
+				return t.Kind == "Service" && t.Name == name && (t.Namespace == "" || t.Namespace == ns)
+			}) {
+				out.Policies = append(out.Policies, policyRef{p.ref, "workload"})
+			}
 		case len(p.sel) == 0 && ns == root:
 			out.Policies = append(out.Policies, policyRef{p.ref, "mesh"})
 		case len(p.sel) == 0:
@@ -138,7 +148,7 @@ func (s *Server) handleServiceMesh(w http.ResponseWriter, r *http.Request) {
 	}
 	if ns != root {
 		for _, p := range securityPolicies(ctx, c, root) {
-			if len(p.sel) == 0 {
+			if len(p.sel) == 0 && len(p.targets) == 0 {
 				out.Policies = append(out.Policies, policyRef{p.ref, "mesh"})
 			}
 		}
@@ -163,7 +173,15 @@ func (s *Server) handleServiceMesh(w http.ResponseWriter, r *http.Request) {
 
 type securityPolicy struct {
 	ref
-	sel map[string]string
+	sel     map[string]string
+	targets []*istiotype.PolicyTargetReference
+}
+
+func targetRefs(one *istiotype.PolicyTargetReference, many []*istiotype.PolicyTargetReference) []*istiotype.PolicyTargetReference {
+	if one != nil {
+		return append([]*istiotype.PolicyTargetReference{one}, many...)
+	}
+	return many
 }
 
 // securityPolicies lists AuthorizationPolicies, PeerAuthentications and
@@ -173,17 +191,19 @@ func securityPolicies(ctx context.Context, c *k8s.Clients, ns string) []security
 	var out []securityPolicy
 	if l, err := sec.AuthorizationPolicies(ns).List(ctx, opts); err == nil {
 		for _, p := range l.Items {
-			out = append(out, securityPolicy{ref{"authorizationpolicies.security.istio.io", "AuthorizationPolicy", p.Namespace, p.Name}, p.Spec.GetSelector().GetMatchLabels()})
+			out = append(out, securityPolicy{ref{"authorizationpolicies.security.istio.io", "AuthorizationPolicy", p.Namespace, p.Name}, p.Spec.GetSelector().GetMatchLabels(),
+				targetRefs(p.Spec.GetTargetRef(), p.Spec.GetTargetRefs())})
 		}
 	}
 	if l, err := sec.PeerAuthentications(ns).List(ctx, opts); err == nil {
 		for _, p := range l.Items {
-			out = append(out, securityPolicy{ref{"peerauthentications.security.istio.io", "PeerAuthentication", p.Namespace, p.Name}, p.Spec.GetSelector().GetMatchLabels()})
+			out = append(out, securityPolicy{ref{"peerauthentications.security.istio.io", "PeerAuthentication", p.Namespace, p.Name}, p.Spec.GetSelector().GetMatchLabels(), nil})
 		}
 	}
 	if l, err := sec.RequestAuthentications(ns).List(ctx, opts); err == nil {
 		for _, p := range l.Items {
-			out = append(out, securityPolicy{ref{"requestauthentications.security.istio.io", "RequestAuthentication", p.Namespace, p.Name}, p.Spec.GetSelector().GetMatchLabels()})
+			out = append(out, securityPolicy{ref{"requestauthentications.security.istio.io", "RequestAuthentication", p.Namespace, p.Name}, p.Spec.GetSelector().GetMatchLabels(),
+				targetRefs(p.Spec.GetTargetRef(), p.Spec.GetTargetRefs())})
 		}
 	}
 	return out

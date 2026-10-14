@@ -442,6 +442,7 @@
   "settings.version": "Sealane {version}",
   "settings.account.deleted": "{name} 계정을 삭제했습니다.",
   "login.sso": "{name}(으)로 로그인",
+  "login.useLocal": "대신 로컬 계정으로 로그인",
   "login.or": "또는",
   "login.oidcError.state": "로그인 시도가 만료되었거나 변조되었습니다. 다시 시도하세요.",
   "login.oidcError.access_denied": "이 계정에 배정된 역할이 없습니다. 관리자에게 그룹-역할 매핑을 요청하세요.",

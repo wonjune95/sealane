@@ -108,6 +108,7 @@ When upgrading an existing release from 0.9, use `--reset-then-reuse-values` (He
 - **Confidential client only.** Sealane redeems the code with a client secret, so the IdP client must be confidential and `clientSecretRef` is required. Public, PKCE-only clients are not supported.
 - **`email_verified` is not checked.** The username claim is used for display and audit only; the role comes from the groups claim and the role mapping.
 - **Discovery is lazy.** Sealane fetches the provider's discovery document on the first SSO sign-in, not at boot. An unreachable or misconfigured IdP never blocks startup, health checks or local logins; it only makes SSO sign-ins fail with `oidc_error=idp`, and the next attempt retries discovery.
+- **SSO-only login screen.** `oidc.hideLocalLogin: true` (env `LOCAL_LOGIN=hidden`) hides the username/password form and shows only the SSO button; `/?local=1` brings the form back as a break-glass path. This is a UI option, not a security boundary: the API still accepts local logins and local accounts stay valid. Delete them if you want SSO to be the only way in.
 - **Multiple replicas need a shared session key.** Both the session cookie and the short-lived sign-in cookie are HMAC-signed. With more than one replica, every pod must use the same key, which `sessionSecret` provides (`sessionSecret.create=true` is the default). Without it each pod signs with its own random key: sessions break when a request lands on another pod, and a callback served by a different pod than the login fails with `oidc_error=state`.
 
 ### Provider notes

@@ -83,6 +83,7 @@ func main() {
 		api.SecureCookies = strings.HasPrefix(cfg.RedirectURL, "https://")
 		slog.Info("oidc enabled", "issuer", cfg.IssuerURL, "displayName", cfg.DisplayName)
 	}
+	srv.HideLocalLogin(os.Getenv("LOCAL_LOGIN") == "hidden")
 	// If there is no admin account, create the initial admin/admin account.
 	srv.EnsureInitialAdmin(context.Background())
 

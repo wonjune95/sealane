@@ -104,6 +104,10 @@ spec:
               value: {{ $oidc.defaultRole | default "" | quote }}
             - name: OIDC_DISPLAY_NAME
               value: {{ $oidc.displayName | default "SSO" | quote }}
+            {{- if $oidc.hideLocalLogin }}
+            - name: LOCAL_LOGIN
+              value: hidden
+            {{- end }}
             {{- end }}
             {{- with .Values.extraEnv }}
             {{- toYaml . | nindent 12 }}

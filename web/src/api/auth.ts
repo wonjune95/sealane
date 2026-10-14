@@ -3,6 +3,7 @@ import { apiGet } from './client'
 
 export interface AuthMethods {
   local: boolean
+  localHidden?: boolean
   oidc?: { enabled: boolean; displayName: string }
 }
 

@@ -175,6 +175,22 @@ func TestAuthMethodsAdvertisesOIDC(t *testing.T) {
 	}
 }
 
+func TestAuthMethodsLocalHiddenOnlyWhenSet(t *testing.T) {
+	mux, srv := newOIDCMux(t, newFakeIdP(t), "viewer")
+	get := func() string {
+		rec := httptest.NewRecorder()
+		mux.ServeHTTP(rec, httptest.NewRequest("GET", "/api/auth/methods", nil))
+		return rec.Body.String()
+	}
+	if strings.Contains(get(), "localHidden") {
+		t.Fatalf("localHidden present by default: %s", get())
+	}
+	srv.HideLocalLogin(true)
+	if b := get(); !strings.Contains(b, `"localHidden":true`) || !strings.Contains(b, `"local":true`) {
+		t.Fatalf("methods = %s", b)
+	}
+}
+
 func TestOIDCFullFlowMapsHighestRole(t *testing.T) {
 	logs := captureLogs(t)
 	idp := newFakeIdP(t)

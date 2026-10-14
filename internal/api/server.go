@@ -49,6 +49,8 @@ type Server struct {
 
 	oidc *auth.OIDC // nil = local accounts only
 
+	localHidden bool // the login page hides the password form (the API still accepts local logins)
+
 	loginThrottle *throttle
 }
 

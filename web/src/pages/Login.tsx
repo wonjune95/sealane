@@ -20,6 +20,7 @@ export function Login() {
   const [busy, setBusy] = useState(false)
   const { theme, toggle } = useTheme()
   const methods = useAuthMethods().data
+  const showLocal = !methods?.localHidden || new URLSearchParams(window.location.search).has('local')
   const [oidcError] = useState(() => OIDC_ERRORS.get(new URLSearchParams(window.location.search).get('oidc_error') ?? ''))
   // Shown once: drop ?oidc_error= so it does not return after a later sign-out. An effect, not the
   // initializer, because StrictMode re-runs initializers and the second run would see the clean URL.
@@ -120,14 +121,20 @@ export function Login() {
                 <Icon name="lock" className="h-4 w-4" />
                 {t('login.sso', { name: methods.oidc.displayName })}
               </a>
-              <div className="mb-4 flex items-center gap-3 text-xs text-muted">
-                <span className="flex-1 border-t border-base" />
-                {t('login.or')}
-                <span className="flex-1 border-t border-base" />
-              </div>
+              {showLocal ? (
+                <div className="mb-4 flex items-center gap-3 text-xs text-muted">
+                  <span className="flex-1 border-t border-base" />
+                  {t('login.or')}
+                  <span className="flex-1 border-t border-base" />
+                </div>
+              ) : (
+                <a href="/?local=1" className="block text-center text-xs text-muted underline">
+                  {t('login.useLocal')}
+                </a>
+              )}
             </>
           )}
-          <form onSubmit={submit} className="space-y-5">
+          {showLocal && <form onSubmit={submit} className="space-y-5">
             <label className="block">
               <span className="mb-2 block text-xs font-medium text-strong">{t('login.username')}</span>
               <input
@@ -166,7 +173,7 @@ export function Login() {
               {busy ? t('login.busy') : t('login.submit')}
               <Icon name={busy ? 'refresh' : 'arrow'} className={`h-4 w-4 ${busy ? 'animate-spin' : ''}`} />
             </button>
-          </form>
+          </form>}
           <div className="mt-8 border-t border-base pt-5">
             <p className="text-center text-xs leading-6 text-muted">
               {t('login.help1')}

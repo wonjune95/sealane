@@ -443,6 +443,7 @@
   "settings.account.deleted": "Deleted account {name}.",
   "login.sso": "Sign in with {name}",
   "login.or": "or",
+  "login.useLocal": "Sign in with a local account instead",
   "login.oidcError.state": "The sign-in attempt expired or was tampered with. Please try again.",
   "login.oidcError.access_denied": "Your account has no role in Sealane. Ask an administrator to map your group to a role.",
   "login.oidcError.idp": "The identity provider returned an error. Check the server log for details.",

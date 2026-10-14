@@ -12,6 +12,7 @@
       "properties": {
         "enabled": { "type": "boolean" },
         "displayName": { "type": "string" },
+        "hideLocalLogin": { "type": "boolean" },
         "issuerURL": { "type": "string" },
         "clientID": { "type": "string" },
         "clientSecretRef": { "type": "object", "additionalProperties": false, "properties": { "name": { "type": "string" }, "key": { "type": "string" } } },

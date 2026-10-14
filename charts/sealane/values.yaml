@@ -92,6 +92,7 @@ oidc:
     editor: []
     viewer: []
   defaultRole: viewer
+  hideLocalLogin: false             # hide the username/password form when SSO is on (the API still accepts local logins; /?local=1 shows the form)
 
 # Passed through to the pod as-is. Example uses: SHUTDOWN_DELAY, HTTPS_PROXY, or a private CA
 # for the OIDC issuer (SSL_CERT_FILE + a ConfigMap mount, see docs/authentication.md#private-ca).

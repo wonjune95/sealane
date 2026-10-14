@@ -30,6 +30,7 @@ Single sign-on is configured through `OIDC_*` variables (the chart's `oidc.*` va
 | `OIDC_GROUPS_CLAIM` / `OIDC_USERNAME_CLAIM` | `groups` / `email` | ID-token claims for groups and the username (falls back to `sub`) |
 | `OIDC_ROLES_ADMIN` / `OIDC_ROLES_EDITOR` / `OIDC_ROLES_VIEWER` | (empty) | comma-separated IdP groups per role; highest wins |
 | `OIDC_DEFAULT_ROLE` | (empty = refuse; the chart sets `viewer`) | role for users with no matching group: `admin`, `editor`, `viewer` or empty |
+| `LOCAL_LOGIN` | (empty = form shown) | `hidden` hides the local username/password form on the login page when SSO is on; the API still accepts local logins and `/?local=1` shows the form |
 | `OIDC_DISPLAY_NAME` | `SSO` | login button label ("Sign in with …") |
 
 ## Helm values
@@ -60,6 +61,7 @@ The same table is in the [chart README](https://github.com/wonjune95/sealane/blo
 | `oidc.roles.{admin,editor,viewer}` | `[]` | IdP groups per role; highest wins |
 | `oidc.defaultRole` | `viewer` | Role for users with no matching group; empty string refuses them |
 | `oidc.displayName` | `SSO` | Login button label |
+| `oidc.hideLocalLogin` | `false` | Hide the local password form on the login page (`/?local=1` shows it; the API still accepts local logins) |
 | `extraEnv` / `extraVolumes` / `extraVolumeMounts` | `[]` | Passed through to the pod as-is: `SHUTDOWN_DELAY`, a proxy, or a private CA for the IdP (see [Private CA](authentication.md#private-ca)) |
 
 ## Probes and metrics

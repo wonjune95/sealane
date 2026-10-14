@@ -28,8 +28,14 @@ func (s *Server) handleAuthMethods(w http.ResponseWriter, _ *http.Request) {
 	if s.oidc != nil {
 		out["oidc"] = map[string]any{"enabled": true, "displayName": s.oidc.DisplayName()}
 	}
+	if s.localHidden {
+		out["localHidden"] = true
+	}
 	writeJSON(w, http.StatusOK, out)
 }
+
+// HideLocalLogin makes the login page show only SSO (break-glass: /?local=1).
+func (s *Server) HideLocalLogin(v bool) { s.localHidden = v }
 
 func randomToken() string {
 	b := make([]byte, 16)

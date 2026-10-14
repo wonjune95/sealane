@@ -508,6 +508,8 @@
   "services.colPolicies": "정책",
   "services.colFindings": "점검 결과",
   "services.findingsTitle": "이 서비스의 점검 결과 {n}건",
+  "services.meshOnly": "메시 설정이 있는 서비스만",
+  "services.countOf": "{shown} / {total}",
   "list.showMore": "더 보기 ({total}개 중 {shown}개)",
   "list.sortBy": "{column} 기준 정렬",
   "routecheck.portMissing": "포트 {port} 미노출 (서비스 포트: {ports})",

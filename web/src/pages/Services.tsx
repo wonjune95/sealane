@@ -24,9 +24,14 @@ export function Services() {
   const { data, isLoading, error } = useServiceList(ns)
   const [search, setSearch] = useState('')
   const [sort, setSort] = useState<SortState | null>(null)
+  const [meshOnly, setMeshOnly] = useState(false)
   const [shown, setShown] = useState(PAGE)
   const rows = sortBy(
-    (data ?? []).filter((s) => `${s.namespace} ${s.name}`.toLowerCase().includes(search.toLowerCase())),
+    (data ?? []).filter(
+      (s) =>
+        `${s.namespace} ${s.name}`.toLowerCase().includes(search.toLowerCase()) &&
+        (!meshOnly || COUNTS.some(([k]) => (s[k] ?? 0) > 0)),
+    ),
     sort,
     (s, k) => (k === 'name' ? s.name : k === 'namespace' ? s.namespace : (s[k as Count] ?? 0)),
   )
@@ -42,7 +47,7 @@ export function Services() {
         title={
           <>
             {t('services.title')}
-            <span className="nav-count !text-xs">{data?.length ?? '—'}</span>
+            <span className="nav-count !text-xs">{data ? (meshOnly ? t('services.countOf', { shown: rows.length, total: data.length }) : data.length) : '—'}</span>
           </>
         }
         description={t('services.description')}
@@ -71,6 +76,17 @@ export function Services() {
               </option>
             ))}
           </select>
+        </label>
+        <label className="flex shrink-0 items-center gap-2 text-xs text-muted">
+          <input
+            type="checkbox"
+            checked={meshOnly}
+            onChange={(e) => {
+              setMeshOnly(e.target.checked)
+              setShown(PAGE)
+            }}
+          />
+          <span>{t('services.meshOnly')}</span>
         </label>
       </div>
       {error && (

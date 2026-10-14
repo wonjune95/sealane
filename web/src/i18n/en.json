@@ -508,6 +508,8 @@
   "services.colPolicies": "Policies",
   "services.colFindings": "Findings",
   "services.findingsTitle": "{n} findings for this service",
+  "services.meshOnly": "Only services with mesh config",
+  "services.countOf": "{shown} of {total}",
   "list.showMore": "Show more ({shown} of {total})",
   "list.sortBy": "Sort by {column}",
   "routecheck.portMissing": "Port {port} not exposed (service ports: {ports})",

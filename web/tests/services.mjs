@@ -62,6 +62,15 @@ try {
   await findings.click()
   assert.equal(await page.locator('th[aria-sort="descending"]').count(), 1)
   assert.equal((await cells(0))[1], 'reviews')
+  // Mesh-only keeps services with any count; the pill shows shown of total.
+  const header = page.locator('h1')
+  await page.getByLabel('Only services with mesh config').check()
+  assert.equal(await rows.count(), 2)
+  assert.deepEqual(await rows.locator('td:nth-child(2)').allInnerTexts(), ['reviews', 'ratings'])
+  assert.match(await header.innerText(), /2 of 3/)
+  await page.getByLabel('Only services with mesh config').uncheck()
+  assert.equal(await rows.count(), 3)
+  assert.doesNotMatch(await header.innerText(), /of 3/)
   assert.deepEqual(errors, [])
   console.log('ok')
 } finally {

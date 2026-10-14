@@ -28,7 +28,7 @@ cd web && npm ci && npm run build  # frontend build → internal/assets/dist
 CGO_ENABLED=0 go build -ldflags="-s -w" -o bin/server ./cmd/server
 ```
 
-Browser tests replace API responses with fixtures; `SEALANE_TEST_URL` points them at the frontend (e.g. `http://localhost:5173`). `web/tests/screenshots.mjs` regenerates the screenshots and `web/tests/oidc-dex.mjs` runs a real SSO round trip against the Dex demo; neither is part of CI. See [`web/tests/README.md`](https://github.com/wonjune95/sealane/blob/main/web/tests/README.md).
+Browser tests replace API responses with fixtures; `SEALANE_TEST_URL` points them at the frontend (e.g. `http://localhost:5173`). `web/tests/screenshots.mjs` regenerates the screenshots and `web/tests/oidc-dex.mjs` runs a real SSO round trip against the Dex demo; neither is part of CI. The `ui-tests` CI job runs the fixture-based checks (`npm run test:ui`) on every push to `main` and on pull requests. See [`web/tests/README.md`](https://github.com/wonjune95/sealane/blob/main/web/tests/README.md).
 
 ## Documentation
 

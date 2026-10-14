@@ -29,6 +29,11 @@ Sealane is moving from an internal tool to a public project in four releases. Da
 - IdP groups in the `login` log line.
 - Option to hide the local login form when SSO is configured (`oidc.hideLocalLogin`).
 
+## 1.3 (shipped)
+- Curated forms for VirtualService and DestinationRule.
+- One-line list summaries for every managed kind.
+- Sortable, paged lists.
+
 ## After 1.0 (candidates, not promised)
 - Recipes and wizards for common routing changes.
 - Revision history with rollback.

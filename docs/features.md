@@ -82,13 +82,20 @@ Policies are marked by scope: **workload** (the policy selector matches the Serv
 - `react-jsonschema-form` reads the CRD OpenAPI schema and generates input forms — safe editing without knowing YAML.
 - **Required/recommended markers** — every field gets a `*` (required) · `(recommended)` · `(optional)` badge. On top of the CRD schema's `required`, a curated list compensates for Istio schemas not declaring top-level requireds (VS `hosts`, DR `host`, Gateway `selector`/`servers`, SE `hosts`/`ports`).
 - **Reference-resolving forms** — `host`/`backendRefs` suggest Services, `subset` suggests DestinationRule subsets, `gateways`/`parentRefs` suggest Gateways from the live cluster, with existence badges (✓/⚠) and jump links. Free-text is preserved so external hosts and cross-namespace references still work.
-- Form ↔ YAML stay in sync. If the object uses advanced fields the form can't express, the form tab locks with a "YAML only" notice → no field loss.
+- **Curated forms** — three kinds get a hand-built form instead of the generated one, each covering a fixed subset:
+    - **VirtualService** — hosts, gateways and HTTP rules: name, URI and header matches (exact, prefix or regex), destinations (host, subset, port) with weights, timeout, retries (attempts, per-try timeout) and URI rewrite. Subset suggestions follow each destination's host.
+    - **DestinationRule** — host, subsets selected by labels, and the top-level TLS mode and simple load balancer.
+    - **HTTPRoute** — parentRefs, hostnames and rules with one path match (PathPrefix or Exact) and weighted Service backends.
+
+    VirtualService and DestinationRule keep `exportTo` as is. Anything outside the subset (for example a VirtualService `fault` or `tcp` routes, a DestinationRule `connectionPool` or per-subset policy) locks the Form tab.
+- Form ↔ YAML stay in sync. If an object uses advanced fields the form can't express, the Form tab locks with a "YAML only" notice → no field loss.
 
 ## UI
 **Workspace navigation** — the sidebar lists the main screens (cluster overview, all resources, traffic flow, mesh analysis, services, request console) and the installed resource kinds grouped by category. A **single search box** narrows a long list of kinds, and each one carries its count.
 
 - **Cluster switcher** — the header picker shows the selected cluster with a connection dot and a shortcut to cluster management.
-- **Home shortcuts** — cards for traffic flow, the request console, mesh analysis (with current error and warning counts) and services.
+- **Home shortcuts** — cards for traffic flow, the request console, mesh analysis (with current error and warning counts; amber with a warning icon while there are findings) and services.
+- **Lists** — every managed kind shows a one-line summary (hosts, DestinationRule host, AuthorizationPolicy action, mTLS mode, listeners, parent count, …). Resource lists sort by Namespace, Name, Summary (status pill first) and Age; Services by Namespace and Name; all resources by Kind, Namespace, Name and Age. Clicking a header again reverses it; until a header is clicked, rows keep the order the API returned. Lists show 50 rows, with "Show more" adding 50 at a time.
 - **Light/dark** — the theme syncs across tabs and carries into the YAML editor. The accent color lives in one CSS variable (`--accent`), so a one-line change reskins the app.
 - **Responsive** — no horizontal scrolling down to 320px; navigation collapses into a drawer on narrow screens.
 - **Accessibility** — confirm dialogs trap keyboard focus and close on Escape. High-risk resources still require typing the name to proceed.

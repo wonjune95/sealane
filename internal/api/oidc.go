@@ -102,6 +102,6 @@ func (s *Server) handleOIDCCallback(w http.ResponseWriter, r *http.Request) {
 	}
 	clearCookie(w, oidcStateCookie, oidcStatePath)
 	setSessionCookie(w, s.sessions.Sign(id, sessionTTL))
-	slog.Info("login", "user", id.Name, "role", id.Role, "provider", id.Provider)
+	slog.Info("login", "user", id.Name, "role", id.Role, "provider", id.Provider, "groups", id.Groups)
 	http.Redirect(w, r, "/", http.StatusFound)
 }

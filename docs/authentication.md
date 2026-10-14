@@ -183,3 +183,5 @@ kubectl -n sealane logs deploy/sealane | grep oidc
 | `idp` | The identity provider returned an error. | Read the `err` in the log. Common causes: `redirectURL` does not match the redirect URI registered on the IdP client **exactly** (scheme, host, port, path); `issuerURL` differs from the `issuer` that the provider's discovery document returns (a trailing slash or `http` vs `https` is enough); the Sealane pod cannot reach the issuer; wrong client secret; an unknown scope. If the user cancelled or the IdP refused the sign-in, its own `error` (for example the IdP's `access_denied`) appears in `err`. |
 
 To compare the issuer, fetch `<issuerURL>/.well-known/openid-configuration` from inside the cluster and check its `issuer` field against `oidc.issuerURL` character by character.
+
+**Wrong role after SSO sign-in?** The server logs one `login` line per sign-in with `groups` — the exact list the IdP sent. Compare it with `oidc.roles.*`: `kubectl -n <ns> logs deploy/sealane | grep '"msg":"login"'`.

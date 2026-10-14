@@ -32,6 +32,8 @@ type Identity struct {
 	Name     string
 	Role     string // admin | editor | viewer
 	Provider string // ProviderLocal | ProviderOIDC
+	// Groups are the IdP groups at sign-in, for the login log only; never stored in the session.
+	Groups []string `json:"-"`
 }
 
 // User returns a stable display identity for audit logs.

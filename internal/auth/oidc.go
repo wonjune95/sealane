@@ -170,5 +170,5 @@ func (o *OIDC) Exchange(ctx context.Context, code, verifier, nonce string) (Iden
 	if !ok {
 		return Identity{}, ErrNoRole
 	}
-	return Identity{Name: name, Role: role, Provider: ProviderOIDC}, nil
+	return Identity{Name: name, Role: role, Provider: ProviderOIDC, Groups: groups}, nil
 }

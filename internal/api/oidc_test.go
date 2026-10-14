@@ -176,6 +176,7 @@ func TestAuthMethodsAdvertisesOIDC(t *testing.T) {
 }
 
 func TestOIDCFullFlowMapsHighestRole(t *testing.T) {
+	logs := captureLogs(t)
 	idp := newFakeIdP(t)
 	mux, _ := newOIDCMux(t, idp, "viewer")
 	q, cookie := startLogin(t, mux)
@@ -205,6 +206,18 @@ func TestOIDCFullFlowMapsHighestRole(t *testing.T) {
 	id, err := testSessions.Parse(sc.Value)
 	if err != nil || id.Name != "alice@example.com" || id.Role != "admin" || id.Provider != auth.ProviderOIDC {
 		t.Fatalf("session = %+v (%v)", id, err)
+	}
+	if strings.Contains(sc.Value, "platform-admins") || strings.Contains(sc.Value, "sre") {
+		t.Fatalf("session cookie must not carry groups: %s", sc.Value)
+	}
+	var login map[string]any
+	for _, rec := range logs() {
+		if rec["msg"] == "login" {
+			login = rec
+		}
+	}
+	if g, _ := login["groups"].([]any); len(g) != 2 || g[0] != "sre" || g[1] != "platform-admins" {
+		t.Fatalf("login log groups = %v, want [sre platform-admins] (record %v)", login["groups"], login)
 	}
 
 	// capabilities reports the provider; password change is refused for SSO accounts

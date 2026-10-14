@@ -15,6 +15,7 @@ const LINKS: { to: string; icon: string; label: Key }[] = [
   { to: '/overview', icon: 'cube', label: 'nav.overview' },
   { to: '/flowmap', icon: 'route', label: 'nav.flowmap' },
   { to: '/analysis', icon: 'shield', label: 'nav.analysis' },
+  { to: '/services', icon: 'network', label: 'nav.services' },
   { to: '/routecheck', icon: 'terminal', label: 'nav.routecheck' },
 ]
 

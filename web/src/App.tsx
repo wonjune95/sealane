@@ -10,6 +10,8 @@ import { Home } from './pages/Home'
 import { Overview } from './pages/Overview'
 import { FlowMap } from './pages/FlowMap'
 import { Analysis } from './pages/Analysis'
+import { Services } from './pages/Services'
+import { ServiceDetail } from './pages/ServiceDetail'
 import { RouteCheck } from './pages/RouteCheck'
 import { ResourceList } from './pages/ResourceList'
 import { ResourceEdit } from './pages/ResourceEdit'
@@ -63,6 +65,8 @@ export function App() {
         <Route path="/overview" element={<Overview />} />
         <Route path="/flowmap" element={<FlowMap />} />
         <Route path="/analysis" element={<Analysis />} />
+        <Route path="/services" element={<Services />} />
+        <Route path="/services/:ns/:name" element={<ServiceDetail />} />
         <Route path="/routecheck" element={<RouteCheck />} />
         <Route path="/resources/:type" element={<ResourceList key={location.pathname} />} />
         <Route path="/resources/:type/new" element={<ResourceEdit key={location.pathname} />} />

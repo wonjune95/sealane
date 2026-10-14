@@ -139,6 +139,12 @@ The demo is not for production. [`web/tests/oidc-dex.mjs`](https://github.com/wo
 
 With a real Dex, groups come from the connector (for example LDAP group search or GitHub teams), and Dex includes them in the ID token only when the `groups` scope is requested — which the default `scopes` does.
 
+#### Gitea
+
+Gitea is an OpenID Connect provider out of the box: `issuerURL` is the Gitea root URL without a trailing slash (the discovery document reports it that way), and the `groups` claim lists the user's organizations as `org` and teams as `org:team` (team names lower-cased), so `roles.admin: [myorg:admins]` works.
+
+Create a **dedicated** OAuth2 application for Sealane (Site Administration → Integrations → Applications, confidential client, redirect URI `https://sealane.example.com/api/auth/oidc/callback`). Gitea stores the scopes a user approved the first time they authorized an application and reuses that grant on later logins, so an application shared with another client that never asked for `groups` keeps sending ID tokens without groups: everyone lands on `defaultRole`. If you must share an application, each user has to revoke it once under Settings → Applications → Authorized OAuth2 Applications and sign in to Sealane again.
+
 #### Google
 
 - Issuer `https://accounts.google.com`; create an OAuth client of type **Web application** with the redirect URI above.

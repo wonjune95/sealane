@@ -198,6 +198,7 @@
   "flow.status.endpoints": "Endpoints: {n}",
   "flow.status.direct": "Connected directly from the mesh",
   "list.confirmDelete": "Delete {kind} {ns}/{name}?",
+  "list.status.ok": "Accepted",
   "list.deleted": "Deleted.",
   "list.downloadReadFailed": "Could not read the resources to download.",
   "list.downloaded": "Downloaded {n} resources as YAML.",

@@ -7,6 +7,7 @@ export interface ResourceSummary {
   namespace: string
   name: string
   summary: string
+  status?: string
   age: string
   resourceVersion: string
 }

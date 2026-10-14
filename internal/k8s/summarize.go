@@ -48,3 +48,59 @@ func prefix(label, v string) string {
 	}
 	return label + ": " + v
 }
+
+// statusOf condenses a resource's status into "", "ok", "error:<Reason>" or
+// "warning:<Reason>" for the list pill. Gateway API: parents[].conditions /
+// conditions; Istio: status.validationMessages (present when istiod analysis is on).
+func statusOf(typeID string, u *unstructured.Unstructured) string {
+	switch {
+	case strings.HasSuffix(typeID, ".gateway.networking.k8s.io"):
+		var conds []any
+		if typeID == "gateways.gateway.networking.k8s.io" || typeID == "gatewayclasses.gateway.networking.k8s.io" {
+			conds, _, _ = unstructured.NestedSlice(u.Object, "status", "conditions")
+		} else {
+			parents, _, _ := unstructured.NestedSlice(u.Object, "status", "parents")
+			for _, p := range parents {
+				if pm, ok := p.(map[string]any); ok {
+					c, _, _ := unstructured.NestedSlice(pm, "conditions")
+					conds = append(conds, c...)
+				}
+			}
+		}
+		if len(conds) == 0 {
+			return ""
+		}
+		for _, c := range conds {
+			cm, ok := c.(map[string]any)
+			if !ok {
+				continue
+			}
+			typ, _, _ := unstructured.NestedString(cm, "type")
+			st, _, _ := unstructured.NestedString(cm, "status")
+			if (typ == "Accepted" || typ == "ResolvedRefs" || typ == "Programmed") && st == "False" {
+				reason, _, _ := unstructured.NestedString(cm, "reason")
+				return "error:" + reason
+			}
+		}
+		return "ok"
+	case strings.HasSuffix(typeID, ".istio.io"):
+		msgs, _, _ := unstructured.NestedSlice(u.Object, "status", "validationMessages")
+		worst := ""
+		for _, m := range msgs {
+			mm, ok := m.(map[string]any)
+			if !ok {
+				continue
+			}
+			level, _, _ := unstructured.NestedString(mm, "level")
+			code, _, _ := unstructured.NestedString(mm, "type", "code")
+			if level == "ERROR" {
+				return "error:" + code
+			}
+			if level == "WARNING" && worst == "" {
+				worst = "warning:" + code
+			}
+		}
+		return worst
+	}
+	return ""
+}

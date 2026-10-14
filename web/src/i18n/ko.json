@@ -198,6 +198,7 @@
   "flow.status.endpoints": "엔드포인트 {n}",
   "flow.status.direct": "메시에서 직접 연결",
   "list.confirmDelete": "{kind} {ns}/{name} 를 삭제할까요?",
+  "list.status.ok": "정상",
   "list.deleted": "삭제되었습니다.",
   "list.downloadReadFailed": "다운로드할 리소스를 읽지 못했습니다.",
   "list.downloaded": "{n}개 리소스 YAML을 내려받았습니다.",

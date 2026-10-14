@@ -32,7 +32,7 @@ export function ResourceList() {
 
   const keyOf = (r: ResourceSummary) => `${r.namespace}/${r.name}`
   const rows = (data ?? []).filter((r) =>
-    `${r.name} ${r.namespace} ${r.summary}`.toLowerCase().includes(search.toLowerCase()),
+    `${r.name} ${r.namespace} ${r.summary} ${r.status ?? ''}`.toLowerCase().includes(search.toLowerCase()),
   )
   const allKeys = rows.map(keyOf)
   const allSelected = allKeys.length > 0 && allKeys.every((k) => selected.has(k))
@@ -231,7 +231,10 @@ export function ResourceList() {
                       {r.name}
                     </Link>
                   </Td>
-                  <Td className="text-muted">{r.summary || '—'}</Td>
+                  <Td className="text-muted">
+                    {r.status && <StatusPill status={r.status} />}
+                    {r.summary || (r.status ? '' : '—')}
+                  </Td>
                   <Td className="text-faint">{r.age}</Td>
                   <Td className="text-right">
                     {canWrite && (
@@ -279,5 +282,24 @@ function Msg({ children }: { children: React.ReactNode }) {
         {children}
       </td>
     </tr>
+  )
+}
+
+const PILL = {
+  ok: 'bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300',
+  error: 'bg-red-50 text-red-700 dark:bg-red-500/10 dark:text-red-300',
+  warning: 'bg-amber-50 text-amber-800 dark:bg-amber-500/10 dark:text-amber-300',
+}
+
+function StatusPill({ status }: { status: string }) {
+  const [kind, reason] = status.split(':')
+  const cls = PILL[kind as keyof typeof PILL] ?? PILL.warning
+  return (
+    <span
+      title={status}
+      className={`mr-2 inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium ${cls}`}
+    >
+      {kind === 'ok' ? t('list.status.ok') : reason}
+    </span>
   )
 }

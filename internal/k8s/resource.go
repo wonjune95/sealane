@@ -15,7 +15,8 @@ type ResourceSummary struct {
 	Kind            string `json:"kind"`
 	Namespace       string `json:"namespace"`
 	Name            string `json:"name"`
-	Summary         string `json:"summary"` // per-kind short description (may be empty)
+	Summary         string `json:"summary"`          // per-kind short description (may be empty)
+	Status          string `json:"status,omitempty"` // "", "ok", "error:<Reason>", "warning:<Code>"
 	Age             string `json:"age"`
 	ResourceVersion string `json:"resourceVersion"`
 }
@@ -51,6 +52,7 @@ func (p *ResourceProvider) summary(u *unstructured.Unstructured) ResourceSummary
 		Namespace:       u.GetNamespace(),
 		Name:            u.GetName(),
 		Summary:         summarize(p.rt.TypeID, u),
+		Status:          statusOf(p.rt.TypeID, u),
 		Age:             age(u.GetCreationTimestamp()),
 		ResourceVersion: u.GetResourceVersion(),
 	}

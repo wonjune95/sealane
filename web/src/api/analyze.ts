@@ -9,6 +9,8 @@ export interface Finding {
   resource: Ref
   related?: Ref[]
   service?: string
+  path?: string // offending field in resource, e.g. spec.http[0].route[0].destination.subset
+  value?: string
 }
 export interface Analysis { findings: Finding[]; skipped?: string[]; checked: number }
 

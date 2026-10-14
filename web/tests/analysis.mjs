@@ -23,6 +23,8 @@ const analysis = {
       code: 'vs-host-missing',
       message: 'VirtualService host shop.example.com is not served by any gateway',
       resource: { typeId: 'virtualservices.networking.istio.io', kind: 'VirtualService', namespace: 'apps', name: 'shop-vs' },
+      path: 'spec.http[0].route[0].destination.host',
+      value: 'shop',
     },
     {
       severity: 'warning',
@@ -54,8 +56,12 @@ try {
   await page.getByText('Pod checks were skipped', { exact: false }).waitFor()
   const link = page.getByRole('link', { name: /VirtualService shop-vs/ })
   assert.ok(
-    (await link.getAttribute('href')).endsWith('/resources/virtualservices.networking.istio.io/apps/shop-vs'),
+    (await link.getAttribute('href')).endsWith(
+      '/resources/virtualservices.networking.istio.io/apps/shop-vs?focus=spec.http%5B0%5D.route%5B0%5D.destination.host&value=shop',
+    ),
   )
+  // no path → plain link
+  assert.ok((await page.getByRole('link', { name: /VirtualService checkout-vs/ }).getAttribute('href')).endsWith('/apps/checkout-vs'))
   await page.getByRole('button', { name: 'Errors', exact: true }).click()
   assert.equal(await rows.count(), 1)
   await page.getByRole('button', { name: 'All', exact: true }).click()

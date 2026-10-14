@@ -9,7 +9,6 @@ import (
 	"strings"
 	"sync"
 
-	istioapi "istio.io/api/networking/v1"
 	istiotype "istio.io/api/type/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -96,7 +95,7 @@ func serviceMeshOf(st *meshSnapshot, svc *corev1.Service, nsPolicies, rootPolici
 		hosts := slices.DeleteFunc(slices.Clone(v.Spec.Hosts), func(h string) bool { return h == "*" })
 		if hostsMatch(hosts, fqdn, v.Namespace) {
 			match = "host"
-		} else if slices.ContainsFunc(vsDestinations(&v.Spec), func(d *istioapi.Destination) bool {
+		} else if slices.ContainsFunc(vsDestinations(&v.Spec), func(d vsDest) bool {
 			return isSvc(resolveDestination(d.Host, v.Namespace, 0))
 		}) {
 			match = "destination"

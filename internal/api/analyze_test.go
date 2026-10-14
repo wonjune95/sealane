@@ -51,6 +51,17 @@ func codes(a analysis) map[string]int {
 	return m
 }
 
+// paths lists "path=value" for each finding with code, in output order.
+func paths(a analysis, code string) []string {
+	var out []string
+	for _, f := range a.Findings {
+		if f.Code == code {
+			out = append(out, f.Path+"="+f.Value)
+		}
+	}
+	return out
+}
+
 func TestAnalyzeVirtualServiceDestinations(t *testing.T) {
 	kube := kubefake.NewSimpleClientset(
 		svc("apps", "shop", map[string]string{"app": "shop"}),
@@ -66,6 +77,10 @@ func TestAnalyzeVirtualServiceDestinations(t *testing.T) {
 		vs("apps", "vm", []string{"vm"}, nil, &istioapi.Destination{Host: "vm.apps.svc.cluster.local"}), // ServiceEntry-backed: no vs-host-missing
 		&istionet.ServiceEntry{ObjectMeta: metav1.ObjectMeta{Namespace: "apps", Name: "vm"}, Spec: istioapi.ServiceEntry{Hosts: []string{"vm.apps.svc.cluster.local"}}},
 		vs("apps", "wild", []string{"shop"}, nil, &istioapi.Destination{Host: "shop", Subset: "v3"}), // v3 defined by the wildcard DR below
+		&istionet.VirtualService{ObjectMeta: metav1.ObjectMeta{Namespace: "apps", Name: "tcp"}, Spec: istioapi.VirtualService{Hosts: []string{"shop"},
+			Http: []*istioapi.HTTPRoute{{Route: []*istioapi.HTTPRouteDestination{{Destination: &istioapi.Destination{Host: "shop"}}}}},
+			Tcp:  []*istioapi.TCPRoute{{}, {Route: []*istioapi.RouteDestination{{Destination: &istioapi.Destination{Host: "shop"}}, {Destination: &istioapi.Destination{Host: "gone"}}}}}}},
+		&istionet.DestinationRule{ObjectMeta: metav1.ObjectMeta{Namespace: "apps", Name: "ghost"}, Spec: istioapi.DestinationRule{Host: "ghost"}},
 		&istionet.DestinationRule{ObjectMeta: metav1.ObjectMeta{Namespace: "apps", Name: "wild"},
 			Spec: istioapi.DestinationRule{Host: "*.apps.svc.cluster.local", Subsets: []*istioapi.Subset{{Name: "v3"}}}},
 		&istionet.DestinationRule{ObjectMeta: metav1.ObjectMeta{Namespace: "apps", Name: "shop"},
@@ -77,9 +92,20 @@ func TestAnalyzeVirtualServiceDestinations(t *testing.T) {
 	c := &k8s.Clients{Kube: kube, Istio: istio, Gateway: gwfake.NewSimpleClientset()}
 	a := analyzeMesh(context.Background(), c, "")
 	got := codes(a)
-	for code, n := range map[string]int{"vs-host-missing": 1, "vs-subset-undefined": 1, "vs-gateway-missing": 1, "dr-subset-no-pods": 1} {
+	for code, n := range map[string]int{"vs-host-missing": 2, "vs-subset-undefined": 1, "vs-gateway-missing": 1, "dr-subset-no-pods": 1, "dr-host-missing": 1} {
 		if got[code] != n {
 			t.Errorf("%s: want %d, got %d (all: %v)", code, n, got[code], got)
+		}
+	}
+	for code, want := range map[string]string{
+		"vs-host-missing":     "spec.http[0].route[0].destination.host=nope.apps.svc.cluster.local,spec.tcp[1].route[1].destination.host=gone",
+		"vs-subset-undefined": "spec.http[0].route[0].destination.subset=v9",
+		"vs-gateway-missing":  "spec.gateways[0]=edge/absent",
+		"dr-subset-no-pods":   "spec.subsets[1].name=v2",
+		"dr-host-missing":     "spec.host=ghost",
+	} {
+		if p := strings.Join(paths(a, code), ","); p != want {
+			t.Errorf("%s path: want %q, got %q", code, want, p)
 		}
 	}
 	if got["backend-no-endpoints"] != 0 {
@@ -89,7 +115,7 @@ func TestAnalyzeVirtualServiceDestinations(t *testing.T) {
 		t.Errorf("nothing should be skipped: %v", a.Skipped)
 	}
 	for _, f := range a.Findings {
-		if f.Code == "vs-host-missing" && f.Service != "apps/nope" {
+		if f.Code == "vs-host-missing" && f.Resource.Name == "missing" && f.Service != "apps/nope" {
 			t.Errorf("service ref: got %q", f.Service)
 		}
 	}
@@ -113,8 +139,11 @@ func TestAnalyzeHostConflictAndNamespaceScope(t *testing.T) {
 		t.Fatalf("want a conflict on both VSs, got %v", codes(all))
 	}
 	// no pods at all → the ingress gateway selector matches nothing
-	if codes(all)["gateway-selector-no-pods"] != 1 {
-		t.Errorf("want gateway-selector-no-pods, got %v", codes(all))
+	if p := paths(all, "gateway-selector-no-pods"); len(p) != 1 || p[0] != "spec.selector=istio=ingressgateway" {
+		t.Errorf("want gateway-selector-no-pods at spec.selector, got %v (all: %v)", p, codes(all))
+	}
+	if p := paths(all, "vs-host-conflict"); p[0] != "=" {
+		t.Errorf("vs-host-conflict carries no path: %v", p)
 	}
 	scoped := analyzeMesh(context.Background(), c, "other")
 	for _, f := range scoped.Findings {
@@ -145,7 +174,11 @@ func TestAnalyzeGatewayAPIStatusAndBackends(t *testing.T) {
 		t.Fatal(err)
 	}
 	c := &k8s.Clients{Kube: kube, Istio: istiofake.NewSimpleClientset(), Gateway: gwc}
-	got := codes(analyzeMesh(context.Background(), c, ""))
+	a := analyzeMesh(context.Background(), c, "")
+	if p := paths(a, "httproute-backend-missing"); len(p) != 1 || p[0] != "spec.rules[0].backendRefs[1].name=ghost" {
+		t.Errorf("httproute-backend-missing path: %v", p)
+	}
+	got := codes(a)
 	for code, n := range map[string]int{"httproute-not-accepted": 1, "httproute-backend-missing": 1, "backend-no-endpoints": 1, "gateway-not-programmed": 1} {
 		if got[code] != n {
 			t.Errorf("%s: want %d, got %d (all: %v)", code, n, got[code], got)

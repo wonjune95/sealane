@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useNavigate, useParams, Link } from 'react-router-dom'
+import { useNavigate, useParams, useSearchParams, Link } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
 import { load as yamlLoad, dump as yamlDump } from 'js-yaml'
 import { useResource, type ResourceDetail } from '../api/resources'
@@ -12,6 +12,7 @@ import { YamlEditor } from '../components/YamlEditor'
 import { DangerConfirm } from '../components/DangerConfirm'
 import { DiffModal } from '../components/DiffModal'
 import { cleanManifest } from '../lib/download'
+import { findFocusLine } from '../lib/yamlFocus'
 import { FORMS, type FormIntegration } from '../forms/registry'
 import { AutoForm } from '../forms/AutoForm'
 import { useToast } from '../components/Toast'
@@ -152,9 +153,14 @@ export function ResourceEdit() {
   const ns = nsParam ?? ''
   const name = nameParam ?? ''
   const resource = useResource(type, ns, name, isEdit)
+  // ?focus=<path>&value=<v>: a finding pointing at a field (e.g. spec.http[0].route[0].destination.subset)
+  const [searchParams] = useSearchParams()
+  const focusPath = searchParams.get('focus')
+  const focusValue = searchParams.get('value') ?? undefined
 
   const [text, setText] = useState<string | null>(null)
   const [tab, setTab] = useState<Tab>('yaml')
+  const [focus, setFocus] = useState<{ path: string; line: number | null } | null>(null)
   const [busy, setBusy] = useState(false)
   const [pending, setPending] = useState<{ action: string; name: string; run: () => void } | null>(null)
   const [preview, setPreview] = useState<{ oldYaml: string; newYaml: string } | null>(null)
@@ -181,7 +187,11 @@ export function ResourceEdit() {
     } else if (hasAuto) {
       setTab('form')
     }
-  }, [isEdit, type, rt, resource.data, text, curated, hasAuto])
+    if (focusPath) {
+      setTab('yaml')
+      setFocus({ path: focusPath, line: findFocusLine(initial, focusPath, focusValue) })
+    }
+  }, [isEdit, type, rt, resource.data, text, curated, hasAuto, focusPath, focusValue])
   /* eslint-enable react-hooks/set-state-in-effect */
 
   let obj: any = null
@@ -228,6 +238,7 @@ export function ResourceEdit() {
       )
       return
     }
+    if (next === 'form') setFocus(null) // the form re-serializes the YAML; the line would go stale
     setTab(next)
   }
 
@@ -493,7 +504,26 @@ export function ResourceEdit() {
           }
         />
       ) : (
-        <YamlEditor value={text} onChange={setText} readOnly={readOnly} />
+        <>
+          {focus && (
+            <div
+              role="status"
+              className={`flex items-center gap-2 rounded-md border px-3 py-2 text-sm ${
+                focus.line
+                  ? 'border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-300'
+                  : 'border-red-500/20 bg-red-500/5 text-red-600 dark:text-red-400'
+              }`}
+            >
+              <span className="min-w-0 flex-1 break-all font-mono text-xs">
+                {t(focus.line ? 'editor.focusBanner' : 'editor.focusNotFound', { path: focus.path })}
+              </span>
+              <button onClick={() => setFocus(null)} className="btn-ghost text-xs">
+                {t('editor.focusDismiss')}
+              </button>
+            </div>
+          )}
+          <YamlEditor value={text} onChange={setText} readOnly={readOnly} focusLine={focus?.line ?? undefined} />
+        </>
       )}
 
       <div className="panel sticky bottom-0 z-10 mt-4 flex flex-wrap items-center gap-2 px-4 py-3 shadow-lg">

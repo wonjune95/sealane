@@ -32,6 +32,8 @@ type finding struct {
 	Resource ref    `json:"resource"`
 	Related  []ref  `json:"related,omitempty"`
 	Service  string `json:"service,omitempty"` // "ns/name" of the Service the finding concerns
+	Path     string `json:"path,omitempty"`    // offending field in Resource, e.g. spec.http[1].route[0].destination.subset
+	Value    string `json:"value,omitempty"`   // the offending scalar at Path
 }
 
 type analysis struct {
@@ -95,13 +97,14 @@ func analyzeSnapshot(st *meshSnapshot, ns string) analysis {
 	for _, v := range st.vss {
 		self := ref{TypeID: typeVS, Kind: "VirtualService", Namespace: v.Namespace, Name: v.Name}
 		check(v.Namespace)
-		for _, g := range v.Spec.Gateways {
+		for gi, g := range v.Spec.Gateways {
 			if g == "mesh" {
 				continue
 			}
 			full := istioGatewayKey(g, v.Namespace)
 			if gwIndex != nil && !gwIndex[full] {
 				add(finding{Severity: "error", Code: "vs-gateway-missing", Resource: self,
+					Path: fmt.Sprintf("spec.gateways[%d]", gi), Value: g,
 					Message: fmt.Sprintf("gateway %q does not exist", full)})
 			}
 			for _, h := range v.Spec.Hosts {
@@ -123,6 +126,7 @@ func analyzeSnapshot(st *meshSnapshot, ns string) analysis {
 					continue // VM / multicluster host backed by a ServiceEntry
 				}
 				add(finding{Severity: "error", Code: "vs-host-missing", Resource: self, Service: svcKey(b),
+					Path: d.path + ".host", Value: d.Host,
 					Message: fmt.Sprintf("destination %q is not a Service (looked for %s)", d.Host, svcKey(b))})
 				continue
 			}
@@ -132,6 +136,7 @@ func analyzeSnapshot(st *meshSnapshot, ns string) analysis {
 			}
 			if d.Subset != "" && !st.subsetDefined(b, d.Subset) {
 				add(finding{Severity: "error", Code: "vs-subset-undefined", Resource: self, Service: svcKey(b),
+					Path: d.path + ".subset", Value: d.Subset,
 					Message: fmt.Sprintf("subset %q is not defined in any DestinationRule for %s", d.Subset, svcKey(b))})
 			}
 		}
@@ -164,6 +169,7 @@ func analyzeSnapshot(st *meshSnapshot, ns string) analysis {
 			fqdn := b.Name + "." + b.Namespace + ".svc.cluster.local"
 			if serviceEntryFor(st.ses, host) == "" && serviceEntryFor(st.ses, fqdn) == "" {
 				add(finding{Severity: "warning", Code: "dr-host-missing", Resource: self, Service: svcKey(b),
+					Path: "spec.host", Value: host,
 					Message: fmt.Sprintf("host %q is not a Service (looked for %s) and no ServiceEntry covers it", host, svcKey(b))})
 			}
 			continue
@@ -171,7 +177,7 @@ func analyzeSnapshot(st *meshSnapshot, ns string) analysis {
 		if st.pods == nil || len(svc.Spec.Selector) == 0 {
 			continue
 		}
-		for _, ss := range dr.Spec.Subsets {
+		for si, ss := range dr.Spec.Subsets {
 			sel := map[string]string{}
 			for k, v := range svc.Spec.Selector {
 				sel[k] = v
@@ -181,6 +187,7 @@ func analyzeSnapshot(st *meshSnapshot, ns string) analysis {
 			}
 			if !st.anyPodMatches(svc.Namespace, sel) {
 				add(finding{Severity: "warning", Code: "dr-subset-no-pods", Resource: self, Service: svcKey(b),
+					Path: fmt.Sprintf("spec.subsets[%d].name", si), Value: ss.Name,
 					Message: fmt.Sprintf("subset %q selects no pod (%s)", ss.Name, labels.Set(sel).String())})
 			}
 		}
@@ -192,7 +199,8 @@ func analyzeSnapshot(st *meshSnapshot, ns string) analysis {
 		if st.pods != nil && len(g.Spec.Selector) > 0 && !st.anyPodMatches("", g.Spec.Selector) {
 			add(finding{Severity: "warning", Code: "gateway-selector-no-pods",
 				Resource: ref{TypeID: typeIstioGW, Kind: "Gateway", Namespace: g.Namespace, Name: g.Name},
-				Message:  fmt.Sprintf("selector %s matches no pod in any namespace", labels.Set(g.Spec.Selector).String())})
+				Path:     "spec.selector", Value: labels.Set(g.Spec.Selector).String(),
+				Message: fmt.Sprintf("selector %s matches no pod in any namespace", labels.Set(g.Spec.Selector).String())})
 		}
 	}
 
@@ -209,8 +217,8 @@ func analyzeSnapshot(st *meshSnapshot, ns string) analysis {
 				}
 			}
 		}
-		for _, rule := range hr.Spec.Rules {
-			for _, br := range rule.BackendRefs {
+		for ri, rule := range hr.Spec.Rules {
+			for bi, br := range rule.BackendRefs {
 				if br.Kind != nil && *br.Kind != "Service" {
 					continue
 				}
@@ -221,6 +229,7 @@ func analyzeSnapshot(st *meshSnapshot, ns string) analysis {
 				svc, ok := st.services[svcKey(b)]
 				if !ok && st.services != nil {
 					add(finding{Severity: "error", Code: "httproute-backend-missing", Resource: self, Service: svcKey(b),
+						Path: fmt.Sprintf("spec.rules[%d].backendRefs[%d].name", ri, bi), Value: string(br.Name),
 						Message: fmt.Sprintf("backend Service %s does not exist", svcKey(b))})
 				} else if ok && st.noEndpoints(svc) {
 					add(finding{Severity: "warning", Code: "backend-no-endpoints", Resource: self, Service: svcKey(b),
@@ -306,28 +315,33 @@ func istioGatewayKey(g, vsNS string) string {
 	return vsNS + "/" + g
 }
 
+// vsDest is a route destination plus its field path, e.g. spec.http[0].route[1].destination.
+type vsDest struct {
+	*istioapi.Destination
+	path string
+}
+
 // vsDestinations flattens http/tls/tcp route destinations.
-func vsDestinations(spec *istioapi.VirtualService) []*istioapi.Destination {
-	var out []*istioapi.Destination
-	for _, h := range spec.Http {
-		for _, rt := range h.Route {
-			if rt.Destination != nil {
-				out = append(out, rt.Destination)
-			}
+func vsDestinations(spec *istioapi.VirtualService) []vsDest {
+	var out []vsDest
+	add := func(section string, i, j int, d *istioapi.Destination) {
+		if d != nil {
+			out = append(out, vsDest{d, fmt.Sprintf("spec.%s[%d].route[%d].destination", section, i, j)})
 		}
 	}
-	for _, t := range spec.Tls {
-		for _, rt := range t.Route {
-			if rt.Destination != nil {
-				out = append(out, rt.Destination)
-			}
+	for i, h := range spec.Http {
+		for j, rt := range h.Route {
+			add("http", i, j, rt.Destination)
 		}
 	}
-	for _, t := range spec.Tcp {
-		for _, rt := range t.Route {
-			if rt.Destination != nil {
-				out = append(out, rt.Destination)
-			}
+	for i, t := range spec.Tls {
+		for j, rt := range t.Route {
+			add("tls", i, j, rt.Destination)
+		}
+	}
+	for i, t := range spec.Tcp {
+		for j, rt := range t.Route {
+			add("tcp", i, j, rt.Destination)
 		}
 	}
 	return out

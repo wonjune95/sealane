@@ -570,6 +570,17 @@ button:disabled {
     @apply border-dashed border-red-500;
   }
 }
+/* Finding → editor: the offending line flashes amber, then keeps a faint tint
+   (so it stays visible under prefers-reduced-motion too). */
+.cm-editor .cm-focus-line {
+  background-color: rgb(245 158 11 / 0.12);
+  animation: focus-line-fade 3s ease-out;
+}
+@keyframes focus-line-fade {
+  from {
+    background-color: rgb(245 158 11 / 0.45);
+  }
+}
 @keyframes flow-dash {
   to {
     stroke-dashoffset: -54;

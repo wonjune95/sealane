@@ -4,13 +4,23 @@ import type { Finding, Ref } from '../api/analyze'
 import { EmptyState } from './EmptyState'
 import { t } from '../i18n'
 
-const href = (r: Ref) => `/resources/${r.typeId}/${r.namespace || '-'}/${r.name}`
+// path/value (from a finding) open the editor on the offending field.
+const href = (r: Ref, path?: string, value?: string) =>
+  `/resources/${r.typeId}/${r.namespace || '-'}/${r.name}` +
+  (path ? `?focus=${encodeURIComponent(path)}${value ? `&value=${encodeURIComponent(value)}` : ''}` : '')
 
-function RefLink({ r }: { r: Ref }) {
-  return (
-    <Link to={href(r)} className="font-medium text-accent hover:underline">
+function RefLink({ r, path, value }: { r: Ref; path?: string; value?: string }) {
+  const label = (
+    <>
       {r.kind} {r.name}
       {r.namespace && <span className="text-muted"> {r.namespace}</span>}
+    </>
+  )
+  // Namespaces have no editor page.
+  if (r.kind === 'Namespace') return <span className="font-medium">{label}</span>
+  return (
+    <Link to={href(r, path, value)} className="font-medium text-accent hover:underline">
+      {label}
     </Link>
   )
 }
@@ -54,7 +64,7 @@ export function FindingList({
                 {f.message} <span className="block font-mono text-xs text-faint sm:ml-1 sm:inline">{f.code}</span>
               </td>
               <td className="px-3 py-1.5">
-                <RefLink r={f.resource} />
+                <RefLink r={f.resource} path={f.path} value={f.value} />
               </td>
               <td className="px-3 py-1.5">
                 {f.related?.map((r, j) => (

@@ -45,6 +45,29 @@ jobs:
       - name: i18n guard (no Korean outside locale files, en/ko keys match)
         run: ../hack/check-i18n.sh
 
+  ui-tests:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - name: Start the dev server
+        run: |
+          (npm run dev -- --host 127.0.0.1 --port 5173 --strictPort > /tmp/vite.log 2>&1 &)
+          for i in $(seq 1 60); do curl -sf http://127.0.0.1:5173/ >/dev/null && exit 0; sleep 1; done
+          cat /tmp/vite.log; exit 1
+      - run: npm run test:ui
+        env:
+          SEALANE_TEST_URL: http://127.0.0.1:5173
+
   helm:
     runs-on: ubuntu-latest
     steps:

@@ -12,6 +12,8 @@ npm run test:httproute-form
 npm run test:dr-form
 ```
 
+`npm run test:ui` runs every fixture-based check; CI runs it on each push (dev server on `127.0.0.1:5173`, `SEALANE_TEST_URL` set).
+
 The checks replace API responses with fixtures. They verify that a removed cluster selection recovers before capabilities requests, login still works, valid registrations retain their selection, and connection or list failures offer recovery. No Kubernetes API or actual login credentials are used.
 
 `npm run test:login-sso` covers the SSO button and the `oidc_error` messages on the login page, fixture-based.

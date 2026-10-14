@@ -18,7 +18,8 @@ type ResTab = 'body' | 'headers' | 'route'
 function parseUrl(raw: string) {
   try {
     const u = new URL(raw.includes('://') ? raw : `http://${raw}`)
-    return { hostname: u.hostname, path: u.pathname + u.search, href: u.toString() }
+    const port = Number(u.port) || (u.protocol === 'https:' ? 443 : 80)
+    return { hostname: u.hostname, port, path: u.pathname + u.search, href: u.toString() }
   } catch {
     return null
   }
@@ -58,6 +59,7 @@ export function RouteCheck() {
           host: parsed.hostname,
           path: parsed.path,
           method,
+          port: parsed.port,
           headers: activeHeaders.map(({ key, value }) => ({ key, value })),
         }),
       )
@@ -236,7 +238,7 @@ export function RouteCheck() {
                 ))}
               </dl>
             )}
-            {resTab === 'route' && route && <RouteResult result={route} />}
+            {resTab === 'route' && route && <RouteResult result={route} reqPort={parsed?.port ?? 80} />}
           </div>
         </div>
       )}
@@ -513,12 +515,16 @@ function ResponseBody({ res }: { res: RequestTestResult }) {
       return res.body
     }
   }, [res.body])
+  // Envoy's own 503 (no upstream service time) = no cluster for this host:port.
+  const noUpstream =
+    res.status === 503 && res.headers?.server === 'envoy' && !res.headers['x-envoy-upstream-service-time']
+  const hint = res.hint || (noUpstream ? t('routecheck.hint503NoUpstream') : '')
 
   return (
     <div className="space-y-3">
-      {res.hint && (
+      {hint && (
         <p className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-2.5 text-xs text-strong">
-          {res.hint}
+          {hint}
         </p>
       )}
       {res.error && <p className="text-sm text-red-600 dark:text-red-400">{res.error}</p>}
@@ -539,7 +545,7 @@ function formatBytes(n: number) {
   return n < 1024 ? `${n} B` : `${(n / 1024).toFixed(1)} KB`
 }
 
-function RouteResult({ result }: { result: RouteMatchResult }) {
+function RouteResult({ result, reqPort }: { result: RouteMatchResult; reqPort: number }) {
   return (
     <div className="space-y-4">
       <div
@@ -586,6 +592,11 @@ function RouteResult({ result }: { result: RouteMatchResult }) {
                   </span>
                 ) : (
                   <span className="chip bg-red-500/10 text-red-600 dark:text-red-400">{t('rt.noService')}</span>
+                )}
+                {d.exists && !d.portOk && (
+                  <span className="chip bg-red-500/10 text-red-600 dark:text-red-400">
+                    {t('routecheck.portMissing', { port: d.port || reqPort, ports: (d.servicePorts ?? []).join(', ') })}
+                  </span>
                 )}
               </div>
             ))}

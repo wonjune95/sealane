@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -147,5 +148,38 @@ func TestServiceMeshIstioGatewaysAndEmptySlices(t *testing.T) {
 	}
 	if m.DestinationRules == nil || m.HTTPRoutes == nil || m.Policies == nil {
 		t.Errorf("slices must be non-null: %s", rec.Body.String())
+	}
+}
+
+// Findings on the resources listed on the page count too, not only those tagged with the Service:
+// a Gateway bound by the Service's VS whose selector matches no pod is shown on the Service page.
+func TestServiceMeshFindingsOnListedResources(t *testing.T) {
+	t.Setenv("ISTIO_NAMESPACE", "istio-system")
+	istio := istiofake.NewSimpleClientset(
+		vs("apps", "shop-vs", []string{"shop"}, []string{"edge/public"}, &istioapi.Destination{Host: "shop"}))
+	// The fakes mis-bucket the Gateway kind when seeding — insert via typed Create (as in analyze_test.go).
+	for _, name := range []string{"public", "unrelated"} {
+		if _, err := istio.NetworkingV1().Gateways("edge").Create(context.Background(), &istionet.Gateway{
+			ObjectMeta: metav1.ObjectMeta{Namespace: "edge", Name: name},
+			Spec:       istioapi.Gateway{Selector: map[string]string{"istio": "nowhere"}}}, metav1.CreateOptions{}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	c := &k8s.Clients{Kube: kubefake.NewSimpleClientset(svc("apps", "shop", nil)), Istio: istio, Gateway: gwfake.NewSimpleClientset()}
+	mux := newTestMux(t, &stubSource{clients: c})
+	rec := httptest.NewRecorder()
+	mux.ServeHTTP(rec, authedReq("GET", "/api/services/apps/shop/mesh", nil))
+	var m serviceMesh
+	if err := json.Unmarshal(rec.Body.Bytes(), &m); err != nil {
+		t.Fatal(err)
+	}
+	var got []string
+	for _, f := range m.Findings {
+		if f.Code == "gateway-selector-no-pods" {
+			got = append(got, f.Resource.Name)
+		}
+	}
+	if len(got) != 1 || got[0] != "public" {
+		t.Fatalf("want the gateway-selector-no-pods finding for edge/public only, got %v in %+v", got, m.Findings)
 	}
 }

@@ -288,6 +288,7 @@
   "form.noGateways": "(게이트웨이 없음)",
   "form.deleteRule": "규칙 삭제",
   "form.addMatch": "매치 추가",
+  "form.deleteMatch": "매치 삭제",
   "form.addHeader": "헤더 추가",
   "form.addRoute": "라우트 추가",
   "form.weightSum": "weight 합계: {n}",
@@ -503,5 +504,7 @@
   "services.back": "전체 서비스",
   "services.loadFailed": "서비스를 불러오지 못했습니다: {message}",
   "list.showMore": "더 보기 ({total}개 중 {shown}개)",
-  "list.sortBy": "{column} 기준 정렬"
+  "list.sortBy": "{column} 기준 정렬",
+  "routecheck.portMissing": "포트 {port} 미노출 (서비스 포트: {ports})",
+  "routecheck.hint503NoUpstream": "업스트림 없이 사이드카가 503을 반환했습니다: 이 호스트와 포트에 해당하는 클러스터가 없습니다 — Service가 해당 포트를 노출하는지, VirtualService destination이 맞는지 확인하세요."
 }

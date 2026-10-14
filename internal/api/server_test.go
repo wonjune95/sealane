@@ -10,6 +10,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -905,6 +906,54 @@ func TestRouteMatch(t *testing.T) {
 	// PathPrefix uses segment boundaries — /apifoo must not match the /api prefix
 	if out = get("host=api.example.com&path=/apifoo"); out.Matched {
 		t.Fatalf("/apifoo must not match the /api prefix: %+v", out)
+	}
+}
+
+// Route simulator: a destination whose Service does not expose the request port is flagged
+// (Envoy answers 503 with no cluster), while a gateway VS without a destination port uses
+// the single port of the Service the way Istio does.
+func TestRouteMatchPort(t *testing.T) {
+	kube := kubefake.NewClientset(&corev1.Service{ObjectMeta: metav1.ObjectMeta{Name: "echo", Namespace: "ns"},
+		Spec: corev1.ServiceSpec{Ports: []corev1.ServicePort{{Port: 8080}}}})
+	istio := istiofake.NewSimpleClientset(
+		&istionet.VirtualService{ObjectMeta: metav1.ObjectMeta{Name: "echo", Namespace: "ns"},
+			Spec: istioapi.VirtualService{Hosts: []string{"echo.ns.svc.cluster.local"},
+				Http: []*istioapi.HTTPRoute{{Route: []*istioapi.HTTPRouteDestination{
+					{Destination: &istioapi.Destination{Host: "echo"}}}}}}},
+		&istionet.VirtualService{ObjectMeta: metav1.ObjectMeta{Name: "echo-ingress", Namespace: "ns"},
+			Spec: istioapi.VirtualService{Hosts: []string{"echo.example.test"}, Gateways: []string{"echo-gw"},
+				Http: []*istioapi.HTTPRoute{{Route: []*istioapi.HTTPRouteDestination{
+					{Destination: &istioapi.Destination{Host: "echo"}}}}}}},
+	)
+	mux := newTestMux(t, &stubSource{clients: &k8s.Clients{Kube: kube, Istio: istio, Gateway: gwfake.NewClientset()}})
+	get := func(q string) routeMatchResult {
+		t.Helper()
+		rec := httptest.NewRecorder()
+		mux.ServeHTTP(rec, authedReq("GET", "/api/routematch?"+q, nil))
+		var out routeMatchResult
+		if err := json.Unmarshal(rec.Body.Bytes(), &out); err != nil || len(out.Destinations) != 1 {
+			t.Fatalf("status = %d, body = %s", rec.Code, rec.Body.String())
+		}
+		return out
+	}
+
+	out := get("host=echo.ns.svc.cluster.local&path=/")
+	if d := out.Destinations[0]; d.PortOK || len(d.ServicePorts) != 1 || d.ServicePorts[0] != 8080 {
+		t.Fatalf("port 80 is not exposed, portOk should be false: %+v", d)
+	}
+	want := "destination ns/echo does not expose port 80 (service ports: 8080) — Envoy will answer 503"
+	if !slices.Contains(out.Notes, want) {
+		t.Fatalf("missing port note: %q", out.Notes)
+	}
+	if out = get("host=echo.ns.svc.cluster.local&path=/&scheme=https"); !slices.ContainsFunc(out.Notes,
+		func(n string) bool { return strings.Contains(n, "port 443") }) {
+		t.Fatalf("https without a port should check 443: %q", out.Notes)
+	}
+	if out = get("host=echo.ns.svc.cluster.local&path=/&port=8080"); !out.Destinations[0].PortOK || len(out.Notes) != 0 {
+		t.Fatalf("port 8080 is exposed: %+v", out)
+	}
+	if out = get("host=echo.example.test&path=/"); !out.Destinations[0].PortOK {
+		t.Fatalf("gateway VS without a destination port uses the single service port: %+v", out)
 	}
 }
 

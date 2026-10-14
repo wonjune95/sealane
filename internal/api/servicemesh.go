@@ -39,7 +39,7 @@ type serviceMesh struct {
 	HTTPRoutes       []ref             `json:"httpRoutes"`
 	Gateways         []ref             `json:"gateways"` // Istio Gateways named by those VSs + Gateway API Gateways in those HTTPRoutes' parentRefs
 	Policies         []policyRef       `json:"policies"` // AuthorizationPolicy, PeerAuthentication, RequestAuthentication
-	Findings         []finding         `json:"findings"` // analyzeMesh findings with Service == ns/name
+	Findings         []finding         `json:"findings"` // analyzeMesh findings with Service == ns/name or on a listed resource
 }
 
 func (s *Server) handleServiceMesh(w http.ResponseWriter, r *http.Request) {
@@ -156,8 +156,16 @@ func (s *Server) handleServiceMesh(w http.ResponseWriter, r *http.Request) {
 
 	// ponytail: VS/DR/HTTPRoute are listed twice per request (above and inside analyzeMesh);
 	// pass the lists into analyzeMesh if this page ever gets slow on large clusters.
+	// Findings on the resources this page lists count as well (e.g. a bound Gateway with no pods).
+	listed := map[ref]bool{}
+	for _, v := range out.VirtualServices {
+		listed[v.ref] = true
+	}
+	for _, r := range slices.Concat(out.DestinationRules, out.HTTPRoutes, out.Gateways) {
+		listed[r] = true
+	}
 	for _, f := range analyzeMesh(ctx, c, "").Findings {
-		if f.Service == key {
+		if f.Service == key || listed[f.Resource] {
 			out.Findings = append(out.Findings, f)
 		}
 	}

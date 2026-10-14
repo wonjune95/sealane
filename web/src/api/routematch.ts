@@ -12,6 +12,8 @@ export type RouteDest = {
   endpoints: number
   subsetOk?: boolean
   subsetDr?: string
+  portOk: boolean
+  servicePorts?: number[]
 }
 export type RouteCandidate = {
   kind: string
@@ -35,12 +37,14 @@ export function checkRoute(input: {
   host: string
   path: string
   method: string
+  port: number
   headers: { key: string; value: string }[]
 }) {
   const p = new URLSearchParams()
   p.set('host', input.host)
   p.set('path', input.path || '/')
   p.set('method', input.method)
+  p.set('port', String(input.port))
   for (const h of input.headers) {
     if (h.key.trim()) p.append('header', `${h.key.trim()}:${h.value.trim()}`)
   }

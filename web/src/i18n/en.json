@@ -288,6 +288,7 @@
   "form.noGateways": "(no gateways)",
   "form.deleteRule": "Delete rule",
   "form.addMatch": "Add match",
+  "form.deleteMatch": "Delete match",
   "form.addHeader": "Add header",
   "form.addRoute": "Add route",
   "form.weightSum": "weight total: {n}",
@@ -503,5 +504,7 @@
   "services.back": "All services",
   "services.loadFailed": "Could not load the service: {message}",
   "list.showMore": "Show more ({shown} of {total})",
-  "list.sortBy": "Sort by {column}"
+  "list.sortBy": "Sort by {column}",
+  "routecheck.portMissing": "Port {port} not exposed (service ports: {ports})",
+  "routecheck.hint503NoUpstream": "503 from the sidecar with no upstream: no cluster for this host and port — check that the Service exposes the port and the VirtualService destination matches."
 }

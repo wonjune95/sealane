@@ -6,6 +6,7 @@ import (
 	"net/url"
 	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 
 	istioapi "istio.io/api/networking/v1"
@@ -28,6 +29,9 @@ type routeDest struct {
 	Endpoints int    `json:"endpoints"`
 	SubsetOK  bool   `json:"subsetOk,omitempty"` // whether the subset is defined in a DestinationRule
 	SubsetDR  string `json:"subsetDr,omitempty"`
+	// PortOK: the Service exposes the port the request lands on (destination port, else the request port).
+	PortOK       bool    `json:"portOk"`
+	ServicePorts []int32 `json:"servicePorts,omitempty"`
 }
 
 type routeCandidate struct {
@@ -69,6 +73,13 @@ func (s *Server) handleRouteMatch(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		writeError(w, http.StatusBadRequest, "BadRequest", "invalid path: "+err.Error())
 		return
+	}
+	reqPort := int32(80)
+	if q.Get("scheme") == "https" {
+		reqPort = 443
+	}
+	if p, err := strconv.ParseInt(q.Get("port"), 10, 32); err == nil && p > 0 && p < 65536 {
+		reqPort = int32(p)
 	}
 	path, query := u.Path, u.Query()
 	if path == "" {
@@ -211,12 +222,36 @@ func (s *Server) handleRouteMatch(w http.ResponseWriter, r *http.Request) {
 	}
 	for i := range out.Destinations {
 		d := &out.Destinations[i]
-		if d.External || d.Name == "" {
+		if d.External {
+			d.PortOK = true
 			continue
 		}
-		if _, err := c.Kube.CoreV1().Services(d.Namespace).Get(ctx, d.Name, metav1.GetOptions{}); err == nil {
+		if d.Name == "" {
+			continue
+		}
+		if svc, err := c.Kube.CoreV1().Services(d.Namespace).Get(ctx, d.Name, metav1.GetOptions{}); err == nil {
 			d.Exists = true
 			d.Endpoints = readyEndpoints(ctx, c, d.Namespace, d.Name)
+			port := d.Port
+			if port == 0 {
+				port = reqPort
+				// Istio picks a single-port Service's only port for a destination without one,
+				// unless the request is addressed to the Service itself (then the listener port decides).
+				self := host == d.Name || strings.HasPrefix(host+".", d.Name+"."+d.Namespace+".")
+				if len(svc.Spec.Ports) == 1 && !self {
+					port = svc.Spec.Ports[0].Port
+				}
+			}
+			ports := make([]string, 0, len(svc.Spec.Ports))
+			for _, sp := range svc.Spec.Ports {
+				d.ServicePorts = append(d.ServicePorts, sp.Port)
+				ports = append(ports, strconv.Itoa(int(sp.Port)))
+				d.PortOK = d.PortOK || sp.Port == port
+			}
+			if !d.PortOK {
+				out.Notes = append(out.Notes, fmt.Sprintf("destination %s/%s does not expose port %d (service ports: %s) — Envoy will answer 503",
+					d.Namespace, d.Name, port, strings.Join(ports, ", ")))
+			}
 		}
 		if d.Subset != "" {
 			for _, sd := range drs {

@@ -108,7 +108,11 @@ try {
   assert.deepEqual(await gw.locator('option').evaluateAll((os) => os.map((o) => o.value)), ['mesh', 'edge/public'])
   await gw.selectOption('edge/public')
   await page.getByRole('button', { name: '+ Add match' }).click()
+  // A new match has no uri row until "+ URI" adds one; a lone route shows no weight.
+  assert.equal(await page.getByLabel('URI', { exact: true }).count(), 0)
+  await page.getByRole('button', { name: '+ URI' }).click()
   await page.getByLabel('URI', { exact: true }).fill('/api')
+  assert.equal(await page.getByPlaceholder('weight', { exact: true }).count(), 0)
   await page.getByRole('button', { name: '+ Add route' }).click()
 
   // (c) Subsets are offered only once a route's host resolves to the DR host.
@@ -154,6 +158,8 @@ try {
   await section('HTTP rules').waitFor()
   assert.ok(await isActive(formTab))
   assert.ok(await page.locator('label:has-text("Name") input').first().isDisabled(), 'identity is locked on edit')
+  // Both rules have a single route (weight 100 stays in the YAML, hidden in the form).
+  assert.equal(await page.getByPlaceholder('weight', { exact: true }).count(), 0)
   await page.locator('label:has-text("Timeout") input').first().fill('6s')
   const edited = await editorYaml()
   const want = structuredClone(reviews)
@@ -203,6 +209,13 @@ try {
   })
   await formTab.click()
   await section('HTTP rules').waitFor()
+
+  // The × on the uri row drops the uri only; the match keeps its headers and gets "+ URI" back.
+  await page.getByLabel('URI', { exact: true }).locator('xpath=..').getByRole('button', { name: '×' }).click()
+  await page.getByRole('button', { name: '+ URI' }).waitFor()
+  assert.deepEqual((await editorYaml()).spec.http[0].match[0], {
+    headers: { 'x-user': { exact: 'qa' }, 'x-env': { prefix: 'stg' }, 'x-user-id': { exact: '' } },
+  })
 
   assert.deepEqual(errors, [])
   console.log('vs-form: ok')

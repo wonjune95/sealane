@@ -120,7 +120,7 @@ function RuleCard({
             onChange={(nm) => set({ match: replace(rule.match, mi, nm) })}
             onRemove={() => set({ match: rule.match.filter((_, j) => j !== mi) })} />
         ))}
-        <button onClick={() => set({ match: [...rule.match, { uriType: 'prefix', uriValue: '/', headers: [] }] })}
+        <button onClick={() => set({ match: [...rule.match, { headers: [] }] })}
           className={add}>+ {t('form.addMatch')}</button>
       </div>
 
@@ -135,6 +135,7 @@ function RuleCard({
         {rule.route.map((d, di) => (
           <RouteRow key={di} listId={`${id}-d${di}-subsets`} d={d} ns={ns} services={services} subsets={subsets}
             onChange={(nd) => set({ route: replace(rule.route, di, nd) })}
+            showWeight={rule.route.length > 1}
             onRemove={() => set({ route: rule.route.filter((_, j) => j !== di) })} />
         ))}
         <button onClick={() => set({ route: [...rule.route, { host: '' }] })} className={add}>+ {t('form.addRoute')}</button>
@@ -166,19 +167,20 @@ function MatchBox({ m, onChange, onRemove }: { m: VSMatchModel; onChange: (m: VS
   const set = (patch: Partial<VSMatchModel>) => onChange({ ...m, ...patch })
   return (
     <div className="space-y-2 rounded border border-base p-2">
-      <div className="flex items-center gap-2">
-        <span className={label}>uri</span>
-        <select className={`${input} w-28`} aria-label="URI match type" value={m.uriType ?? ''}
-          onChange={(e) => set({ uriType: (e.target.value || undefined) as VSMatchModel['uriType'] })}>
-          <option value="">—</option>
-          <option value="prefix">prefix</option>
-          <option value="exact">exact</option>
-          <option value="regex">regex</option>
-        </select>
-        <input className={input} aria-label="URI" value={m.uriValue ?? ''} placeholder="/" disabled={!m.uriType}
-          onChange={(e) => set({ uriValue: e.target.value })} />
-        <button onClick={onRemove} className={del}>×</button>
-      </div>
+      {m.uriType && (
+        <div className="flex items-center gap-2">
+          <span className={label}>uri</span>
+          <select className={`${input} w-28`} aria-label="URI match type" value={m.uriType}
+            onChange={(e) => set({ uriType: e.target.value as VSMatchModel['uriType'] })}>
+            <option value="prefix">prefix</option>
+            <option value="exact">exact</option>
+            <option value="regex">regex</option>
+          </select>
+          <input className={input} aria-label="URI" value={m.uriValue ?? ''} placeholder="/"
+            onChange={(e) => set({ uriValue: e.target.value })} />
+          <button onClick={() => set({ uriType: undefined, uriValue: undefined })} className={del}>×</button>
+        </div>
+      )}
       {m.headers.map((h, hi) => (
         <div key={hi} className="flex items-center gap-2 pl-6">
           {/* Committed on blur: a half-typed name (x-user on the way to x-user-id)
@@ -202,8 +204,15 @@ function MatchBox({ m, onChange, onRemove }: { m: VSMatchModel; onChange: (m: VS
           <button onClick={() => set({ headers: m.headers.filter((_, j) => j !== hi) })} className={del}>×</button>
         </div>
       ))}
-      <button onClick={() => set({ headers: [...m.headers, { name: '', type: 'exact', value: '' }] })}
-        className={`pl-6 ${add}`}>+ {t('form.addHeader')}</button>
+      <div className="flex items-center gap-3 pl-6">
+        {!m.uriType && (
+          <button onClick={() => set({ uriType: 'prefix', uriValue: '/' })} className={add}>+ URI</button>
+        )}
+        <button onClick={() => set({ headers: [...m.headers, { name: '', type: 'exact', value: '' }] })}
+          className={add}>+ {t('form.addHeader')}</button>
+        <button onClick={onRemove} className={`ml-auto ${del}`} aria-label={t('form.deleteMatch')}
+          title={t('form.deleteMatch')}>×</button>
+      </div>
     </div>
   )
 }
@@ -212,13 +221,14 @@ function MatchBox({ m, onChange, onRemove }: { m: VSMatchModel; onChange: (m: VS
 const fqdn = (host: string, ns: string) => (host.includes('.') ? host : `${host}.${ns}.svc.cluster.local`)
 
 function RouteRow({
-  listId, d, ns, services, subsets, onChange, onRemove,
+  listId, d, ns, services, subsets, showWeight, onChange, onRemove,
 }: {
   listId: string
   d: VSDestinationModel
   ns: string
   services: ServiceRef[]
   subsets: SubsetRef[]
+  showWeight: boolean // a single destination takes 100% in Istio, so its weight is noise
   onChange: (d: VSDestinationModel) => void
   onRemove: () => void
 }) {
@@ -235,8 +245,10 @@ function RouteRow({
       </datalist>
       <input className={`${input} w-24`} type="number" value={d.port ?? ''} placeholder="port"
         onChange={(e) => onChange({ ...d, port: num(e.target.value) })} />
-      <input className={`${input} w-24`} type="number" value={d.weight ?? ''} placeholder="weight"
-        onChange={(e) => onChange({ ...d, weight: num(e.target.value) })} />
+      {showWeight && (
+        <input className={`${input} w-24`} type="number" value={d.weight ?? ''} placeholder="weight"
+          onChange={(e) => onChange({ ...d, weight: num(e.target.value) })} />
+      )}
       <button onClick={onRemove} className={del}>×</button>
     </div>
   )

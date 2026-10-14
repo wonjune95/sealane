@@ -53,7 +53,7 @@ const (
 // meshState is everything analyzeMesh reads, fetched once. Indexes whose list
 // fails (CRD not installed, RBAC) stay nil and the checks that need them are skipped.
 type meshState struct {
-	services map[string]*corev1.Service // ns/name
+	services map[string]*corev1.Service // ns/name; nil when Services cannot be listed
 	pods     map[string][]labels.Set    // ns → pod label sets; nil when pods are not readable
 	podsOK   bool
 	ses      []flowServiceEntry
@@ -75,10 +75,16 @@ func analyzeMesh(ctx context.Context, c *k8s.Clients, ns string) analysis {
 	if !st.podsOK {
 		out.Skipped = append(out.Skipped, "pods")
 	}
+	inScope := func(resNS string) bool { return ns == "" || resNS == ns }
+	check := func(resNS string) {
+		if inScope(resNS) {
+			out.Checked++
+		}
+	}
 	seen := map[string]bool{} // a VS splitting traffic across subsets of one Service must not repeat a finding
 	add := func(f finding) {
 		key := f.Code + "|" + f.Resource.TypeID + "|" + f.Resource.Namespace + "/" + f.Resource.Name + "|" + f.Message
-		if (ns == "" || f.Resource.Namespace == ns) && !seen[key] {
+		if inScope(f.Resource.Namespace) && !seen[key] {
 			seen[key] = true
 			out.Findings = append(out.Findings, f)
 		}
@@ -92,21 +98,29 @@ func analyzeMesh(ctx context.Context, c *k8s.Clients, ns string) analysis {
 		for i := range vss.Items {
 			v := vss.Items[i]
 			self := ref{TypeID: typeVS, Kind: "VirtualService", Namespace: v.Namespace, Name: v.Name}
-			out.Checked++
+			check(v.Namespace)
 			for _, g := range v.Spec.Gateways {
 				if g == "mesh" {
 					continue
 				}
 				full := g
 				if !strings.Contains(g, "/") {
-					full = v.Namespace + "/" + g
+					if name, rest, ok := strings.Cut(g, "."); ok { // legacy "gw.ns.svc.cluster.local" form
+						gwNS, _, _ := strings.Cut(rest, ".")
+						full = gwNS + "/" + name
+					} else {
+						full = v.Namespace + "/" + g
+					}
 				}
 				if _, ok := st.istioGWs[full]; !ok && st.istioGWs != nil {
 					add(finding{Severity: "error", Code: "vs-gateway-missing", Resource: self,
 						Message: fmt.Sprintf("gateway %q does not exist", full)})
 				}
 				for _, h := range v.Spec.Hosts {
-					claims[gwHost{full, h}] = append(claims[gwHost{full, h}], self)
+					k := gwHost{full, h}
+					if rs := claims[k]; len(rs) == 0 || rs[len(rs)-1] != self { // same gateway or host listed twice
+						claims[k] = append(rs, self)
+					}
 				}
 			}
 			for _, d := range vsDestinations(&v.Spec) {
@@ -115,12 +129,12 @@ func analyzeMesh(ctx context.Context, c *k8s.Clients, ns string) analysis {
 					continue
 				}
 				svc, ok := st.services[svcKey(b)]
-				if !ok {
+				if !ok && st.services != nil {
 					add(finding{Severity: "error", Code: "vs-host-missing", Resource: self, Service: svcKey(b),
 						Message: fmt.Sprintf("destination %q is not a Service (looked for %s)", d.Host, svcKey(b))})
 					continue
 				}
-				if st.readyEndpoints(ctx, c, svc.Namespace, svc.Name) == 0 {
+				if ok && st.noEndpoints(ctx, c, svc) {
 					add(finding{Severity: "warning", Code: "backend-no-endpoints", Resource: self, Service: svcKey(b),
 						Message: fmt.Sprintf("Service %s has no ready endpoints", svcKey(b))})
 				}
@@ -145,13 +159,16 @@ func analyzeMesh(ctx context.Context, c *k8s.Clients, ns string) analysis {
 	// --- DestinationRules: host exists, subsets select pods ---
 	for _, dr := range st.drs {
 		self := ref{TypeID: typeDR, Kind: "DestinationRule", Namespace: dr.Namespace, Name: dr.Name}
-		out.Checked++
+		check(dr.Namespace)
 		host := dr.Spec.Host
 		b := resolveDestination(host, dr.Namespace, 0)
 		if b.External || strings.Contains(host, "*") {
 			continue
 		}
 		svc, ok := st.services[svcKey(b)]
+		if !ok && st.services == nil {
+			continue
+		}
 		if !ok {
 			fqdn := b.Name + "." + b.Namespace + ".svc.cluster.local"
 			if serviceEntryFor(st.ses, host) == "" && serviceEntryFor(st.ses, fqdn) == "" {
@@ -181,7 +198,7 @@ func analyzeMesh(ctx context.Context, c *k8s.Clients, ns string) analysis {
 	// --- Istio Gateways: selector → pods ---
 	for key, g := range st.istioGWs {
 		gns, name, _ := strings.Cut(key, "/")
-		out.Checked++
+		check(gns)
 		if st.podsOK && len(g.Selector) > 0 && !st.anyPodMatches("", g.Selector) {
 			add(finding{Severity: "warning", Code: "gateway-selector-no-pods",
 				Resource: ref{TypeID: typeIstioGW, Kind: "Gateway", Namespace: gns, Name: name},
@@ -194,7 +211,7 @@ func analyzeMesh(ctx context.Context, c *k8s.Clients, ns string) analysis {
 		for i := range hrs.Items {
 			hr := &hrs.Items[i]
 			self := ref{TypeID: typeHTTPRoute, Kind: "HTTPRoute", Namespace: hr.Namespace, Name: hr.Name}
-			out.Checked++
+			check(hr.Namespace)
 			for _, p := range hr.Status.Parents {
 				for _, cond := range p.Conditions {
 					if (cond.Type == "Accepted" || cond.Type == "ResolvedRefs") && cond.Status == metav1.ConditionFalse {
@@ -212,10 +229,11 @@ func analyzeMesh(ctx context.Context, c *k8s.Clients, ns string) analysis {
 					if br.Namespace != nil {
 						b.Namespace = string(*br.Namespace)
 					}
-					if _, ok := st.services[svcKey(b)]; !ok {
+					svc, ok := st.services[svcKey(b)]
+					if !ok && st.services != nil {
 						add(finding{Severity: "error", Code: "httproute-backend-missing", Resource: self, Service: svcKey(b),
 							Message: fmt.Sprintf("backend Service %s does not exist", svcKey(b))})
-					} else if st.readyEndpoints(ctx, c, b.Namespace, b.Name) == 0 {
+					} else if ok && st.noEndpoints(ctx, c, svc) {
 						add(finding{Severity: "warning", Code: "backend-no-endpoints", Resource: self, Service: svcKey(b),
 							Message: fmt.Sprintf("Service %s has no ready endpoints", svcKey(b))})
 					}
@@ -228,7 +246,7 @@ func analyzeMesh(ctx context.Context, c *k8s.Clients, ns string) analysis {
 	if gws, err := c.Gateway.GatewayV1().Gateways("").List(ctx, metav1.ListOptions{}); err == nil {
 		for i := range gws.Items {
 			g := &gws.Items[i]
-			out.Checked++
+			check(g.Namespace)
 			for _, cond := range g.Status.Conditions {
 				if (cond.Type == "Accepted" || cond.Type == "Programmed") && cond.Status == metav1.ConditionFalse {
 					add(finding{Severity: "error", Code: "gateway-not-programmed",
@@ -248,7 +266,10 @@ func analyzeMesh(ctx context.Context, c *k8s.Clients, ns string) analysis {
 		if ka != kb {
 			return ka < kb
 		}
-		return a.Code < b.Code
+		if a.Code != b.Code {
+			return a.Code < b.Code
+		}
+		return a.Message < b.Message // map-ordered sources (conflicts, gateways) stay stable across refreshes
 	})
 	return out
 }
@@ -281,8 +302,9 @@ func vsDestinations(spec *istioapi.VirtualService) []*istioapi.Destination {
 }
 
 func loadMeshState(ctx context.Context, c *k8s.Clients) *meshState {
-	st := &meshState{services: map[string]*corev1.Service{}, epCache: map[string]int{}}
+	st := &meshState{epCache: map[string]int{}}
 	if svcs, err := c.Kube.CoreV1().Services("").List(ctx, metav1.ListOptions{}); err == nil {
+		st.services = map[string]*corev1.Service{}
 		for i := range svcs.Items {
 			s := &svcs.Items[i]
 			st.services[s.Namespace+"/"+s.Name] = s
@@ -317,15 +339,19 @@ func loadMeshState(ctx context.Context, c *k8s.Clients) *meshState {
 	return st
 }
 
-// readyEndpoints is readyEndpoints with a per-analysis cache.
-func (st *meshState) readyEndpoints(ctx context.Context, c *k8s.Clients, ns, name string) int {
-	key := ns + "/" + name
-	if n, ok := st.epCache[key]; ok {
-		return n
+// noEndpoints reports whether svc has zero ready endpoints, reading each Service's
+// Endpoints once per analysis. ExternalName Services never have endpoints, so they never count.
+func (st *meshState) noEndpoints(ctx context.Context, c *k8s.Clients, svc *corev1.Service) bool {
+	if svc.Spec.Type == corev1.ServiceTypeExternalName {
+		return false
 	}
-	n := readyEndpoints(ctx, c, ns, name)
-	st.epCache[key] = n
-	return n
+	key := svc.Namespace + "/" + svc.Name
+	n, ok := st.epCache[key]
+	if !ok {
+		n = readyEndpoints(ctx, c, svc.Namespace, svc.Name)
+		st.epCache[key] = n
+	}
+	return n == 0
 }
 
 // subsetDefined reports whether some DestinationRule for Service b defines subset.

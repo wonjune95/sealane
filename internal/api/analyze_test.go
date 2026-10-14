@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -175,5 +176,53 @@ func TestAnalyzeEndpointRequiresAuth(t *testing.T) {
 	mux.ServeHTTP(rec, authedReq("GET", "/api/analyze?ns=apps", nil))
 	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), `"findings":[]`) {
 		t.Fatalf("want 200 with empty findings, got %d %s", rec.Code, rec.Body.String())
+	}
+}
+
+func TestAnalyzeServicesListErrorSkipsExistenceChecks(t *testing.T) {
+	kube := kubefake.NewSimpleClientset()
+	kube.PrependReactor("list", "services", func(ktesting.Action) (bool, runtime.Object, error) {
+		return true, nil, errors.New("apiserver unavailable")
+	})
+	istio := istiofake.NewSimpleClientset(
+		vs("apps", "v", []string{"shop"}, nil, &istioapi.Destination{Host: "shop"}),
+		&istionet.DestinationRule{ObjectMeta: metav1.ObjectMeta{Namespace: "apps", Name: "shop"}, Spec: istioapi.DestinationRule{Host: "shop"}},
+	)
+	port := gwapi.PortNumber(80)
+	hr := &gwapi.HTTPRoute{ObjectMeta: metav1.ObjectMeta{Namespace: "apps", Name: "route"},
+		Spec: gwapi.HTTPRouteSpec{Rules: []gwapi.HTTPRouteRule{{BackendRefs: []gwapi.HTTPBackendRef{
+			{BackendRef: gwapi.BackendRef{BackendObjectReference: gwapi.BackendObjectReference{Name: "shop", Port: &port}}},
+		}}}}}
+	c := &k8s.Clients{Kube: kube, Istio: istio, Gateway: gwfake.NewSimpleClientset(hr)}
+	got := codes(analyzeMesh(context.Background(), c, ""))
+	for _, code := range []string{"vs-host-missing", "httproute-backend-missing", "dr-host-missing"} {
+		if got[code] != 0 {
+			t.Errorf("%s must not fire when Services cannot be listed: %v", code, got)
+		}
+	}
+}
+
+func TestAnalyzeExternalNameGatewayRefsAndScopedChecked(t *testing.T) {
+	ext := svc("apps", "ext", nil)
+	ext.Spec.Type = corev1.ServiceTypeExternalName
+	ext.Spec.ExternalName = "api.example.com"
+	istio := istiofake.NewSimpleClientset(
+		// legacy FQDN gateway reference plus the same gateway again in ns/name form
+		vs("apps", "a", []string{"x.example.com"}, []string{"gw.edge.svc.cluster.local", "edge/gw"}, &istioapi.Destination{Host: "ext"}),
+	)
+	if _, err := istio.NetworkingV1().Gateways("edge").Create(context.Background(),
+		&istionet.Gateway{ObjectMeta: metav1.ObjectMeta{Namespace: "edge", Name: "gw"}}, metav1.CreateOptions{}); err != nil {
+		t.Fatal(err)
+	}
+	c := &k8s.Clients{Kube: kubefake.NewSimpleClientset(ext), Istio: istio, Gateway: gwfake.NewSimpleClientset()}
+	a := analyzeMesh(context.Background(), c, "")
+	if len(a.Findings) != 0 {
+		t.Errorf("want no findings (ExternalName, FQDN gateway ref, no self-conflict), got %+v", a.Findings)
+	}
+	if a.Checked != 2 {
+		t.Errorf("checked: want 2 (VS + gateway), got %d", a.Checked)
+	}
+	if n := analyzeMesh(context.Background(), c, "apps").Checked; n != 1 {
+		t.Errorf("scoped checked: want 1, got %d", n)
 	}
 }

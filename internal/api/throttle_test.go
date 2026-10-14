@@ -1,6 +1,7 @@
 package api
 
 import (
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -46,6 +47,19 @@ func TestThrottleBlocksAfterMaxFailures(t *testing.T) {
 	th.reset("u:bob")
 	if len(th.fails) != 0 {
 		t.Fatal("reset clears the key")
+	}
+}
+
+func TestThrottleSweepsStaleKeys(t *testing.T) {
+	now := time.Date(2026, 10, 14, 9, 0, 0, 0, time.UTC)
+	th := newThrottle()
+	th.now = func() time.Time { return now }
+	for i := 0; i < 1001; i++ {
+		th.fail(fmt.Sprintf("u:%d", i))
+	}
+	now = now.Add(throttleWindow + time.Second)
+	if th.fail("u:new"); len(th.fails) != 1 {
+		t.Fatalf("stale keys must be swept past 1000 keys, %d left", len(th.fails))
 	}
 }
 

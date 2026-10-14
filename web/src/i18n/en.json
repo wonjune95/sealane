@@ -458,7 +458,7 @@
   "analysis.search": "Search findings",
   "analysis.empty": "No findings",
   "analysis.emptyHint": "Every route, subset, gateway and backend checked out.",
-  "analysis.skippedPods": "Pod checks were skipped: the ServiceAccount cannot list pods. Upgrade the chart to 1.1.0 or grant pods list.",
+  "analysis.skippedPods": "Pod checks were skipped: pods could not be listed (missing RBAC or a transient API error). The chart's ClusterRole grants pods list from 1.1.0.",
   "analysis.severity": "Severity",
   "analysis.severity.error": "Error",
   "analysis.severity.warning": "Warning",

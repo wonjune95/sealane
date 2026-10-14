@@ -458,7 +458,7 @@
   "analysis.search": "점검 결과 검색",
   "analysis.empty": "발견된 문제 없음",
   "analysis.emptyHint": "모든 라우트, 서브셋, 게이트웨이, 백엔드가 정상입니다.",
-  "analysis.skippedPods": "파드 점검을 건너뛰었습니다: ServiceAccount가 파드를 조회할 수 없습니다. 차트를 1.1.0으로 업그레이드하거나 pods list 권한을 부여하세요.",
+  "analysis.skippedPods": "파드 점검을 건너뛰었습니다: 파드를 조회할 수 없습니다(RBAC 권한 부족 또는 일시적인 API 오류). 차트의 ClusterRole은 1.1.0부터 pods list 권한을 부여합니다.",
   "analysis.severity": "심각도",
   "analysis.severity.error": "오류",
   "analysis.severity.warning": "경고",

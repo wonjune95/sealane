@@ -33,6 +33,7 @@ kubectl -n sealane port-forward svc/sealane 8080:8080   # http://localhost:8080 
 | `oidc.roles.{admin,editor,viewer}` | `[]` | IdP groups per role; highest wins |
 | `oidc.defaultRole` | `viewer` | Role for users with no matching group; empty string refuses them |
 | `oidc.displayName` | `SSO` | Login button label |
+| `oidc.hideLocalLogin` | `false` | Hide the username/password form when SSO is on; the API still accepts local logins; `/?local=1` shows the form |
 
 Upgrading from the Istio Dashboard name: set `accountsConfigMap=istio-dashboard-accounts` and `clustersSecret=istio-dashboard-clusters` to keep your data — see [docs/upgrading.md](https://github.com/wonjune95/sealane/blob/main/docs/upgrading.md).
 

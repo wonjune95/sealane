@@ -43,7 +43,12 @@ func (t *throttle) fail(key string) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 	t.fails[key] = append(t.trim(key), t.now())
-	// ponytail: entries are trimmed on access only; a flood of distinct keys grows the map until each key's window passes.
+	// ponytail: full sweep only past 1000 keys; a per-key heap if that ever shows up in a profile
+	if len(t.fails) > 1000 {
+		for k := range t.fails {
+			t.trim(k)
+		}
+	}
 }
 
 func (t *throttle) reset(key string) { t.mu.Lock(); delete(t.fails, key); t.mu.Unlock() }

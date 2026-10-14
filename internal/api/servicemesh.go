@@ -154,6 +154,8 @@ func (s *Server) handleServiceMesh(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// ponytail: VS/DR/HTTPRoute are listed twice per request (above and inside analyzeMesh);
+	// pass the lists into analyzeMesh if this page ever gets slow on large clusters.
 	for _, f := range analyzeMesh(ctx, c, "").Findings {
 		if f.Service == key {
 			out.Findings = append(out.Findings, f)

@@ -10,7 +10,6 @@ import (
 	istioapi "istio.io/api/networking/v1"
 	istionet "istio.io/client-go/pkg/apis/networking/v1"
 	corev1 "k8s.io/api/core/v1"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 
@@ -38,7 +37,7 @@ type finding struct {
 
 type analysis struct {
 	Findings []finding `json:"findings"`
-	Skipped  []string  `json:"skipped,omitempty"` // checks that could not run: "pods" (no RBAC)
+	Skipped  []string  `json:"skipped,omitempty"` // checks that could not run: "pods" (not listable)
 	Checked  int       `json:"checked"`           // routing resources inspected
 }
 
@@ -122,6 +121,10 @@ func analyzeMesh(ctx context.Context, c *k8s.Clients, ns string) analysis {
 				}
 				svc, ok := st.services[svcKey(b)]
 				if !ok && st.services != nil {
+					fqdn := b.Name + "." + b.Namespace + ".svc.cluster.local"
+					if serviceEntryFor(st.ses, d.Host) != "" || serviceEntryFor(st.ses, fqdn) != "" {
+						continue // VM / multicluster host backed by a ServiceEntry
+					}
 					add(finding{Severity: "error", Code: "vs-host-missing", Resource: self, Service: svcKey(b),
 						Message: fmt.Sprintf("destination %q is not a Service (looked for %s)", d.Host, svcKey(b))})
 					continue
@@ -208,7 +211,7 @@ func analyzeMesh(ctx context.Context, c *k8s.Clients, ns string) analysis {
 				for _, cond := range p.Conditions {
 					if (cond.Type == "Accepted" || cond.Type == "ResolvedRefs") && cond.Status == metav1.ConditionFalse {
 						add(finding{Severity: "error", Code: "httproute-not-accepted", Resource: self,
-							Message: cond.Reason + ": " + cond.Message})
+							Message: condText(cond)})
 					}
 				}
 			}
@@ -243,7 +246,7 @@ func analyzeMesh(ctx context.Context, c *k8s.Clients, ns string) analysis {
 				if (cond.Type == "Accepted" || cond.Type == "Programmed") && cond.Status == metav1.ConditionFalse {
 					add(finding{Severity: "error", Code: "gateway-not-programmed",
 						Resource: ref{TypeID: typeGateway, Kind: "Gateway", Namespace: g.Namespace, Name: g.Name},
-						Message:  cond.Type + " is False: " + cond.Reason + ": " + cond.Message})
+						Message:  cond.Type + " is False: " + condText(cond)})
 				}
 			}
 		}
@@ -264,6 +267,14 @@ func analyzeMesh(ctx context.Context, c *k8s.Clients, ns string) analysis {
 		return a.Message < b.Message // map-ordered sources (conflicts, gateways) stay stable across refreshes
 	})
 	return out
+}
+
+// condText is "Reason: Message", or the reason alone when the message is empty.
+func condText(c metav1.Condition) string {
+	if c.Message == "" {
+		return c.Reason
+	}
+	return c.Reason + ": " + c.Message
 }
 
 // istioGatewayKey normalises a VirtualService gateway reference to "ns/name".
@@ -314,6 +325,8 @@ func loadMeshState(ctx context.Context, c *k8s.Clients) *meshState {
 			st.services[s.Namespace+"/"+s.Name] = s
 		}
 	}
+	// ponytail: lists every Pod object (full specs) just for its labels on every refresh;
+	// switch to a labels-only k8s.io/client-go/metadata list if large clusters feel it.
 	if pods, err := c.Kube.CoreV1().Pods("").List(ctx, metav1.ListOptions{}); err == nil {
 		st.podsOK = true
 		st.pods = map[string][]labels.Set{}
@@ -321,10 +334,6 @@ func loadMeshState(ctx context.Context, c *k8s.Clients) *meshState {
 			p := &pods.Items[i]
 			st.pods[p.Namespace] = append(st.pods[p.Namespace], labels.Set(p.Labels))
 		}
-	} else if !apierrors.IsForbidden(err) {
-		st.podsOK = true // transient error: do not advertise a permission problem; checks simply find no pods
-		st.pods = map[string][]labels.Set{}
-		// ponytail: a transient list failure reads as "no pods"; acceptable for a 30 s refresh page
 	}
 	if ses, err := c.Istio.NetworkingV1().ServiceEntries("").List(ctx, metav1.ListOptions{}); err == nil {
 		for _, se := range ses.Items {
@@ -365,8 +374,7 @@ func (st *meshState) subsetDefined(b flowBackend, subset string) bool {
 		return true
 	}
 	for _, dr := range st.drs {
-		h := resolveDestination(dr.Spec.Host, dr.Namespace, 0)
-		if h.External || h.Namespace != b.Namespace || h.Name != b.Name {
+		if !hostsMatch([]string{dr.Spec.Host}, b.Name+"."+b.Namespace+".svc.cluster.local", dr.Namespace) {
 			continue
 		}
 		for _, ss := range dr.Spec.Subsets {

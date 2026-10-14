@@ -55,14 +55,19 @@ func TestAnalyzeVirtualServiceDestinations(t *testing.T) {
 	kube := kubefake.NewSimpleClientset(
 		svc("apps", "shop", map[string]string{"app": "shop"}),
 		pod("apps", "shop-1", map[string]string{"app": "shop", "version": "v1"}),
-		&corev1.Endpoints{ObjectMeta: metav1.ObjectMeta{Namespace: "apps", Name: "shop"},
-			Subsets: []corev1.EndpointSubset{{Addresses: []corev1.EndpointAddress{{IP: "10.0.0.1"}}}}},
+		&corev1.Endpoints{ObjectMeta: metav1.ObjectMeta{Namespace: "apps", Name: "shop"}, //nolint:staticcheck // production flow map reads core Endpoints
+			Subsets: []corev1.EndpointSubset{{Addresses: []corev1.EndpointAddress{{IP: "10.0.0.1"}}}}}, //nolint:staticcheck // see Endpoints above
 	)
 	istio := istiofake.NewSimpleClientset(
 		vs("apps", "ok", []string{"shop"}, nil, &istioapi.Destination{Host: "shop", Subset: "v1"}),
 		vs("apps", "missing", []string{"nope"}, nil, &istioapi.Destination{Host: "nope.apps.svc.cluster.local"}),
 		vs("apps", "badsubset", []string{"shop"}, nil, &istioapi.Destination{Host: "shop", Subset: "v9"}),
 		vs("apps", "badgw", []string{"shop.example.com"}, []string{"edge/absent"}, &istioapi.Destination{Host: "shop"}),
+		vs("apps", "vm", []string{"vm"}, nil, &istioapi.Destination{Host: "vm.apps.svc.cluster.local"}), // ServiceEntry-backed: no vs-host-missing
+		&istionet.ServiceEntry{ObjectMeta: metav1.ObjectMeta{Namespace: "apps", Name: "vm"}, Spec: istioapi.ServiceEntry{Hosts: []string{"vm.apps.svc.cluster.local"}}},
+		vs("apps", "wild", []string{"shop"}, nil, &istioapi.Destination{Host: "shop", Subset: "v3"}), // v3 defined by the wildcard DR below
+		&istionet.DestinationRule{ObjectMeta: metav1.ObjectMeta{Namespace: "apps", Name: "wild"},
+			Spec: istioapi.DestinationRule{Host: "*.apps.svc.cluster.local", Subsets: []*istioapi.Subset{{Name: "v3"}}}},
 		&istionet.DestinationRule{ObjectMeta: metav1.ObjectMeta{Namespace: "apps", Name: "shop"},
 			Spec: istioapi.DestinationRule{Host: "shop", Subsets: []*istioapi.Subset{
 				{Name: "v1", Labels: map[string]string{"version": "v1"}},
@@ -148,20 +153,29 @@ func TestAnalyzeGatewayAPIStatusAndBackends(t *testing.T) {
 	}
 }
 
-func TestAnalyzeSkipsPodChecksWithoutPermission(t *testing.T) {
-	kube := kubefake.NewSimpleClientset(svc("apps", "shop", map[string]string{"app": "shop"}))
-	kube.PrependReactor("list", "pods", func(ktesting.Action) (bool, runtime.Object, error) {
-		return true, nil, apierrors.NewForbidden(schema.GroupResource{Resource: "pods"}, "", nil)
-	})
-	istio := istiofake.NewSimpleClientset(&istionet.DestinationRule{ObjectMeta: metav1.ObjectMeta{Namespace: "apps", Name: "shop"},
-		Spec: istioapi.DestinationRule{Host: "shop", Subsets: []*istioapi.Subset{{Name: "v1", Labels: map[string]string{"version": "v1"}}}}})
-	c := &k8s.Clients{Kube: kube, Istio: istio, Gateway: gwfake.NewSimpleClientset()}
-	a := analyzeMesh(context.Background(), c, "")
-	if len(a.Skipped) != 1 || a.Skipped[0] != "pods" {
-		t.Fatalf("want skipped=[pods], got %v", a.Skipped)
-	}
-	if codes(a)["dr-subset-no-pods"] != 0 {
-		t.Errorf("pod check must be skipped: %v", codes(a))
+func TestAnalyzeSkipsPodChecksWhenPodsCannotBeListed(t *testing.T) {
+	for _, listErr := range []error{
+		apierrors.NewForbidden(schema.GroupResource{Resource: "pods"}, "", nil),
+		apierrors.NewTooManyRequests("slow down", 1), // transient: still skipped, never "no pods"
+	} {
+		kube := kubefake.NewSimpleClientset(svc("apps", "shop", map[string]string{"app": "shop"}))
+		kube.PrependReactor("list", "pods", func(ktesting.Action) (bool, runtime.Object, error) {
+			return true, nil, listErr
+		})
+		istio := istiofake.NewSimpleClientset(&istionet.DestinationRule{ObjectMeta: metav1.ObjectMeta{Namespace: "apps", Name: "shop"},
+			Spec: istioapi.DestinationRule{Host: "shop", Subsets: []*istioapi.Subset{{Name: "v1", Labels: map[string]string{"version": "v1"}}}}})
+		if _, err := istio.NetworkingV1().Gateways("edge").Create(context.Background(), &istionet.Gateway{ObjectMeta: metav1.ObjectMeta{Namespace: "edge", Name: "gw"},
+			Spec: istioapi.Gateway{Selector: map[string]string{"istio": "ingressgateway"}}}, metav1.CreateOptions{}); err != nil {
+			t.Fatal(err)
+		}
+		c := &k8s.Clients{Kube: kube, Istio: istio, Gateway: gwfake.NewSimpleClientset()}
+		a := analyzeMesh(context.Background(), c, "")
+		if len(a.Skipped) != 1 || a.Skipped[0] != "pods" {
+			t.Fatalf("%v: want skipped=[pods], got %v", listErr, a.Skipped)
+		}
+		if got := codes(a); got["dr-subset-no-pods"] != 0 || got["gateway-selector-no-pods"] != 0 {
+			t.Errorf("%v: pod checks must be skipped: %v", listErr, got)
+		}
 	}
 }
 

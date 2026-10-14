@@ -26,12 +26,14 @@ api() {
 }
 expect() { local want=$1 got=$2 what=$3; [ "$got" = "$want" ] || fail "$what: expected HTTP $want, got $got: $(head -c 300 "$BODY")"; echo "ok  $what ($got)"; }
 # Account writes patch the ConfigMap; the mounted copy syncs within ~1 min, so retry the login (up to 2 min: kubelet sync period + ConfigMap cache TTL).
+# Retries until the mounted accounts ConfigMap catches up (~1 min). Failed attempts count
+# against the sign-in throttle (five per user/address), so a 429 means waiting out its one-minute block.
 login_retry() {
   local code
-  for _ in $(seq 1 24); do
+  for _ in $(seq 1 12); do
     code=$(api POST /api/login "{\"username\":\"$1\",\"password\":\"$2\"}")
     [ "$code" = 200 ] && break
-    sleep 5
+    if [ "$code" = 429 ]; then sleep 61; else sleep 10; fi
   done
   echo "$code"
 }

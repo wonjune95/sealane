@@ -34,7 +34,7 @@ Compose a request Postman-style (method, URL, headers, body) and verify it two w
 
 - **Shows the evaluation** — not just the winning rule, but **every rule that did not match and why** (which condition failed). That answers "why didn't it take this rule?" directly.
 - **Verifies the destination** — service existence and endpoint count, plus whether the `subset` is actually defined in a DestinationRule (a typo there silently blackholes traffic).
-- **Checks the port** — the destination's `port.number`, else the request URL's port (80 for http, 443 for https), must be one the Service exposes; otherwise the result flags it in red, because Envoy would answer `503`. A gateway route without a destination port to a single-port Service uses that port, as Istio does.
+- **Checks the port** — the destination's `port.number`, else the request URL's port (80 for http, 443 for https), must be one the Service exposes; otherwise the result flags it in red, because Envoy would answer `503`. A destination without a port on a single-port Service uses that port, as Istio does, for any VirtualService whose request host is not the Service itself (a request addressed to the Service is checked against its own port).
 - **Models precedence correctly** — Istio takes the first match in declaration order; Gateway API follows the spec (path type → path length → method → header count). PathPrefix segment boundaries are respected (`/api` does not match `/apifoo`).
 
 ![Route check — matched rule and destination](img/screenshot-routecheck.png)
@@ -42,7 +42,7 @@ Compose a request Postman-style (method, URL, headers, body) and verify it two w
 ## Send a real request (opt-in)
 The same request can be **sent from inside a pod you pick under Source**. It goes through that pod's sidecar, so routing, authorization and mTLS are exercised for real — not "this is how it should route" but "this is how it routed".
 
-- **Responses read in Istio terms** — `403` + `RBAC: access denied` → denied by an AuthorizationPolicy; `503` + `upstream connect error` → mTLS mismatch or no healthy endpoint; `503` from `server: envoy` with no upstream service time → no cluster for that host and port; presence of Envoy headers → whether the sidecar was actually traversed. Upstream service time (`x-envoy-upstream-service-time`) is shown alongside.
+- **Responses read in Istio terms** — `403` + `RBAC: access denied` → denied by an AuthorizationPolicy; `503` + `upstream connect error` → mTLS mismatch or no healthy endpoint; `503` from `server: envoy` with no upstream service time → no cluster for that host and port (empty body) or no healthy endpoints (`no healthy upstream`); presence of Envoy headers → whether the sidecar was actually traversed. Upstream service time (`x-envoy-upstream-service-time`) is shown alongside.
 - **Three locks** — (1) Helm opt-in (`requestTester.enabled=true`, off by default), (2) admin only, (3) argv built without a shell, plus input validation (scheme, method, header newlines) and timeout/response-size caps. Every test request is audit-logged with user, source pod and target URL.
 - **The cost of enabling it** — the ServiceAccount gains `pods/exec` create (it already reads pods), which is effectively arbitrary command execution in any pod. That's why it ships off. If the target container has no `curl` (distroless), the UI says so.
 

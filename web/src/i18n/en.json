@@ -506,5 +506,6 @@
   "list.showMore": "Show more ({shown} of {total})",
   "list.sortBy": "Sort by {column}",
   "routecheck.portMissing": "Port {port} not exposed (service ports: {ports})",
-  "routecheck.hint503NoUpstream": "503 from the sidecar with no upstream: no cluster for this host and port — check that the Service exposes the port and the VirtualService destination matches."
+  "routecheck.hint503NoUpstream": "503 from the sidecar with no upstream: no cluster for this host and port — check that the Service exposes the port and the VirtualService destination matches.",
+  "routecheck.hint503NoHealthy": "503 from the sidecar: the Service has no healthy endpoints — check the pods and readiness probes."
 }

@@ -924,6 +924,10 @@ func TestRouteMatchPort(t *testing.T) {
 			Spec: istioapi.VirtualService{Hosts: []string{"echo.example.test"}, Gateways: []string{"echo-gw"},
 				Http: []*istioapi.HTTPRoute{{Route: []*istioapi.HTTPRouteDestination{
 					{Destination: &istioapi.Destination{Host: "echo"}}}}}}},
+		&istionet.VirtualService{ObjectMeta: metav1.ObjectMeta{Name: "echo-pinned", Namespace: "ns"},
+			Spec: istioapi.VirtualService{Hosts: []string{"pinned.example.test"}, Gateways: []string{"echo-gw"},
+				Http: []*istioapi.HTTPRoute{{Route: []*istioapi.HTTPRouteDestination{
+					{Destination: &istioapi.Destination{Host: "echo", Port: &istioapi.PortSelector{Number: 9090}}}}}}}},
 	)
 	mux := newTestMux(t, &stubSource{clients: &k8s.Clients{Kube: kube, Istio: istio, Gateway: gwfake.NewClientset()}})
 	get := func(q string) routeMatchResult {
@@ -954,6 +958,9 @@ func TestRouteMatchPort(t *testing.T) {
 	}
 	if out = get("host=echo.example.test&path=/"); !out.Destinations[0].PortOK {
 		t.Fatalf("gateway VS without a destination port uses the single service port: %+v", out)
+	}
+	if out = get("host=pinned.example.test&path=/&port=8080"); out.Destinations[0].PortOK {
+		t.Fatalf("an explicit destination port 9090 is checked, not the request port: %+v", out)
 	}
 }
 

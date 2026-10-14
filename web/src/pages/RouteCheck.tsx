@@ -40,7 +40,8 @@ export function RouteCheck() {
   const [container, setContainer] = useState('')
 
   const [resTab, setResTab] = useState<ResTab>('route')
-  const [route, setRoute] = useState<RouteMatchResult | null>(null)
+  // reqPort: the port the check ran with, so the pill does not follow later URL edits.
+  const [route, setRoute] = useState<(RouteMatchResult & { reqPort: number }) | null>(null)
   const [res, setRes] = useState<RequestTestResult | null>(null)
   const [error, setError] = useState('')
   const [busy, setBusy] = useState<'' | 'check' | 'send'>('')
@@ -54,15 +55,14 @@ export function RouteCheck() {
     setBusy('check')
     setError('')
     try {
-      setRoute(
-        await checkRoute({
-          host: parsed.hostname,
-          path: parsed.path,
-          method,
-          port: parsed.port,
-          headers: activeHeaders.map(({ key, value }) => ({ key, value })),
-        }),
-      )
+      const result = await checkRoute({
+        host: parsed.hostname,
+        path: parsed.path,
+        method,
+        port: parsed.port,
+        headers: activeHeaders.map(({ key, value }) => ({ key, value })),
+      })
+      setRoute({ ...result, reqPort: parsed.port })
       setResTab('route')
     } catch (err) {
       setRoute(null)
@@ -238,7 +238,7 @@ export function RouteCheck() {
                 ))}
               </dl>
             )}
-            {resTab === 'route' && route && <RouteResult result={route} reqPort={parsed?.port ?? 80} />}
+            {resTab === 'route' && route && <RouteResult result={route} reqPort={route.reqPort} />}
           </div>
         </div>
       )}
@@ -515,10 +515,17 @@ function ResponseBody({ res }: { res: RequestTestResult }) {
       return res.body
     }
   }, [res.body])
-  // Envoy's own 503 (no upstream service time) = no cluster for this host:port.
-  const noUpstream =
+  // Envoy's own 503 (no upstream service time): an empty body means no cluster for this
+  // host:port; "no healthy upstream" means the cluster exists but has no ready endpoints.
+  const envoy503 =
     res.status === 503 && res.headers?.server === 'envoy' && !res.headers['x-envoy-upstream-service-time']
-  const hint = res.hint || (noUpstream ? t('routecheck.hint503NoUpstream') : '')
+  const hint =
+    res.hint ||
+    (envoy503 && !res.body
+      ? t('routecheck.hint503NoUpstream')
+      : envoy503 && res.body?.includes('no healthy upstream')
+        ? t('routecheck.hint503NoHealthy')
+        : '')
 
   return (
     <div className="space-y-3">

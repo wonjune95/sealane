@@ -25,19 +25,19 @@ const route = {
   notes: ['destination ns/echo does not expose port 80 (service ports: 8080, 9090) — Envoy will answer 503'],
 }
 // Envoy's own 503: no upstream service time, no body hint from the backend.
-const sent = { status: 503, statusText: 'Service Unavailable', headers: { server: 'envoy' }, body: '', durationMs: 3 }
+let sent = { status: 503, statusText: 'Service Unavailable', headers: { server: 'envoy' }, body: '', durationMs: 3 }
 let routeQuery
 const fixtures = {
   '/api/clusters': [{ name: 'local' }],
   '/api/capabilities': capabilities,
   '/api/namespaces': ['ns'],
   '/api/pods': [{ name: 'sleep-1', containers: ['sleep', 'istio-proxy'], mesh: true, ready: true }],
-  '/api/requesttest': sent,
 }
 const context = await browser.newContext({ viewport: { width: 1280, height: 900 }, locale: 'en-US' })
 await context.route('**/api/**', async (interception) => {
   const url = new URL(interception.request().url())
   if (!url.pathname.startsWith('/api/')) return interception.continue()
+  if (url.pathname === '/api/requesttest') return interception.fulfill({ json: sent })
   if (url.pathname === '/api/routematch') {
     routeQuery = url.searchParams
     return interception.fulfill({ json: route })
@@ -54,11 +54,20 @@ try {
   await page.getByText('Port 80 not exposed (service ports: 8080, 9090)').waitFor()
   assert.equal(routeQuery.get('port'), '80')
   assert.match(await page.getByText('Port 80 not exposed').getAttribute('class'), /text-red-600/)
+  // The pill keeps the port that was checked while the URL is edited afterwards.
+  await page.getByLabel('Request URL').fill('http://echo.ns.svc.cluster.local:8080/')
+  await page.getByText('Port 80 not exposed (service ports: 8080, 9090)').waitFor()
 
   await page.getByLabel('Source namespace').selectOption('ns')
   await page.getByLabel('Source pod').selectOption('sleep-1')
   await page.getByRole('button', { name: 'Send request' }).click()
   await page.getByText('503 from the sidecar with no upstream', { exact: false }).waitFor()
+
+  // "no healthy upstream" is Envoy's 503 for a cluster without ready endpoints, not a missing cluster.
+  sent = { ...sent, body: 'no healthy upstream', durationMs: 4 }
+  await page.getByRole('button', { name: 'Send request' }).click()
+  await page.getByText('the Service has no healthy endpoints', { exact: false }).waitFor()
+  assert.equal(await page.getByText('503 from the sidecar with no upstream', { exact: false }).count(), 0)
 
   assert.deepEqual(errors, [])
   console.log('routecheck: ok')

@@ -5,6 +5,7 @@ import { Link } from 'react-router-dom'
 import { useCapabilities } from '../api/capabilities'
 import { ApiError } from '../api/client'
 import { useNamespaces } from '../api/namespaces'
+import { useServices } from '../api/services'
 import { checkRoute, type RouteMatchResult } from '../api/routematch'
 import { sendRequestTest, usePods, type RequestTestResult } from '../api/requesttest'
 import { Icon } from '../components/icons'
@@ -37,6 +38,9 @@ export function RouteCheck() {
   const [body, setBody] = useState('')
   const [ns, setNs] = useState('')
   const [pod, setPod] = useState('')
+  const [pickNs, setPickNs] = useState('')
+  const [pickSvc, setPickSvc] = useState('')
+  const [pickPort, setPickPort] = useState(0)
   const [container, setContainer] = useState('')
 
   const [resTab, setResTab] = useState<ResTab>('route')
@@ -47,6 +51,14 @@ export function RouteCheck() {
   const [busy, setBusy] = useState<'' | 'check' | 'send'>('')
 
   const parsed = useMemo(() => parseUrl(url.trim()), [url])
+  const namespaces = useNamespaces()
+  const services = useServices(pickNs)
+  const svc = services.data?.find((x) => x.name === pickSvc)
+  // Point the URL at a Service port, keeping whatever path is already typed.
+  const fillUrl = (name: string, port: number) => {
+    const keep = parseUrl(url.trim())
+    setUrl(`http://${name}.${pickNs}.svc.cluster.local:${port}${keep ? keep.path : '/'}`)
+  }
   const activeHeaders = headers.filter((h) => h.on && h.key.trim())
   const hasBody = method !== 'GET' && method !== 'HEAD'
 
@@ -158,6 +170,62 @@ export function RouteCheck() {
           <Icon name="send" className="h-4 w-4" />
           {busy === 'send' ? t('rt.sending') : t('rt.send')}
         </button>
+        <div className="flex basis-full flex-wrap gap-2">
+          <select
+            value={pickNs}
+            onChange={(e) => {
+              setPickNs(e.target.value)
+              setPickSvc('')
+            }}
+            aria-label={t('rt.pickNamespace')}
+            className="input-base !w-full sm:!w-56 shrink-0"
+          >
+            <option value="">{t('rt.pickNamespace')}</option>
+            {(namespaces.data ?? []).map((n) => (
+              <option key={n} value={n}>
+                {n}
+              </option>
+            ))}
+          </select>
+          <select
+            value={pickSvc}
+            onChange={(e) => {
+              const next = services.data?.find((x) => x.name === e.target.value)
+              setPickSvc(e.target.value)
+              if (next?.ports.length) {
+                setPickPort(next.ports[0])
+                fillUrl(next.name, next.ports[0])
+              }
+            }}
+            disabled={!pickNs}
+            aria-label={t('rt.pickService')}
+            className="input-base min-w-0 basis-full sm:basis-0 flex-1 disabled:opacity-50"
+          >
+            <option value="">{t('rt.pickService')}</option>
+            {(services.data ?? []).map((x) => (
+              <option key={x.name} value={x.name}>
+                {x.name}
+              </option>
+            ))}
+          </select>
+          {svc && svc.ports.length > 1 && (
+            <select
+              value={pickPort}
+              onChange={(e) => {
+                setPickPort(Number(e.target.value))
+                fillUrl(svc.name, Number(e.target.value))
+              }}
+              aria-label={t('rt.pickPort')}
+              className="input-base !w-28 shrink-0"
+            >
+              {svc.ports.map((n) => (
+                <option key={n} value={n}>
+                  {n}
+                </option>
+              ))}
+            </select>
+          )}
+        </div>
       </div>
       {url && !parsed && <p className="text-sm text-red-600 dark:text-red-400">{t('rt.badUrl')}</p>}
       {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}

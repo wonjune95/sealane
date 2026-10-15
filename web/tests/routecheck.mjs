@@ -30,7 +30,8 @@ let routeQuery
 const fixtures = {
   '/api/clusters': [{ name: 'local' }],
   '/api/capabilities': capabilities,
-  '/api/namespaces': ['ns'],
+  '/api/namespaces': ['ns', 'shop'],
+  '/api/services': [{ namespace: 'shop', name: 'reviews', ports: [9080, 9443] }],
   '/api/pods': [{ name: 'sleep-1', containers: ['sleep', 'istio-proxy'], mesh: true, ready: true }],
 }
 const context = await browser.newContext({ viewport: { width: 1280, height: 900 }, locale: 'en-US' })
@@ -49,6 +50,16 @@ const errors = []
 page.on('pageerror', (e) => errors.push(e.message))
 try {
   await page.goto(`${base}/routecheck`)
+  // Service picker fills the URL, keeps the path, and the port select rewrites the port.
+  const urlInput = page.getByLabel('Request URL')
+  await page.getByLabel('Namespace', { exact: true }).selectOption('shop')
+  await page.getByLabel('Pick a service…', { exact: true }).selectOption('reviews')
+  assert.equal(await urlInput.inputValue(), 'http://reviews.shop.svc.cluster.local:9080/')
+  await page.getByLabel('Port', { exact: true }).selectOption('9443')
+  assert.equal(await urlInput.inputValue(), 'http://reviews.shop.svc.cluster.local:9443/')
+  await urlInput.fill('http://reviews.shop.svc.cluster.local:9443/api/x')
+  await page.getByLabel('Port', { exact: true }).selectOption('9080')
+  assert.equal(await urlInput.inputValue(), 'http://reviews.shop.svc.cluster.local:9080/api/x')
   await page.getByLabel('Request URL').fill('http://echo.ns.svc.cluster.local/')
   await page.getByRole('button', { name: 'Check route' }).click()
   await page.getByText('Port 80 not exposed (service ports: 8080, 9090)').waitFor()
@@ -69,6 +80,7 @@ try {
   await page.getByText('the Service has no healthy endpoints', { exact: false }).waitFor()
   assert.equal(await page.getByText('503 from the sidecar with no upstream', { exact: false }).count(), 0)
 
+  if (process.env.SEALANE_SHOT) await page.screenshot({ path: process.env.SEALANE_SHOT })
   assert.deepEqual(errors, [])
   console.log('routecheck: ok')
 } finally {

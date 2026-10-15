@@ -53,6 +53,7 @@ try {
   const rows = page.locator('tbody tr')
   await rows.first().waitFor()
   assert.equal(await rows.count(), 2)
+  await page.getByText('Create the Service, or fix the destination host', { exact: false }).waitFor()
   await page.getByText('Pod checks were skipped', { exact: false }).waitFor()
   const link = page.getByRole('link', { name: /VirtualService shop-vs/ })
   assert.ok(

@@ -522,5 +522,17 @@
   "routecheck.hint503NoHealthy": "사이드카가 503을 반환했습니다: Service에 정상 엔드포인트가 없습니다 — 파드와 readiness probe를 확인하세요.",
   "editor.focusBanner": "{path} 위치를 표시합니다",
   "editor.focusNotFound": "YAML에서 {path}을(를) 찾지 못했습니다",
-  "editor.focusDismiss": "닫기"
+  "editor.focusDismiss": "닫기",
+  "hint.vs-host-missing": "Service를 생성하거나 대상 호스트를 수정하세요 (짧은 이름은 VirtualService의 네임스페이스에서 해석됩니다).",
+  "hint.vs-subset-undefined": "이 호스트의 DestinationRule에 subset을 추가하거나 라우트에서 제거하세요.",
+  "hint.vs-gateway-missing": "Gateway를 생성하거나 namespace/name 형식으로 참조하세요.",
+  "hint.vs-host-conflict": "규칙을 하나의 VirtualService로 합치거나 각각 다른 호스트를 지정하세요. Istio는 정의되지 않은 순서로 하나만 적용합니다.",
+  "hint.backend-no-endpoints": "백엔드의 파드와 readiness probe를 확인하세요. 트래픽을 받을 준비된 파드가 없습니다.",
+  "hint.httproute-backend-missing": "Service를 생성하거나 backendRef의 이름/네임스페이스를 수정하세요.",
+  "hint.httproute-not-accepted": "Gateway의 리스너와 라우트의 parentRef(호스트명, 포트, 네임스페이스 정책)를 확인하세요.",
+  "hint.gateway-not-programmed": "GatewayClass 컨트롤러와 리스너 구성을 확인하세요.",
+  "hint.dr-host-missing": "Service를 생성하거나 DestinationRule의 호스트를 수정하세요.",
+  "hint.dr-subset-no-pods": "파드에 subset 레이블이 맞도록 레이블을 지정하거나 subset 레이블을 수정하세요.",
+  "hint.gateway-selector-no-pods": "게이트웨이 워크로드를 배포하거나 셀렉터가 해당 파드와 일치하도록 수정하세요.",
+  "hint.namespace-injection-no-sidecar": "나열된 파드를 재시작해 사이드카를 주입하거나 sidecar.istio.io/inject: \"false\"로 제외하세요."
 }

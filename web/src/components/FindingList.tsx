@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import type { Finding, Ref } from '../api/analyze'
 import { EmptyState } from './EmptyState'
 import { t } from '../i18n'
+import { hintText } from '../lib/findingHints'
 
 // path/value (from a finding) open the editor on the offending field.
 const href = (r: Ref, path?: string, value?: string) =>
@@ -62,6 +63,7 @@ export function FindingList({
               </td>
               <td className="px-3 py-1.5">
                 {f.message} <span className="block font-mono text-xs text-faint sm:ml-1 sm:inline">{f.code}</span>
+                {hintText(f.code) && <div className="text-xs text-muted">→ {hintText(f.code)}</div>}
               </td>
               <td className="px-3 py-1.5">
                 <RefLink r={f.resource} path={f.path} value={f.value} />

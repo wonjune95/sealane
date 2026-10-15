@@ -505,6 +505,8 @@
   "services.scope.namespace": "네임스페이스 전체",
   "services.scope.mesh": "메시 전체",
   "services.back": "전체 서비스",
+  "services.createVS": "이 서비스의 VirtualService 만들기",
+  "services.createDR": "이 서비스의 DestinationRule 만들기",
   "services.loadFailed": "서비스를 불러오지 못했습니다: {message}",
   "services.colRoutes": "라우트",
   "services.colRules": "규칙",

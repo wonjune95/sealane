@@ -505,6 +505,8 @@
   "services.scope.namespace": "namespace-wide",
   "services.scope.mesh": "mesh-wide",
   "services.back": "All services",
+  "services.createVS": "New VirtualService for this service",
+  "services.createDR": "New DestinationRule for this service",
   "services.loadFailed": "Could not load the service: {message}",
   "services.colRoutes": "Routes",
   "services.colRules": "Rules",

@@ -124,6 +124,19 @@ function genericTemplate(rt: ResourceType): string {
   return yamlDump(obj)
 }
 
+// ?ns=&host= from the Service page: point a new VirtualService/DestinationRule
+// at that service. Edits the parsed template so the seed stays form-representable.
+function seedForService(text: string, ns: string, host: string): string {
+  const obj: any = yamlLoad(text)
+  if (obj.kind === 'VirtualService') {
+    obj.spec.hosts = [host]
+    obj.spec.http[0].route[0].destination.host = host
+  } else if (obj.kind === 'DestinationRule') obj.spec.host = host
+  else return text
+  obj.metadata = { ...obj.metadata, name: host, namespace: ns }
+  return yamlDump(obj)
+}
+
 type Tab = 'form' | 'yaml'
 
 // Mid-edit YAML can have a list typed as a map (`http: {route: []}`); the
@@ -157,6 +170,8 @@ export function ResourceEdit() {
   const [searchParams] = useSearchParams()
   const focusPath = searchParams.get('focus')
   const focusValue = searchParams.get('value') ?? undefined
+  const seedNs = searchParams.get('ns')
+  const seedHost = searchParams.get('host')
 
   const [text, setText] = useState<string | null>(null)
   const [tab, setTab] = useState<Tab>('yaml')
@@ -174,7 +189,10 @@ export function ResourceEdit() {
   useEffect(() => {
     if (text !== null || !rt) return
     let initial: string
-    if (!isEdit) initial = richTemplates()[type] ?? genericTemplate(rt)
+    if (!isEdit) {
+      initial = richTemplates()[type] ?? genericTemplate(rt)
+      if (seedNs && seedHost) initial = seedForService(initial, seedNs, seedHost)
+    }
     else if (resource.data) initial = yamlDump(resource.data.raw)
     else return
     setText(initial)
@@ -191,7 +209,7 @@ export function ResourceEdit() {
       setTab('yaml')
       setFocus({ path: focusPath, line: findFocusLine(initial, focusPath, focusValue) })
     }
-  }, [isEdit, type, rt, resource.data, text, curated, hasAuto, focusPath, focusValue])
+  }, [isEdit, type, rt, resource.data, text, curated, hasAuto, focusPath, focusValue, seedNs, seedHost])
   /* eslint-enable react-hooks/set-state-in-effect */
 
   let obj: any = null

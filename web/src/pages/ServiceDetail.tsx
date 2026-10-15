@@ -1,5 +1,6 @@
 import { Link, useParams } from 'react-router-dom'
 import { useServiceMesh } from '../api/mesh'
+import { useCapabilities } from '../api/capabilities'
 import type { Ref } from '../api/analyze'
 import { PageHeader } from '../components/PageHeader'
 import { FindingList } from '../components/FindingList'
@@ -40,6 +41,9 @@ function Group({ title, items }: { title: string; items: (Ref & { tag?: string }
 export function ServiceDetail() {
   const { ns = '', name = '' } = useParams()
   const { data, isLoading, error } = useServiceMesh(ns, name)
+  const role = useCapabilities().data?.role
+  const canWrite = role === 'admin' || role === 'editor'
+  const q = `new?ns=${encodeURIComponent(ns)}&host=${encodeURIComponent(name)}`
 
   return (
     <div className="mx-auto max-w-6xl space-y-4">
@@ -51,9 +55,21 @@ export function ServiceDetail() {
           `${ns} · ${data.ports.join(', ') || '—'} · ${t('services.endpoints', { n: data.endpoints })}`
         }
         actions={
-          <Link to="/services" className="btn-ghost">
-            <Icon name="back" className="h-4 w-4" /> {t('services.back')}
-          </Link>
+          <>
+            {canWrite && (
+              <>
+                <Link to={`/resources/virtualservices.networking.istio.io/${q}`} className="btn-ghost">
+                  {t('services.createVS')}
+                </Link>
+                <Link to={`/resources/destinationrules.networking.istio.io/${q}`} className="btn-ghost">
+                  {t('services.createDR')}
+                </Link>
+              </>
+            )}
+            <Link to="/services" className="btn-ghost">
+              <Icon name="back" className="h-4 w-4" /> {t('services.back')}
+            </Link>
+          </>
         }
       />
       {error && (

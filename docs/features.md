@@ -35,6 +35,7 @@ Compose a request Postman-style (method, URL, headers, body) and verify it two w
 - **Shows the evaluation** — not just the winning rule, but **every rule that did not match and why** (which condition failed). That answers "why didn't it take this rule?" directly.
 - **Verifies the destination** — service existence and endpoint count, plus whether the `subset` is actually defined in a DestinationRule (a typo there silently blackholes traffic).
 - **Checks the port** — the destination's `port.number`, else the request URL's port (80 for http, 443 for https), must be one the Service exposes; otherwise the result flags it in red, because Envoy would answer `503`. A destination without a port on a single-port Service uses that port, as Istio does, for any VirtualService whose request host is not the Service itself (a request addressed to the Service is checked against its own port).
+- **Service picker** — pick a namespace and a Service (and a port when it has several) to fill the URL with `http://<name>.<ns>.svc.cluster.local:<port>/`; typing a URL by hand still works.
 - **Models precedence correctly** — Istio takes the first match in declaration order; Gateway API follows the spec (path type → path length → method → header count). PathPrefix segment boundaries are respected (`/api` does not match `/apifoo`).
 
 ![Route check — matched rule and destination](img/screenshot-routecheck.png)
@@ -68,6 +69,8 @@ To try it, apply [`examples/demo-mesh.yaml`](https://github.com/wonjune95/sealan
 | `gateway-selector-no-pods` | warning | Gateway (Istio) | `spec.selector` matches no pod in any namespace |
 | `namespace-injection-no-sidecar` | warning | Namespace | the namespace has `istio-injection=enabled`, or an `istio.io/rev` label and no `istio-injection` label (any other `istio-injection` value turns injection off, as in Istio's webhook), yet a `Running` pod has no `istio-proxy` container and does not opt out (`sidecar.istio.io/inject: "false"` label or annotation); native sidecars (an `istio-proxy` init container, Istio 1.22+ with `ENABLE_NATIVE_SIDECARS`) count as sidecars |
 
+Every finding carries a one-line remediation hint under its message (what to create, fix or restart).
+
 The three pod checks need `pods` list (in the chart's ClusterRole from 1.1.0). Without it they are skipped and the page says so (`"skipped": ["pods"]`); only pod labels, container names, phase and the injection opt-out are read. The sidecar check also needs `namespaces` list and is skipped silently without it; with `?ns=` it reports the namespace of that name. If Services cannot be listed, the existence checks are skipped; a kind whose CRD is not installed is skipped silently.
 
 The Services list can be narrowed to services that have any routes, destination rules, policies or findings ("Only services with mesh config").
@@ -76,6 +79,8 @@ Opening a finding's resource link lands on the YAML tab with the offending field
 
 ## Service view
 **Services** (`/services`, then one Service) shows everything that applies to a Service (API `/api/services/{ns}/{name}/mesh`): its selector, ports and ready endpoints; VirtualServices whose hosts name it or that route to it (a bare `*` host never counts); DestinationRules for its host, wildcards included; HTTPRoutes with it as a backend; the gateways those routes bind; the security policies (AuthorizationPolicy, PeerAuthentication, RequestAuthentication) that apply; and the analysis findings that concern it or any resource listed on the page (for example a bound Gateway whose selector matches no pod). The Services list itself shows per-Service counts of routes (VirtualServices for its host plus HTTPRoutes to it), destination rules, policies and findings, computed by the same rules (API `/api/services?mesh=true`).
+
+Admins and editors get two buttons on the Service page, **New VirtualService for this service** and **New DestinationRule for this service**, that open the editor with the template already pointed at the Service (namespace, name and host filled in).
 
 Policies are marked by scope: **workload** (the policy selector matches the Service selector, or a `targetRef` names the Service), **namespace** (no selector, same namespace) or **mesh** (no selector, in the Istio namespace: `istioNamespace`, default `istio-system`). Workload scope is a heuristic: it compares the policy selector with the Service selector, not with pod labels, so a policy that selects pods by a label the Service selector lacks is not shown.
 

@@ -48,6 +48,11 @@ Sealane is moving from an internal tool to a public project in four releases. Da
 - Findings open the offending field in the editor.
 - "Only services with mesh config" filter on the Services list.
 
+## 1.6 (shipped)
+- A remediation hint under every analysis finding.
+- Service picker in the request console that fills the URL and port.
+- "New VirtualService / DestinationRule for this service" from the Service page.
+
 ## After 1.0 (candidates, not promised)
 - Recipes and wizards for common routing changes.
 - Revision history with rollback.

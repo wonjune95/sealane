@@ -532,7 +532,7 @@
   "hint.httproute-not-accepted": "Gateway의 리스너와 라우트의 parentRef(호스트명, 포트, 네임스페이스 정책)를 확인하세요.",
   "hint.gateway-not-programmed": "GatewayClass 컨트롤러와 리스너 구성을 확인하세요.",
   "hint.dr-host-missing": "Service를 생성하거나 DestinationRule의 호스트를 수정하세요.",
-  "hint.dr-subset-no-pods": "파드에 subset 레이블이 맞도록 레이블을 지정하거나 subset 레이블을 수정하세요.",
+  "hint.dr-subset-no-pods": "subset 레이블과 일치하도록 파드에 레이블을 지정하거나 subset 레이블을 수정하세요.",
   "hint.gateway-selector-no-pods": "게이트웨이 워크로드를 배포하거나 셀렉터가 해당 파드와 일치하도록 수정하세요.",
   "hint.namespace-injection-no-sidecar": "나열된 파드를 재시작해 사이드카를 주입하거나 sidecar.istio.io/inject: \"false\"로 제외하세요."
 }

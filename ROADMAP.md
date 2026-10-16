@@ -62,6 +62,9 @@ Sealane is moving from an internal tool to a public project in four releases. Da
 - Analysis flags an HTTPRoute backendRef port the Service does not expose (Istio resolves the ref and still answers 503).
 - "New HTTPRoute for this service" from the Service page.
 
+## 1.9 (shipped)
+- Sealane's own server error messages carry a stable `code`; the UI shows them in the active language.
+
 ## After 1.0 (candidates, not promised)
 - Recipes and wizards for common routing changes.
 - Revision history with rollback.
@@ -70,7 +73,6 @@ Sealane is moving from an internal tool to a public project in four releases. Da
 - Conversion from Istio routing to Gateway API.
 - Bulk export and import.
 - Kubernetes impersonation mode: act as the signed-in user instead of the ServiceAccount.
-- Error codes for server messages, so the UI can translate them.
 - Korean translation of the docs site.
 - Gateway API policy kinds as they reach the standard channel.
 

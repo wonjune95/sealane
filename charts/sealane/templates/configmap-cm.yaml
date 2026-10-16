@@ -1,0 +1,49 @@
+{{- $oidc := default dict .Values.oidc }}
+{{- if and $oidc.enabled (or (not $oidc.issuerURL) (not $oidc.clientID) (not $oidc.redirectURL)) }}
+{{- fail "oidc.enabled=true requires oidc.issuerURL, oidc.clientID and oidc.redirectURL" }}
+{{- end }}
+# Sealane settings. The pod reads every key as an environment variable (envFrom); after editing:
+#   kubectl -n {{ .Release.Namespace }} rollout restart deploy/{{ include "sealane.fullname" . }}
+# With Helm, set the oidc.* values instead — they render into this ConfigMap.
+#
+# Single sign-on (OIDC) is on when OIDC_ISSUER_URL is set. Keys, with the value used when unset:
+#   OIDC_ISSUER_URL: https://keycloak.example.com/realms/main
+#   OIDC_CLIENT_ID: sealane
+#   OIDC_REDIRECT_URL: https://sealane.example.com/api/auth/oidc/callback   # must match the IdP client
+#   OIDC_SCOPES: openid profile email groups                                # default: these four
+#   OIDC_GROUPS_CLAIM: groups                                               # default: groups
+#   OIDC_USERNAME_CLAIM: email                                              # default: email, falls back to sub
+#   OIDC_ROLES_ADMIN: platform-admins        # comma-separated IdP groups per role; highest role wins
+#   OIDC_ROLES_EDITOR: sre
+#   OIDC_ROLES_VIEWER: ""
+#   OIDC_DEFAULT_ROLE: viewer                # role for users with no matching group; default "" refuses them
+#   OIDC_DISPLAY_NAME: Keycloak              # login button "Sign in with Keycloak"; default SSO
+#   LOCAL_LOGIN: hidden                      # hide the username/password form; /?local=1 brings it back
+# The client secret goes in Secret {{ include "sealane.fullname" . }}-secret, key OIDC_CLIENT_SECRET:
+#   kubectl -n {{ .Release.Namespace }} create secret generic {{ include "sealane.fullname" . }}-secret --from-literal=OIDC_CLIENT_SECRET='...'
+# Other optional keys: SHUTDOWN_DELAY (5s), SSL_CERT_FILE (private CA for the issuer; mount it with extraVolumes).
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "sealane.fullname" . }}-cm
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "sealane.labels" . | nindent 4 }}
+{{- if $oidc.enabled }}
+{{- $roles := default dict $oidc.roles }}
+data:
+  OIDC_ISSUER_URL: {{ $oidc.issuerURL | quote }}
+  OIDC_CLIENT_ID: {{ $oidc.clientID | quote }}
+  OIDC_REDIRECT_URL: {{ $oidc.redirectURL | quote }}
+  OIDC_SCOPES: {{ join " " ($oidc.scopes | default (list "openid" "profile" "email" "groups")) | quote }}
+  OIDC_GROUPS_CLAIM: {{ $oidc.groupsClaim | default "groups" | quote }}
+  OIDC_USERNAME_CLAIM: {{ $oidc.usernameClaim | default "email" | quote }}
+  OIDC_ROLES_ADMIN: {{ join "," ($roles.admin | default list) | quote }}
+  OIDC_ROLES_EDITOR: {{ join "," ($roles.editor | default list) | quote }}
+  OIDC_ROLES_VIEWER: {{ join "," ($roles.viewer | default list) | quote }}
+  OIDC_DEFAULT_ROLE: {{ $oidc.defaultRole | default "" | quote }}
+  OIDC_DISPLAY_NAME: {{ $oidc.displayName | default "SSO" | quote }}
+  {{- if $oidc.hideLocalLogin }}
+  LOCAL_LOGIN: hidden
+  {{- end }}
+{{- end }}

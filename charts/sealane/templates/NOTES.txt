@@ -24,7 +24,7 @@ To expose it, set ingress.enabled=true or httpRoute.enabled=true (see values.yam
 Request tester is ON: the ServiceAccount has pods/exec in every namespace (admin-only in the UI).
 {{- end }}
 
-Accounts live in ConfigMap {{ .Values.accountsConfigMap }}; remote clusters in Secret {{ .Values.clustersSecret }}.
+Accounts live in ConfigMap {{ .Values.accountsConfigMap }}; settings (single sign-on) in ConfigMap {{ include "sealane.fullname" . }}-cm; remote clusters in Secret {{ .Values.clustersSecret }}.
 Docs: https://github.com/wonjune95/sealane#readme
 {{- if (default dict .Values.oidc).enabled }}
 

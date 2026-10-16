@@ -1,8 +1,10 @@
 # Sealane local accounts.
 # - One key = one user, value = "role:bcryptHash" (role: admin | editor | viewer)
 # - viewer is read-only; editor/admin can make changes.
-# - Not managed by Helm: apply/edit with kubectl. No restart needed
-#   (the mounted ConfigMap syncs within a minute).
+# - The chart and install.yaml create this ConfigMap empty and Sealane adds admin/admin;
+#   edit it with kubectl or the settings page. No restart needed (the mounted
+#   ConfigMap syncs within a minute). Helm only rewrites keys set under the
+#   `accounts` value.
 #
 # Hash a password:  go run ./hack/bcrypt-hash.go 'password'
 # Add a user:       kubectl -n sealane edit configmap sealane-accounts

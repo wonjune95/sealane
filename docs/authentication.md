@@ -30,7 +30,7 @@ data:
   # viewer1: "viewer:<bcrypt-hash>"
 ```
 
-The ConfigMap lives in the cluster, not the pod, so accounts survive restarts and redeploys. Helm does not manage it (the name comes from `accountsConfigMap`), so upgrades and uninstalls keep it. The pod mounts it, and edits apply **within about a minute, without a restart**. The full example is [`examples/accounts-configmap.yaml`](https://github.com/wonjune95/sealane/blob/main/examples/accounts-configmap.yaml).
+The ConfigMap lives in the cluster, not the pod, so accounts survive restarts and redeploys. The chart and `install.yaml` create it empty (the name comes from `accountsConfigMap`), Sealane adds the initial `admin`, and from then on the UI or kubectl edits it: upgrades leave existing keys alone and `helm uninstall` keeps the ConfigMap. The pod mounts it, and edits apply **within about a minute, without a restart**. The full example is [`examples/accounts-configmap.yaml`](https://github.com/wonjune95/sealane/blob/main/examples/accounts-configmap.yaml).
 
 GitOps and no UI edits? Seed the accounts from Helm values instead:
 
@@ -40,7 +40,7 @@ accounts:
   viewer1: "viewer:$2a$10$..."
 ```
 
-The chart then creates and owns the ConfigMap: every `helm upgrade` rewrites it to this list, so password changes made in the UI are reverted on the next upgrade — manage them in values. `helm uninstall` keeps the ConfigMap. If the ConfigMap already exists outside Helm, delete it before switching (Helm refuses to adopt it).
+Helm manages exactly these keys: changing or removing one in values changes or removes it in the cluster on the next upgrade. Keys added in the UI, and UI password changes to a key whose value in values did not change, are left alone (Helm patches only what changed between two renders).
 
 ### Adding accounts
 
@@ -108,14 +108,33 @@ oidc:
   defaultRole: viewer                        # "" refuses users without a matching group
 ```
 
-`issuerURL`, `clientID`, `clientSecretRef.name` and `redirectURL` are required; the chart refuses to render without them. The chart passes these as `OIDC_*` environment variables (see [Single sign-on variables](configuration.md#single-sign-on-variables) in Configuration); an incomplete set or an invalid `defaultRole` stops the server at startup with `oidc config invalid` in the log.
+`issuerURL`, `clientID` and `redirectURL` are required; the chart refuses to render without them. The values render into the `<release>-cm` ConfigMap as `OIDC_*` keys, which the pod reads as environment variables (see [Single sign-on variables](configuration.md#single-sign-on-variables) in Configuration); an incomplete set or an invalid `defaultRole` stops the server at startup with `oidc config invalid` in the log. Leave `clientSecretRef.name` empty to read the secret from the `<release>-secret` Secret, key `OIDC_CLIENT_SECRET`, instead.
+
+### Without Helm (install.yaml)
+
+`install.yaml` ships the same `sealane-cm` ConfigMap, empty, with every key listed in comments (like Argo CD's `argocd-cm`). Put the settings there, the client secret in `sealane-secret`, and restart the pod:
+
+```bash
+kubectl -n sealane create secret generic sealane-secret --from-literal=OIDC_CLIENT_SECRET='<client-secret>'
+kubectl -n sealane edit configmap sealane-cm
+#   data:
+#     OIDC_ISSUER_URL: https://keycloak.example.com/realms/main
+#     OIDC_CLIENT_ID: sealane
+#     OIDC_REDIRECT_URL: https://sealane.example.com/api/auth/oidc/callback
+#     OIDC_ROLES_ADMIN: platform-admins
+#     OIDC_DEFAULT_ROLE: viewer
+#     OIDC_DISPLAY_NAME: Keycloak
+kubectl -n sealane rollout restart deploy/sealane
+```
+
+Single sign-on is on as soon as `OIDC_ISSUER_URL` is set; `kubectl -n sealane get cm sealane-cm -o yaml` shows what is configured. Note that `OIDC_DEFAULT_ROLE` defaults to empty here (users without a matching group are refused), while the chart's `oidc.defaultRole` default is `viewer`.
 
 When upgrading an existing release from 0.9, use `--reset-then-reuse-values` (Helm 3.14+) or pass your values explicitly, as described in [Upgrading](upgrading.md). With plain `--reuse-values` the new `oidc` defaults are not merged in, so `defaultRole` ends up empty and users without a matching group are refused.
 
 ### Things to know
 
 - **Local and SSO names share one namespace.** Sealane identifies a user by name only, and an SSO user's name comes from `usernameClaim` (default `email`). If a local account and an SSO user end up with the same name, the "you cannot change your own role" and "you cannot delete yourself" checks treat them as the same user. Change-history and audit entries record the provider (`local` or `oidc`) next to the name, so their actions stay distinguishable. Local account names cannot contain `@` (letters, digits, `-`, `.` and `_` only), so with the default `email` claim the two cannot collide; they can when you switch `usernameClaim` to something like `preferred_username`, or when a token lacks the claim and Sealane falls back to `sub`. Avoid naming local accounts after SSO usernames.
-- **Confidential client only.** Sealane redeems the code with a client secret, so the IdP client must be confidential and `clientSecretRef` is required. Public, PKCE-only clients are not supported.
+- **Confidential client only.** Sealane redeems the code with a client secret, so the IdP client must be confidential and a client secret is required. Public, PKCE-only clients are not supported.
 - **`email_verified` is not checked.** The username claim is used for display and audit only; the role comes from the groups claim and the role mapping.
 - **Discovery is lazy.** Sealane fetches the provider's discovery document on the first SSO sign-in, not at boot. An unreachable or misconfigured IdP never blocks startup, health checks or local logins; it only makes SSO sign-ins fail with `oidc_error=idp`, and the next attempt retries discovery.
 - **SSO-only login screen.** `oidc.hideLocalLogin: true` (env `LOCAL_LOGIN=hidden`) hides the username/password form and shows only the SSO button; `/?local=1` brings the form back as a break-glass path. This is a UI option, not a security boundary: the API still accepts local logins and local accounts stay valid. Delete them if you want SSO to be the only way in.

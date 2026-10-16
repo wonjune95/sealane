@@ -88,7 +88,7 @@ Policies are marked by scope: **workload** (the policy selector matches the Serv
 
 ## Role-aware UI + change history
 - The UI checks the signed-in user's role up front (local account or SSO): for viewers, forms and apply/delete buttons turn **read-only**. The server enforces the same rule (403), so the UI can't be bypassed.
-- Sign-in: local accounts (throttled after repeated failures) and optional SSO, whose `login` log line records the IdP groups; `oidc.hideLocalLogin` leaves only the SSO button. Local accounts live in a ConfigMap that Sealane creates and the UI edits, or that the chart renders from the `accounts` value for GitOps installs. See [Authentication](authentication.md).
+- Sign-in: local accounts (throttled after repeated failures) and optional SSO, whose `login` log line records the IdP groups; `oidc.hideLocalLogin` leaves only the SSO button. Local accounts live in the `sealane-accounts` ConfigMap (rendered empty by the chart and install.yaml, filled by Sealane and the UI, or seeded from the `accounts` value); single sign-on settings live in `sealane-cm`, rendered from the `oidc.*` values or edited directly like Argo CD's `argocd-cm`. See [Authentication](authentication.md).
 - The home page's **change history** panel records create/update/delete operations made through Sealane with account and timestamp (in-memory, last 200 — resets on restart; the structured audit log is the durable record). Home cards also show the actual istiod control-plane version (e.g. `1.30.2`).
 
 ## Schema-driven forms + YAML dual editing

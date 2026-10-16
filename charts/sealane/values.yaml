@@ -18,14 +18,13 @@ service:
   port: 8080
 
 # Local accounts ConfigMap. One key = one user, value = "role:bcryptHash" (role: admin|editor|viewer).
-# By default Helm does not create it: Sealane creates it with admin/admin at first start and the
-# settings page edits it, so helm upgrade/uninstall never touch accounts (see examples/accounts-configmap.yaml).
+# The chart renders it empty (helm.sh/resource-policy: keep); Sealane adds admin/admin at first start and the
+# settings page edits it. Upgrades only touch the keys listed under accounts below, uninstall keeps it.
 # Upgrading from Istio Dashboard? Set this to istio-dashboard-accounts to keep existing users.
 accountsConfigMap: sealane-accounts
 
-# Seed accounts from values instead (GitOps, no UI). When non-empty the chart creates the ConfigMap above
-# and OWNS it: every helm upgrade rewrites it to this list, so passwords changed in the UI are reverted —
-# keep them here. helm uninstall keeps the ConfigMap. If the ConfigMap already exists outside Helm, delete it first.
+# Seed accounts from values (GitOps, no UI). Helm manages exactly these keys: changing or removing one here
+# changes or removes it in the cluster on the next upgrade; keys added in the UI are left alone.
 # Hash a password:  go run ./hack/bcrypt-hash.go 'password'   (or: htpasswd -bnBC 10 "" 'password' | tr -d ':\n')
 accounts: {}
 #  admin: "admin:$2a$10$..."
@@ -84,13 +83,15 @@ httpRoute:
 # Single sign-on (OpenID Connect). Local accounts keep working alongside it.
 # Any OIDC provider works (Keycloak, Dex, Google, Entra ID …). Groups from the ID token
 # are mapped to Sealane roles; users with no matching group get defaultRole ("" = refused).
+# These values render into the <release>-cm ConfigMap (OIDC_* keys), which can also be edited directly
+# (install.yaml installs); the client secret is read from clientSecretRef, or from Secret <release>-secret key OIDC_CLIENT_SECRET.
 oidc:
   enabled: false
   displayName: SSO
   issuerURL: ""                     # e.g. https://keycloak.example.com/realms/main
   clientID: ""
   clientSecretRef:
-    name: ""                        # Secret holding the client secret (not managed by the chart)
+    name: ""                        # Secret holding the client secret; "" = Secret <release>-secret, key OIDC_CLIENT_SECRET
     key: clientSecret
   redirectURL: ""                   # https://sealane.example.com/api/auth/oidc/callback — must match the IdP client
   scopes: [openid, profile, email, groups]

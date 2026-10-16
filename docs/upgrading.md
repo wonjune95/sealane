@@ -17,7 +17,7 @@ Sealane is the new name of Istio Dashboard. Images, charts and default resource 
 
 2. Point your HTTPRoute or Ingress backend at the `sealane` Service (port 8080) and open the UI. Existing accounts work unchanged; everyone signs in again once because the session cookie was renamed.
 
-3. Remove the old release: `helm uninstall istio-dashboard -n <namespace>`. The ConfigMap and Secret are not managed by Helm and stay in place.
+3. Remove the old release: `helm uninstall istio-dashboard -n <namespace>`. The ConfigMap and Secret were not managed by that chart and stay in place.
 
 If you prefer the new default names, copy the data into new objects (requires `jq`) and drop the two `--set` flags:
 
@@ -80,3 +80,17 @@ helm upgrade sealane oci://ghcr.io/wonjune95/charts/sealane --version 1.1.0 -n <
 
 - The ClusterRole gains `pods` get/list (labels for the [mesh analysis](features.md#mesh-analysis) pod checks). The chart and `install.yaml` apply it; with a hand-maintained ClusterRole that lacks it, the analysis page skips the pod checks and says so. The request tester now adds only `pods/exec`.
 - The local login form throttles repeated failures: five failed sign-ins inside ten minutes, counted per user name and per client address as reported by your proxy (the last `X-Forwarded-For` entry, else the connection address), block that key for a minute (HTTP 429). The per-user limit holds even if a client forges the header. Without a proxy header the connection address is shared by everyone behind a port-forward or a LoadBalancer without proxy protocol, so five failures by anyone block that address for a minute; and one wrong password per minute keeps a named account blocked, because the block restarts while the five failures stay inside the window.
+
+## From 1.10.x to 1.11.x
+
+The chart now renders the accounts ConfigMap (empty, `helm.sh/resource-policy: keep`) and a new `<release>-cm` ConfigMap that carries the single sign-on settings; the Deployment reads both through `envFrom`. Helm refuses to take over a ConfigMap it did not create, so label the existing accounts ConfigMap once before upgrading:
+
+```bash
+NS=<namespace>; CM=sealane-accounts      # or istio-dashboard-accounts
+kubectl -n $NS annotate cm $CM meta.helm.sh/release-name=sealane meta.helm.sh/release-namespace=$NS
+kubectl -n $NS label cm $CM app.kubernetes.io/managed-by=Helm
+helm upgrade sealane oci://ghcr.io/wonjune95/charts/sealane --version 1.11.0 -n $NS --reset-then-reuse-values
+```
+
+Without the two commands the upgrade stops with `invalid ownership metadata` and changes nothing. Accounts, `oidc.*` values and `clientSecretRef` keep working unchanged; `install.yaml` users just apply the new file (it adopts the existing ConfigMap) and get `sealane-cm` to configure SSO without Helm.
+

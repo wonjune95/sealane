@@ -36,7 +36,7 @@ Ship them with your usual log collector and alert on `dangerous=true`. Dry runs 
 
 ## Upgrades
 
-Use `helm upgrade` with the new `--version`. Release-specific steps (new values keys, renamed resources) are in [Upgrading](upgrading.md); read it before crossing a minor version. The accounts ConfigMap and the clusters Secret are not managed by Helm, so upgrades never touch them.
+Use `helm upgrade` with the new `--version`. Release-specific steps (new values keys, renamed resources) are in [Upgrading](upgrading.md); read it before crossing a minor version. Upgrades never touch existing accounts (the chart renders the accounts ConfigMap without data and keeps it on uninstall) or the clusters Secret (not managed by Helm).
 
 ## Backup
 

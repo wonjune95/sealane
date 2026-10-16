@@ -16,7 +16,7 @@ sequenceDiagram
     Dash-->>User: JSON response (UI is read-only for viewer)
 ```
 
-- **Local accounts = ConfigMap** — one key in the `sealane-accounts` ConfigMap is one account (`username: "role:bcryptHash"`). Stored in the cluster (etcd), not the pod, so **accounts survive restarts and redeploys**; Helm doesn't manage this CM so upgrades keep it. Changes propagate through the mounted volume **within ~1 minute, no restart**.
+- **Local accounts = ConfigMap** — one key in the `sealane-accounts` ConfigMap is one account (`username: "role:bcryptHash"`). Stored in the cluster (etcd), not the pod, so **accounts survive restarts and redeploys**; the chart renders the CM empty (`resource-policy: keep`) and never rewrites keys it did not set, so upgrades and uninstalls keep it. Changes propagate through the mounted volume **within ~1 minute, no restart**.
 - **Single sign-on (optional)** — with `oidc.enabled=true`, the login page also offers an OpenID Connect button. The IdP's groups map to the same three roles and the result is the same signed session cookie, so everything after login is identical to a local account. See [Authentication](authentication.md#single-sign-on-oidc).
 - **Account management UI** — admins can add accounts, change roles/passwords, and delete accounts from the settings page (`GET/PUT/DELETE /api/accounts`; the server patches the CM). Self-deletion, self role-change, and deleting the `admin` account are blocked to prevent lockout. `kubectl edit` works too.
 - **Initial admin + forced change** — if the accounts ConfigMap has no `admin` key at boot, `admin`/`admin` is created. Logging in with the initial password **locks the UI to a password-change screen** until you change it.

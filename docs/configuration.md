@@ -1,6 +1,6 @@
 # Configuration
 
-Sealane is configured with a few flags and environment variables. When you install with Helm, the chart sets the environment from its values, so most people only touch the [Helm values](#helm-values).
+Sealane is configured with a few flags and environment variables. When you install with Helm, the chart sets the environment from its values, so most people only touch the [Helm values](#helm-values). The pod also reads every key of the `sealane-cm` ConfigMap and the optional `sealane-secret` Secret as environment variables (`envFrom`), so with `install.yaml` you set the `OIDC_*` keys there and restart the pod — the ConfigMap ships with the keys listed in comments, like Argo CD's `argocd-cm`.
 
 ## Flags and environment variables
 
@@ -25,7 +25,7 @@ Single sign-on is configured through `OIDC_*` variables (the chart's `oidc.*` va
 | Env | Default | Description |
 |---|---|---|
 | `OIDC_ISSUER_URL` | (set by Helm from `oidc.issuerURL`; empty = SSO off) | OpenID Connect issuer; setting it turns single sign-on on |
-| `OIDC_CLIENT_ID` / `OIDC_CLIENT_SECRET` / `OIDC_REDIRECT_URL` | (set by Helm) | required when `OIDC_ISSUER_URL` is set; the server refuses to start without them |
+| `OIDC_CLIENT_ID` / `OIDC_CLIENT_SECRET` / `OIDC_REDIRECT_URL` | (set by Helm; the secret from `oidc.clientSecretRef` or Secret `sealane-secret`) | required when `OIDC_ISSUER_URL` is set; the server refuses to start without them |
 | `OIDC_SCOPES` | `openid profile email groups` | space-separated scopes |
 | `OIDC_GROUPS_CLAIM` / `OIDC_USERNAME_CLAIM` | `groups` / `email` | ID-token claims for groups and the username (falls back to `sub`) |
 | `OIDC_ROLES_ADMIN` / `OIDC_ROLES_EDITOR` / `OIDC_ROLES_VIEWER` | (empty) | comma-separated IdP groups per role; highest wins |
@@ -46,8 +46,8 @@ The same table is in the [chart README](https://github.com/wonjune95/sealane/blo
 | `replicaCount` | `1` | Stateless — raise for HA |
 | `istioNamespace` | `istio-system` | Where istiod runs (home-page control-plane version); `""` skips the istiod-reader Role (no version shown) |
 | `service.type` / `service.port` | `ClusterIP` / `8080` | |
-| `accountsConfigMap` | `sealane-accounts` | Local accounts ConfigMap (not managed by the chart) |
-| `accounts` | `{}` | Seed local accounts from values (`user: "role:bcryptHash"`). When set, the chart owns the ConfigMap and every upgrade rewrites it, so manage passwords here, not in the UI. Empty: Sealane creates the ConfigMap itself and the UI edits it. |
+| `accountsConfigMap` | `sealane-accounts` | Local accounts ConfigMap; rendered empty, kept on uninstall, filled by Sealane and the UI |
+| `accounts` | `{}` | Seed local accounts from values (`user: "role:bcryptHash"`). Helm manages exactly these keys (changing or removing one here changes it in the cluster); keys added in the UI are kept. |
 | `clustersSecret` | `sealane-clusters` | Remote kubeconfigs Secret (not managed by the chart) |
 | `requestTester.enabled` | `false` | Grants `pods/exec` cluster-wide; admin-only UI feature |
 | `sessionSecret.create` | `true` | Generate and keep a session-signing key (sessions survive restarts). GitOps tools (Argo CD, Flux) and plain "helm template" cannot use lookup and would render a new key on every sync — point existingSecret at a Secret you manage instead. |
@@ -57,7 +57,8 @@ The same table is in the [chart README](https://github.com/wonjune95/sealane/blo
 | `resources` | small requests/limits | |
 | `serviceMonitor.enabled` | `false` | Prometheus Operator ServiceMonitor for `/metrics` |
 | `oidc.enabled` | `false` | OpenID Connect single sign-on; local accounts stay |
-| `oidc.issuerURL` / `clientID` / `clientSecretRef` / `redirectURL` | `""` | Required when enabled (`clientSecretRef.name` = Secret, `key` default `clientSecret`) |
+| `oidc.issuerURL` / `clientID` / `redirectURL` | `""` | Required when enabled; rendered into the `<release>-cm` ConfigMap |
+| `oidc.clientSecretRef` | `{name: "", key: clientSecret}` | Secret holding the client secret; empty = Secret `<release>-secret`, key `OIDC_CLIENT_SECRET` |
 | `oidc.scopes` / `groupsClaim` / `usernameClaim` | `[openid, profile, email, groups]` / `groups` / `email` | Scopes requested and ID-token claims read |
 | `oidc.roles.{admin,editor,viewer}` | `[]` | IdP groups per role; highest wins |
 | `oidc.defaultRole` | `viewer` | Role for users with no matching group; empty string refuses them |

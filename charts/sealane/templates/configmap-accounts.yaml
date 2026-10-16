@@ -1,5 +1,9 @@
-{{- if .Values.accounts }}
-# Rendered only when .Values.accounts is set; otherwise the ConfigMap is created by Sealane and edited from the UI.
+# Local accounts: one key per user, value "role:bcryptHash" (role: admin | editor | viewer).
+# Sealane adds admin/admin here at first start when there is no admin key; the settings page (or kubectl edit)
+# changes it afterwards. helm upgrade and kubectl apply leave existing keys alone: the chart renders only
+# the keys listed in .Values.accounts (none by default), and helm uninstall keeps the ConfigMap.
+#   kubectl -n {{ .Release.Namespace }} edit configmap {{ .Values.accountsConfigMap }}     # add  username: "role:hash"
+#   go run ./hack/bcrypt-hash.go 'password'          # or: htpasswd -bnBC 10 "" 'password' | tr -d ':\n'
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -9,8 +13,9 @@ metadata:
     {{- include "sealane.labels" . | nindent 4 }}
   annotations:
     helm.sh/resource-policy: keep
+{{- with .Values.accounts }}
 data:
-  {{- range $user, $v := .Values.accounts }}
+  {{- range $user, $v := . }}
   {{ $user }}: {{ $v | quote }}
   {{- end }}
 {{- end }}

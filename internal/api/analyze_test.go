@@ -249,13 +249,33 @@ func TestAnalyzeServicesListErrorSkipsExistenceChecks(t *testing.T) {
 	}
 }
 
+func TestAnalyzePortNotExposed(t *testing.T) {
+	shop := svc("apps", "shop", nil)
+	shop.Spec.Ports = []corev1.ServicePort{{Port: 8080}}
+	istio := istiofake.NewSimpleClientset(
+		vs("apps", "bad", []string{"shop"}, nil, &istioapi.Destination{Host: "shop", Port: &istioapi.PortSelector{Number: 80}}),
+		vs("apps", "good", []string{"shop"}, nil, &istioapi.Destination{Host: "shop", Port: &istioapi.PortSelector{Number: 8080}}),
+		vs("apps", "noport", []string{"shop"}, nil, &istioapi.Destination{Host: "shop"}),
+	)
+	c := &k8s.Clients{Kube: kubefake.NewSimpleClientset(shop), Istio: istio, Gateway: gwfake.NewSimpleClientset()}
+	a := analyzeMesh(context.Background(), c, "")
+	if p := strings.Join(paths(a, "vs-port-not-exposed"), ","); p != "spec.http[0].route[0].destination.port.number=80" {
+		t.Errorf("want one finding on bad, got %q (all: %+v)", p, a.Findings)
+	}
+	for _, f := range a.Findings {
+		if f.Code == "vs-port-not-exposed" && (f.Resource.Name != "bad" || f.Service != "apps/shop") {
+			t.Errorf("wrong resource/service: %+v", f)
+		}
+	}
+}
+
 func TestAnalyzeExternalNameGatewayRefsAndScopedChecked(t *testing.T) {
 	ext := svc("apps", "ext", nil)
 	ext.Spec.Type = corev1.ServiceTypeExternalName
 	ext.Spec.ExternalName = "api.example.com"
 	istio := istiofake.NewSimpleClientset(
 		// legacy FQDN gateway reference plus the same gateway again in ns/name form
-		vs("apps", "a", []string{"x.example.com"}, []string{"gw.edge.svc.cluster.local", "edge/gw"}, &istioapi.Destination{Host: "ext"}),
+		vs("apps", "a", []string{"x.example.com"}, []string{"gw.edge.svc.cluster.local", "edge/gw"}, &istioapi.Destination{Host: "ext", Port: &istioapi.PortSelector{Number: 443}}),
 	)
 	if _, err := istio.NetworkingV1().Gateways("edge").Create(context.Background(),
 		&istionet.Gateway{ObjectMeta: metav1.ObjectMeta{Namespace: "edge", Name: "gw"}}, metav1.CreateOptions{}); err != nil {

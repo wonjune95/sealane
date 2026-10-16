@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"sort"
+	"strconv"
 	"strings"
 
 	istioapi "istio.io/api/networking/v1"
@@ -133,6 +134,18 @@ func analyzeSnapshot(st *meshSnapshot, ns string) analysis {
 			if ok && st.noEndpoints(svc) {
 				add(finding{Severity: "warning", Code: "backend-no-endpoints", Resource: self, Service: svcKey(b),
 					Message: fmt.Sprintf("Service %s has no ready endpoints", svcKey(b))})
+			}
+			if ok && d.Port != nil && d.Port.Number != 0 && svc.Spec.Type != corev1.ServiceTypeExternalName {
+				ports, exposed := make([]string, 0, len(svc.Spec.Ports)), false
+				for _, sp := range svc.Spec.Ports {
+					ports = append(ports, strconv.Itoa(int(sp.Port)))
+					exposed = exposed || uint32(sp.Port) == d.Port.Number
+				}
+				if !exposed {
+					add(finding{Severity: "error", Code: "vs-port-not-exposed", Resource: self, Service: svcKey(b),
+						Path: d.path + ".port.number", Value: strconv.Itoa(int(d.Port.Number)),
+						Message: fmt.Sprintf("destination %s does not expose port %d (service ports: %s)", svcKey(b), d.Port.Number, strings.Join(ports, ", "))})
+				}
 			}
 			if d.Subset != "" && !st.subsetDefined(b, d.Subset) {
 				add(finding{Severity: "error", Code: "vs-subset-undefined", Resource: self, Service: svcKey(b),

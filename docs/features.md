@@ -58,6 +58,7 @@ To try it, apply [`examples/demo-mesh.yaml`](https://github.com/wonjune95/sealan
 |---|---|---|---|
 | `vs-host-missing` | error | VirtualService | a route destination resolves to an in-cluster Service that does not exist |
 | `vs-subset-undefined` | error | VirtualService | a destination names a subset no DestinationRule defines for that Service |
+| `vs-port-not-exposed` | error | VirtualService | a destination's `port.number` is not a port of the Service (Envoy answers 503) |
 | `vs-gateway-missing` | error | VirtualService | `spec.gateways` names an Istio Gateway that does not exist (`mesh` ignored) |
 | `vs-host-conflict` | warning | VirtualService | another VirtualService bound to the same gateway claims the same host |
 | `backend-no-endpoints` | warning | VirtualService / HTTPRoute | the backend Service exists but has zero ready endpoints (ExternalName Services are exempt) |

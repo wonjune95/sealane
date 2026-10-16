@@ -3,6 +3,7 @@ import { t, type Key } from '../i18n'
 const HINTS = {
   'vs-host-missing': 'hint.vs-host-missing',
   'vs-subset-undefined': 'hint.vs-subset-undefined',
+  'vs-port-not-exposed': 'hint.vs-port-not-exposed',
   'vs-gateway-missing': 'hint.vs-gateway-missing',
   'vs-host-conflict': 'hint.vs-host-conflict',
   'backend-no-endpoints': 'hint.backend-no-endpoints',

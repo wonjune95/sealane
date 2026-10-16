@@ -525,6 +525,7 @@
   "editor.focusDismiss": "닫기",
   "hint.vs-host-missing": "Service를 생성하거나 대상 호스트를 수정하세요 (짧은 이름은 VirtualService의 네임스페이스에서 해석됩니다).",
   "hint.vs-subset-undefined": "이 호스트의 DestinationRule에 subset을 추가하거나 라우트에서 제거하세요.",
+  "hint.vs-port-not-exposed": "Service의 포트 중 하나를 사용하거나, 단일 포트 Service면 port를 지우세요.",
   "hint.vs-gateway-missing": "Gateway를 생성하거나 namespace/name 형식으로 참조하세요.",
   "hint.vs-host-conflict": "규칙을 하나의 VirtualService로 합치거나 각각 다른 호스트를 지정하세요. Istio는 정의되지 않은 순서로 하나만 적용합니다.",
   "hint.backend-no-endpoints": "백엔드의 파드와 readiness probe를 확인하세요. 트래픽을 받을 준비된 파드가 없습니다.",

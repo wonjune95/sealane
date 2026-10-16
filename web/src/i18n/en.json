@@ -525,6 +525,7 @@
   "editor.focusDismiss": "Dismiss",
   "hint.vs-host-missing": "Create the Service, or fix the destination host (short names resolve in the VirtualService's namespace).",
   "hint.vs-subset-undefined": "Add the subset to a DestinationRule for this host, or remove it from the route.",
+  "hint.vs-port-not-exposed": "Use one of the Service's ports, or drop the port on a single-port Service.",
   "hint.vs-gateway-missing": "Create the Gateway, or reference it as namespace/name.",
   "hint.vs-host-conflict": "Merge the rules into one VirtualService, or give each a distinct host; Istio applies only one in an undefined order.",
   "hint.backend-no-endpoints": "Check the backend's pods and readiness probes; nothing is ready to receive traffic.",

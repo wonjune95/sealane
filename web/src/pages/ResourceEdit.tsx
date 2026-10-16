@@ -124,13 +124,14 @@ function genericTemplate(rt: ResourceType): string {
   return yamlDump(obj)
 }
 
-// ?ns=&host= from the Service page: point a new VirtualService/DestinationRule
+// ?ns=&host=&port= from the Service page: point a new VirtualService/DestinationRule
 // at that service. Edits the parsed template so the seed stays form-representable.
-function seedForService(text: string, ns: string, host: string): string {
+function seedForService(text: string, ns: string, host: string, port: number): string {
   const obj: any = yamlLoad(text)
   if (obj.kind === 'VirtualService') {
     obj.spec.hosts = [host]
     obj.spec.http[0].route[0].destination.host = host
+    if (port) obj.spec.http[0].route[0].destination.port = { number: port }
   } else if (obj.kind === 'DestinationRule') obj.spec.host = host
   else return text
   obj.metadata = { ...obj.metadata, name: host, namespace: ns }
@@ -172,6 +173,7 @@ export function ResourceEdit() {
   const focusValue = searchParams.get('value') ?? undefined
   const seedNs = searchParams.get('ns')
   const seedHost = searchParams.get('host')
+  const seedPort = Number(searchParams.get('port')) || 0
 
   const [text, setText] = useState<string | null>(null)
   const [tab, setTab] = useState<Tab>('yaml')
@@ -191,7 +193,7 @@ export function ResourceEdit() {
     let initial: string
     if (!isEdit) {
       initial = richTemplates()[type] ?? genericTemplate(rt)
-      if (seedNs && seedHost) initial = seedForService(initial, seedNs, seedHost)
+      if (seedNs && seedHost) initial = seedForService(initial, seedNs, seedHost, seedPort)
     }
     else if (resource.data) initial = yamlDump(resource.data.raw)
     else return
@@ -209,7 +211,7 @@ export function ResourceEdit() {
       setTab('yaml')
       setFocus({ path: focusPath, line: findFocusLine(initial, focusPath, focusValue) })
     }
-  }, [isEdit, type, rt, resource.data, text, curated, hasAuto, focusPath, focusValue, seedNs, seedHost])
+  }, [isEdit, type, rt, resource.data, text, curated, hasAuto, focusPath, focusValue, seedNs, seedHost, seedPort])
   /* eslint-enable react-hooks/set-state-in-effect */
 
   let obj: any = null
@@ -410,7 +412,7 @@ export function ResourceEdit() {
   return (
     <div className="resource-editor mx-auto space-y-5">
       <PageHeader
-        eyebrow={isEdit ? 'Resource editor' : 'New resource'}
+        eyebrow={t(isEdit ? 'eyebrow.editor' : 'eyebrow.new')}
         title={isEdit ? name : t('edit.newTitle', { kind: rt.kind })}
         description={
           <span className="inline-flex flex-wrap items-center gap-2">

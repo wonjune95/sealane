@@ -50,7 +50,7 @@ export function Overview() {
   return (
     <div className="mx-auto max-w-6xl space-y-4">
       <PageHeader
-        eyebrow="Resource inventory"
+        eyebrow={t('eyebrow.overview')}
         title={
           <>
             {t('overview.title')}

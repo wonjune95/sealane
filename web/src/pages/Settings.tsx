@@ -39,7 +39,7 @@ export function Settings() {
   return (
     <div className="space-y-6">
       <PageHeader
-        eyebrow="Workspace settings"
+        eyebrow={t('eyebrow.settings')}
         title={t('settings.title')}
         description={t('settings.description')}
       />

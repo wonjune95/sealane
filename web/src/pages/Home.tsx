@@ -47,7 +47,7 @@ export function Home() {
   return (
     <div className="space-y-6">
       <PageHeader
-        eyebrow="Workspace overview"
+        eyebrow={t('eyebrow.home')}
         title={t('home.title')}
         description={t('home.description')}
         actions={

@@ -68,12 +68,12 @@ try {
   // An editor gets both buttons, pointing at the prefilled create URLs.
   await page.goto(`${base}/services/shop/reviews`)
   await page.getByRole('link', { name: createDR }).waitFor()
-  assert.equal(await page.getByRole('link', { name: createDR }).getAttribute('href'), `/resources/${DR}/new?ns=shop&host=reviews`)
+  assert.equal(await page.getByRole('link', { name: createDR }).getAttribute('href'), `/resources/${DR}/new?ns=shop&host=reviews&port=9080`)
   await page.getByRole('link', { name: createVS }).click()
 
   // VirtualService: Form tab, identity and hosts seeded from the service.
   await page.getByPlaceholder('reviews / example.com').waitFor()
-  assert.equal(new URL(page.url()).search, '?ns=shop&host=reviews')
+  assert.equal(new URL(page.url()).search, '?ns=shop&host=reviews&port=9080')
   assert.ok(await isActive(formTab), 'Form tab is active for the seeded VirtualService')
   assert.equal(await field('Name').inputValue(), 'reviews')
   assert.equal(await field('Namespace').inputValue(), 'shop')
@@ -84,9 +84,10 @@ try {
   assert.deepEqual(vs.metadata, { name: 'reviews', namespace: 'shop' })
   assert.deepEqual(vs.spec.hosts, ['reviews'])
   assert.equal(vs.spec.http[0].route[0].destination.host, 'reviews')
+  assert.equal(vs.spec.http[0].route[0].destination.port.number, 9080)
 
   // DestinationRule: Form tab, host seeded.
-  await page.goto(`${base}/resources/${DR}/new?ns=shop&host=reviews`)
+  await page.goto(`${base}/resources/${DR}/new?ns=shop&host=reviews&port=9080`)
   await page.locator('label:has-text("Host") input').waitFor()
   assert.ok(await isActive(formTab), 'Form tab is active for the seeded DestinationRule')
   assert.equal(await field('Name').inputValue(), 'reviews')

@@ -43,12 +43,13 @@ export function ServiceDetail() {
   const { data, isLoading, error } = useServiceMesh(ns, name)
   const caps = useCapabilities().data
   const canWrite = (caps?.role === 'admin' || caps?.role === 'editor') && !!caps?.virtualServiceInstalled
-  const q = `new?ns=${encodeURIComponent(ns)}&host=${encodeURIComponent(name)}`
+  const port = data?.ports[0]
+  const q = `new?ns=${encodeURIComponent(ns)}&host=${encodeURIComponent(name)}${port ? `&port=${port}` : ''}`
 
   return (
     <div className="mx-auto max-w-6xl space-y-4">
       <PageHeader
-        eyebrow="Service"
+        eyebrow={t('eyebrow.service')}
         title={name}
         description={
           data &&

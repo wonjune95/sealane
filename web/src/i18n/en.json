@@ -534,5 +534,16 @@
   "hint.dr-host-missing": "Create the Service, or fix the DestinationRule host.",
   "hint.dr-subset-no-pods": "Label the pods to match the subset, or fix the subset labels.",
   "hint.gateway-selector-no-pods": "Deploy the gateway workload, or fix the selector to match its pods.",
-  "hint.namespace-injection-no-sidecar": "Restart the listed pods so the sidecar is injected, or opt them out with sidecar.istio.io/inject: \"false\"."
+  "hint.namespace-injection-no-sidecar": "Restart the listed pods so the sidecar is injected, or opt them out with sidecar.istio.io/inject: \"false\".",
+  "eyebrow.home": "Workspace overview",
+  "eyebrow.service": "Service",
+  "eyebrow.overview": "Resource inventory",
+  "eyebrow.analysis": "Mesh analysis",
+  "eyebrow.services": "Mesh",
+  "eyebrow.flowmap": "Traffic topology",
+  "eyebrow.settings": "Workspace settings",
+  "eyebrow.resources": "Resource management",
+  "eyebrow.routecheck": "Request workbench",
+  "eyebrow.editor": "Resource editor",
+  "eyebrow.new": "New resource"
 }

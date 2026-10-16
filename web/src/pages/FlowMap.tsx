@@ -49,7 +49,7 @@ export function FlowMap() {
   return (
     <div className="space-y-6">
       <PageHeader
-        eyebrow="Traffic topology"
+        eyebrow={t('eyebrow.flowmap')}
         title={t('flow.title')}
         description={t('flow.description')}
         actions={

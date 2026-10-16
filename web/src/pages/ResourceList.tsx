@@ -115,7 +115,7 @@ export function ResourceList() {
   return (
     <div className="mx-auto max-w-6xl space-y-4">
       <PageHeader
-        eyebrow="Resource management"
+        eyebrow={t('eyebrow.resources')}
         title={
           <>
             {rt?.kind ?? type}

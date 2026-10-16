@@ -30,7 +30,7 @@ export function Analysis() {
   return (
     <div className="mx-auto max-w-6xl space-y-4">
       <PageHeader
-        eyebrow="Mesh analysis"
+        eyebrow={t('eyebrow.analysis')}
         title={
           <>
             {t('analysis.title')}
@@ -56,7 +56,7 @@ export function Analysis() {
           />
         </label>
         <label className="flex shrink-0 items-center gap-2 text-xs text-muted">
-          <span>Namespace</span>
+          <span>{t('common.namespace')}</span>
           <select className="input-base !w-auto max-w-56" value={ns} onChange={(e) => setNs(e.target.value)}>
             <option value="">{t('list.allNamespaces')}</option>
             {(namespaces.data ?? []).map((n) => (

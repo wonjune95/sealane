@@ -116,7 +116,7 @@ export function RouteCheck() {
   return (
     <div className="space-y-4">
       <PageHeader
-        eyebrow="Request workbench"
+        eyebrow={t('eyebrow.routecheck')}
         title={t('rt.title')}
         description={t('rt.description')}
       />

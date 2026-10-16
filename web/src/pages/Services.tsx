@@ -43,7 +43,7 @@ export function Services() {
   return (
     <div className="mx-auto max-w-6xl space-y-4">
       <PageHeader
-        eyebrow="Mesh"
+        eyebrow={t('eyebrow.services')}
         title={
           <>
             {t('services.title')}

@@ -124,7 +124,7 @@ function genericTemplate(rt: ResourceType): string {
   return yamlDump(obj)
 }
 
-// ?ns=&host=&port= from the Service page: point a new VirtualService/DestinationRule
+// ?ns=&host=&port= from the Service page: point a new VirtualService/DestinationRule/HTTPRoute
 // at that service. Edits the parsed template so the seed stays form-representable.
 function seedForService(text: string, ns: string, host: string, port: number): string {
   const obj: any = yamlLoad(text)
@@ -133,6 +133,7 @@ function seedForService(text: string, ns: string, host: string, port: number): s
     obj.spec.http[0].route[0].destination.host = host
     if (port) obj.spec.http[0].route[0].destination.port = { number: port }
   } else if (obj.kind === 'DestinationRule') obj.spec.host = host
+  else if (obj.kind === 'HTTPRoute') obj.spec.rules[0].backendRefs = [{ name: host, port: port || 80 }]
   else return text
   obj.metadata = { ...obj.metadata, name: host, namespace: ns }
   return yamlDump(obj)

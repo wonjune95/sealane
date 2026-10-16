@@ -63,6 +63,7 @@ To try it, apply [`examples/demo-mesh.yaml`](https://github.com/wonjune95/sealan
 | `vs-host-conflict` | warning | VirtualService | another VirtualService bound to the same gateway claims the same host |
 | `backend-no-endpoints` | warning | VirtualService / HTTPRoute | the backend Service exists but has zero ready endpoints (ExternalName Services are exempt) |
 | `httproute-backend-missing` | error | HTTPRoute | a `backendRefs` Service does not exist |
+| `httproute-port-not-exposed` | error | HTTPRoute | a `backendRefs` port is not a port of the Service (the route still shows `ResolvedRefs=True`; Envoy answers 503) |
 | `httproute-not-accepted` | error | HTTPRoute | a parent condition `Accepted` or `ResolvedRefs` is `False` |
 | `gateway-not-programmed` | error | Gateway (API) | condition `Accepted` or `Programmed` is `False` |
 | `dr-host-missing` | warning | DestinationRule | `spec.host` resolves in-cluster but the Service is missing and no ServiceEntry covers it |
@@ -81,7 +82,7 @@ Opening a finding's resource link lands on the YAML tab with the offending field
 ## Service view
 **Services** (`/services`, then one Service) shows everything that applies to a Service (API `/api/services/{ns}/{name}/mesh`): its selector, ports and ready endpoints; VirtualServices whose hosts name it or that route to it (a bare `*` host never counts); DestinationRules for its host, wildcards included; HTTPRoutes with it as a backend; the gateways those routes bind; the security policies (AuthorizationPolicy, PeerAuthentication, RequestAuthentication) that apply; and the analysis findings that concern it or any resource listed on the page (for example a bound Gateway whose selector matches no pod). The Services list itself shows per-Service counts of routes (VirtualServices for its host plus HTTPRoutes to it), destination rules, policies and findings, computed by the same rules (API `/api/services?mesh=true`).
 
-Admins and editors get two buttons on the Service page, **New VirtualService for this service** and **New DestinationRule for this service**, that open the editor with the template already pointed at the Service (namespace, name, host and the Service port filled in).
+Admins and editors get create buttons on the Service page — **New VirtualService for this service**, **New DestinationRule for this service** (when the Istio CRDs are installed) and **New HTTPRoute for this service** (when the Gateway API CRDs are) — that open the editor with the template already pointed at the Service (namespace, name, host or backendRef, and the Service port filled in).
 
 Policies are marked by scope: **workload** (the policy selector matches the Service selector, or a `targetRef` names the Service), **namespace** (no selector, same namespace) or **mesh** (no selector, in the Istio namespace: `istioNamespace`, default `istio-system`). Workload scope is a heuristic: it compares the policy selector with the Service selector, not with pod labels, so a policy that selects pods by a label the Service selector lacks is not shown.
 

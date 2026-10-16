@@ -8,6 +8,7 @@ const HINTS = {
   'vs-host-conflict': 'hint.vs-host-conflict',
   'backend-no-endpoints': 'hint.backend-no-endpoints',
   'httproute-backend-missing': 'hint.httproute-backend-missing',
+  'httproute-port-not-exposed': 'hint.httproute-port-not-exposed',
   'httproute-not-accepted': 'hint.httproute-not-accepted',
   'gateway-not-programmed': 'hint.gateway-not-programmed',
   'dr-host-missing': 'hint.dr-host-missing',

@@ -248,6 +248,18 @@ func analyzeSnapshot(st *meshSnapshot, ns string) analysis {
 					add(finding{Severity: "warning", Code: "backend-no-endpoints", Resource: self, Service: svcKey(b),
 						Message: fmt.Sprintf("Service %s has no ready endpoints", svcKey(b))})
 				}
+				if ok && br.Port != nil && svc.Spec.Type != corev1.ServiceTypeExternalName {
+					ports, exposed := make([]string, 0, len(svc.Spec.Ports)), false
+					for _, sp := range svc.Spec.Ports {
+						ports = append(ports, strconv.Itoa(int(sp.Port)))
+						exposed = exposed || sp.Port == int32(*br.Port)
+					}
+					if !exposed { // Istio resolves the ref fine and then answers 503
+						add(finding{Severity: "error", Code: "httproute-port-not-exposed", Resource: self, Service: svcKey(b),
+							Path: fmt.Sprintf("spec.rules[%d].backendRefs[%d].port", ri, bi), Value: strconv.Itoa(int(*br.Port)),
+							Message: fmt.Sprintf("backend %s does not expose port %d (service ports: %s)", svcKey(b), *br.Port, strings.Join(ports, ", "))})
+					}
+				}
 			}
 		}
 	}

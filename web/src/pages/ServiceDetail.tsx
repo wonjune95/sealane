@@ -42,7 +42,7 @@ export function ServiceDetail() {
   const { ns = '', name = '' } = useParams()
   const { data, isLoading, error } = useServiceMesh(ns, name)
   const caps = useCapabilities().data
-  const canWrite = (caps?.role === 'admin' || caps?.role === 'editor') && !!caps?.virtualServiceInstalled
+  const canWrite = caps?.role === 'admin' || caps?.role === 'editor'
   const port = data?.ports[0]
   const q = `new?ns=${encodeURIComponent(ns)}&host=${encodeURIComponent(name)}${port ? `&port=${port}` : ''}`
 
@@ -57,7 +57,7 @@ export function ServiceDetail() {
         }
         actions={
           <>
-            {canWrite && (
+            {canWrite && caps?.virtualServiceInstalled && (
               <>
                 <Link to={`/resources/virtualservices.networking.istio.io/${q}`} className="btn-ghost">
                   {t('services.createVS')}
@@ -66,6 +66,11 @@ export function ServiceDetail() {
                   {t('services.createDR')}
                 </Link>
               </>
+            )}
+            {canWrite && caps?.httpRouteInstalled && (
+              <Link to={`/resources/httproutes.gateway.networking.k8s.io/${q}`} className="btn-ghost">
+                {t('services.createHR')}
+              </Link>
             )}
             <Link to="/services" className="btn-ghost">
               <Icon name="back" className="h-4 w-4" /> {t('services.back')}

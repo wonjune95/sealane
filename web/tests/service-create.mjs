@@ -30,7 +30,7 @@ async function open(role) {
         httpRouteInstalled: true, virtualServiceInstalled: true, namespaceListAllowed: true,
         devMode: false, user: 'test-user', role,
       },
-      '/api/resourceTypes': [type(VS, 'VirtualService'), type(DR, 'DestinationRule')],
+      '/api/resourceTypes': [type(VS, 'VirtualService'), type(DR, 'DestinationRule'), { ...type(HR, 'HTTPRoute'), group: 'gateway.networking.k8s.io' }],
       '/api/services': [{ namespace: 'shop', name: 'reviews', ports: [9080] }],
       '/api/services/shop/reviews/mesh': mesh,
     }
@@ -44,6 +44,8 @@ async function open(role) {
 
 const createVS = 'New VirtualService for this service'
 const createDR = 'New DestinationRule for this service'
+const createHR = 'New HTTPRoute for this service'
+const HR = 'httproutes.gateway.networking.k8s.io'
 try {
   // A viewer sees the Service page without create buttons.
   {
@@ -52,6 +54,7 @@ try {
     await page.getByRole('heading', { name: 'Virtual services' }).waitFor()
     assert.equal(await page.getByRole('link', { name: createVS }).count(), 0)
     assert.equal(await page.getByRole('link', { name: createDR }).count(), 0)
+    assert.equal(await page.getByRole('link', { name: createHR }).count(), 0)
     assert.deepEqual(errors, [])
   }
 
@@ -96,6 +99,17 @@ try {
   const dr = await editorYaml()
   assert.deepEqual(dr.metadata, { name: 'reviews', namespace: 'shop' })
   assert.equal(dr.spec.host, 'reviews')
+
+  // HTTPRoute: backendRef seeded with the service and its port; parentRef stays the form's pick.
+  await page.goto(`${base}/resources/${HR}/new?ns=shop&host=reviews&port=9080`)
+  await page.getByPlaceholder('service', { exact: true }).waitFor()
+  assert.ok(await isActive(formTab), 'Form tab is active for the seeded HTTPRoute')
+  assert.equal(await field('Name').inputValue(), 'reviews')
+  assert.equal(await field('Namespace').inputValue(), 'shop')
+  assert.equal(await page.getByPlaceholder('service', { exact: true }).inputValue(), 'reviews')
+  assert.equal(await page.getByPlaceholder('port', { exact: true }).inputValue(), '9080')
+  const hr = await editorYaml()
+  assert.deepEqual(hr.spec.rules[0].backendRefs, [{ name: 'reviews', port: 9080 }])
 
   // Without both params the template is unchanged.
   await page.goto(`${base}/resources/${DR}/new?ns=shop`)

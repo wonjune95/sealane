@@ -397,3 +397,20 @@ func TestAnalyzeInjection(t *testing.T) {
 		}
 	}
 }
+
+func TestAnalyzeHTTPRoutePortNotExposed(t *testing.T) {
+	shop := svc("apps", "shop", nil)
+	shop.Spec.Ports = []corev1.ServicePort{{Port: 8080}}
+	kube := kubefake.NewSimpleClientset(shop)
+	bad, good := gwapi.PortNumber(80), gwapi.PortNumber(8080)
+	hr := &gwapi.HTTPRoute{ObjectMeta: metav1.ObjectMeta{Namespace: "apps", Name: "route"},
+		Spec: gwapi.HTTPRouteSpec{Rules: []gwapi.HTTPRouteRule{{BackendRefs: []gwapi.HTTPBackendRef{
+			{BackendRef: gwapi.BackendRef{BackendObjectReference: gwapi.BackendObjectReference{Name: "shop", Port: &bad}}},
+			{BackendRef: gwapi.BackendRef{BackendObjectReference: gwapi.BackendObjectReference{Name: "shop", Port: &good}}},
+		}}}}}
+	c := &k8s.Clients{Kube: kube, Istio: istiofake.NewSimpleClientset(), Gateway: gwfake.NewSimpleClientset(hr)}
+	a := analyzeMesh(context.Background(), c, "")
+	if p := paths(a, "httproute-port-not-exposed"); len(p) != 1 || p[0] != "spec.rules[0].backendRefs[0].port=80" {
+		t.Errorf("httproute-port-not-exposed path: %v (all: %v)", p, codes(a))
+	}
+}

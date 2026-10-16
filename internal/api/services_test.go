@@ -25,8 +25,10 @@ func TestServicesMeshCounts(t *testing.T) {
 		return &corev1.Endpoints{ObjectMeta: metav1.ObjectMeta{Namespace: "shop", Name: name}, //nolint:staticcheck // see above
 			Subsets: []corev1.EndpointSubset{{Addresses: []corev1.EndpointAddress{{IP: "10.0.0.1"}}}}} //nolint:staticcheck // see above
 	}
+	reviews := svc("shop", "reviews", map[string]string{"app": "reviews"})
+	reviews.Spec.Ports = []corev1.ServicePort{{Port: 80}}
 	kube := kubefake.NewSimpleClientset(
-		svc("shop", "reviews", map[string]string{"app": "reviews"}),
+		reviews,
 		svc("shop", "ratings", map[string]string{"app": "ratings"}),
 		svc("shop", "details", map[string]string{"app": "details"}),
 		ready("reviews"), ready("ratings"), ready("details"),

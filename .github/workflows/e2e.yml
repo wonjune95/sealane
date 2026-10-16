@@ -80,6 +80,9 @@ jobs:
       - name: Upgrade to the local chart
         run: |
           kind load docker-image sealane:ci --name sealane-upgrade
+          # Since 1.11 the chart renders the accounts ConfigMap; adopt the one the app created (docs/upgrading.md)
+          kubectl -n sealane annotate cm sealane-accounts meta.helm.sh/release-name=sealane meta.helm.sh/release-namespace=sealane
+          kubectl -n sealane label cm sealane-accounts app.kubernetes.io/managed-by=Helm
           helm upgrade sealane charts/sealane -n sealane --reset-then-reuse-values \
             --set image.repository=sealane --set image.tag=ci --set image.pullPolicy=Never --wait --timeout 180s
           helm history sealane -n sealane

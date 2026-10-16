@@ -65,6 +65,9 @@ Sealane is moving from an internal tool to a public project in four releases. Da
 ## 1.9 (shipped)
 - Sealane's own server error messages carry a stable `code`; the UI shows them in the active language.
 
+## 1.10 (shipped)
+- Chart `accounts` value seeds the local accounts ConfigMap from Helm values (GitOps installs).
+
 ## After 1.0 (candidates, not promised)
 - Recipes and wizards for common routing changes.
 - Revision history with rollback.

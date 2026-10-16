@@ -3,7 +3,7 @@
 Routing console for Istio and Gateway API. Single stateless binary, no CRDs or operators.
 
 ```bash
-helm install sealane oci://ghcr.io/wonjune95/charts/sealane --version 1.9.0 -n sealane --create-namespace
+helm install sealane oci://ghcr.io/wonjune95/charts/sealane --version 1.10.0 -n sealane --create-namespace
 kubectl -n sealane port-forward svc/sealane 8080:8080   # http://localhost:8080 — admin / admin, then change the password
 ```
 
@@ -19,6 +19,7 @@ kubectl -n sealane port-forward svc/sealane 8080:8080   # http://localhost:8080 
 | `istioNamespace` | `istio-system` | Where istiod runs (home-page control-plane version); `""` skips the istiod-reader Role (no version shown) |
 | `service.type` / `service.port` | `ClusterIP` / `8080` | |
 | `accountsConfigMap` | `sealane-accounts` | Local accounts ConfigMap (not managed by the chart) |
+| `accounts` | `{}` | Seed local accounts (`user: "role:bcryptHash"`); when set the chart owns the ConfigMap and upgrades rewrite it |
 | `clustersSecret` | `sealane-clusters` | Remote kubeconfigs Secret (not managed by the chart) |
 | `requestTester.enabled` | `false` | Grants `pods/exec` cluster-wide; admin-only UI feature |
 | `sessionSecret.create` | `true` | Generate and keep a session-signing key (sessions survive restarts). GitOps tools (Argo CD, Flux) and plain "helm template" cannot use lookup and would render a new key on every sync — point existingSecret at a Secret you manage instead. |

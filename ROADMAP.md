@@ -68,6 +68,9 @@ Sealane is moving from an internal tool to a public project in four releases. Da
 ## 1.10 (shipped)
 - Chart `accounts` value seeds the local accounts ConfigMap from Helm values (GitOps installs).
 
+## 1.11 (shipped)
+- The chart and install.yaml ship the accounts ConfigMap and a `sealane-cm` settings ConfigMap (OIDC keys documented in comments, read through `envFrom`), like Argo CD's `argocd-cm`.
+
 ## After 1.0 (candidates, not promised)
 - Recipes and wizards for common routing changes.
 - Revision history with rollback.

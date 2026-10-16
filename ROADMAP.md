@@ -53,6 +53,11 @@ Sealane is moving from an internal tool to a public project in four releases. Da
 - Service picker in the request console that fills the URL and port.
 - "New VirtualService / DestinationRule for this service" from the Service page.
 
+## 1.7 (shipped)
+- Analysis flags a VirtualService destination port the Service does not expose.
+- The VirtualService created from the Service page carries the Service port.
+- Page kickers translated.
+
 ## After 1.0 (candidates, not promised)
 - Recipes and wizards for common routing changes.
 - Revision history with rollback.

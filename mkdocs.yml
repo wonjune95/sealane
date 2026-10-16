@@ -53,6 +53,7 @@ nav:
       - Upgrading: upgrading.md
       - FAQ: faq.md
   - Release notes:
+      - "1.7.0": releases/v1.7.0.md
       - "1.6.0": releases/v1.6.0.md
       - "1.5.0": releases/v1.5.0.md
       - "1.4.0": releases/v1.4.0.md

@@ -570,10 +570,10 @@
   "err.conflict": "리소스가 다른 곳에서 수정되었습니다. 새로고침한 뒤 다시 시도하세요",
   "err.dev-mode-no-login": "개발 모드에서는 로그인이 필요하지 않습니다",
   "err.too-many-attempts": "로그인 실패가 너무 많습니다. 잠시 뒤에 다시 시도하세요",
-  "err.invalid-credentials": "사용자 이름 또는 비밀번호가 올바르지 않습니다",
+  "err.invalid-credentials": "아이디 또는 비밀번호가 올바르지 않습니다",
   "err.sso-not-configured": "SSO가 설정되지 않았습니다",
   "err.tester-disabled": "요청 테스터가 꺼져 있습니다 (Helm 값 requestTester.enabled=true로 켜세요)",
   "err.tester-admin-only": "요청 테스터는 admin만 쓸 수 있습니다",
-  "err.host-required": "호스트가 필요합니다 (예: shop.example.com)",
-  "err.viewer-readonly": "viewer 역할은 변경할 수 없습니다"
+  "err.host-required": "호스트를 입력하세요 (예: shop.example.com)",
+  "err.viewer-readonly": "viewer 역할은 읽기 전용이라 변경할 수 없습니다"
 }

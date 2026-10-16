@@ -4,7 +4,7 @@ Running in-cluster is the default. To install the prebuilt image you only need H
 
 ```bash
 # Helm (OCI)
-helm install sealane oci://ghcr.io/wonjune95/charts/sealane --version 1.7.0 -n sealane --create-namespace
+helm install sealane oci://ghcr.io/wonjune95/charts/sealane --version 1.8.0 -n sealane --create-namespace
 # or plain manifests
 kubectl apply -f https://github.com/wonjune95/sealane/releases/latest/download/install.yaml
 kubectl -n sealane port-forward svc/sealane 8080:8080   # → http://localhost:8080, log in as admin / admin
@@ -21,7 +21,7 @@ Every release tag (`v*`) publishes an image via GitHub Actions — use it direct
 
 ```bash
 # prebuilt image (recommended)
-ghcr.io/wonjune95/sealane:1.7.0     # or :latest
+ghcr.io/wonjune95/sealane:1.8.0     # or :latest
 ```
 
 Or build your own:

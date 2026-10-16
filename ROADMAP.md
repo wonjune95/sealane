@@ -58,6 +58,10 @@ Sealane is moving from an internal tool to a public project in four releases. Da
 - The VirtualService created from the Service page carries the Service port.
 - Page kickers translated.
 
+## 1.8 (shipped)
+- Analysis flags an HTTPRoute backendRef port the Service does not expose (Istio resolves the ref and still answers 503).
+- "New HTTPRoute for this service" from the Service page.
+
 ## After 1.0 (candidates, not promised)
 - Recipes and wizards for common routing changes.
 - Revision history with rollback.

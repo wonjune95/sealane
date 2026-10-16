@@ -32,6 +32,16 @@ data:
 
 The ConfigMap lives in the cluster, not the pod, so accounts survive restarts and redeploys. Helm does not manage it (the name comes from `accountsConfigMap`), so upgrades and uninstalls keep it. The pod mounts it, and edits apply **within about a minute, without a restart**. The full example is [`examples/accounts-configmap.yaml`](https://github.com/wonjune95/sealane/blob/main/examples/accounts-configmap.yaml).
 
+GitOps and no UI edits? Seed the accounts from Helm values instead:
+
+```yaml
+accounts:
+  admin: "admin:$2a$10$..."     # go run ./hack/bcrypt-hash.go 'password'
+  viewer1: "viewer:$2a$10$..."
+```
+
+The chart then creates and owns the ConfigMap: every `helm upgrade` rewrites it to this list, so password changes made in the UI are reverted on the next upgrade — manage them in values. `helm uninstall` keeps the ConfigMap. If the ConfigMap already exists outside Helm, delete it before switching (Helm refuses to adopt it).
+
 ### Adding accounts
 
 As admin, use **settings → account management** to add accounts, change roles and passwords, and delete accounts. To prevent lockout you cannot delete yourself, change your own role, or delete the `admin` account.

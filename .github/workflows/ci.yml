@@ -78,6 +78,7 @@ jobs:
       - run: helm lint charts/sealane
       - run: helm template sealane charts/sealane -n sealane >/dev/null
       - run: helm template sealane charts/sealane -n sealane --set ingress.enabled=true --set httpRoute.enabled=true --set 'httpRoute.parentRefs[0].name=gw' --set sessionSecret.create=false >/dev/null
+      - run: helm template sealane charts/sealane -n sealane --set 'accounts.admin=admin:$2a$10$x' >/dev/null
 
   docker:
     runs-on: ubuntu-latest

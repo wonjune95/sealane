@@ -47,6 +47,7 @@ The same table is in the [chart README](https://github.com/wonjune95/sealane/blo
 | `istioNamespace` | `istio-system` | Where istiod runs (home-page control-plane version); `""` skips the istiod-reader Role (no version shown) |
 | `service.type` / `service.port` | `ClusterIP` / `8080` | |
 | `accountsConfigMap` | `sealane-accounts` | Local accounts ConfigMap (not managed by the chart) |
+| `accounts` | `{}` | Seed local accounts from values (`user: "role:bcryptHash"`). When set, the chart owns the ConfigMap and every upgrade rewrites it, so manage passwords here, not in the UI. Empty: Sealane creates the ConfigMap itself and the UI edits it. |
 | `clustersSecret` | `sealane-clusters` | Remote kubeconfigs Secret (not managed by the chart) |
 | `requestTester.enabled` | `false` | Grants `pods/exec` cluster-wide; admin-only UI feature |
 | `sessionSecret.create` | `true` | Generate and keep a session-signing key (sessions survive restarts). GitOps tools (Argo CD, Flux) and plain "helm template" cannot use lookup and would render a new key on every sync — point existingSecret at a Secret you manage instead. |

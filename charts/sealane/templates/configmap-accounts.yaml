@@ -1,0 +1,16 @@
+{{- if .Values.accounts }}
+# Rendered only when .Values.accounts is set; otherwise the ConfigMap is created by Sealane and edited from the UI.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Values.accountsConfigMap }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "sealane.labels" . | nindent 4 }}
+  annotations:
+    helm.sh/resource-policy: keep
+data:
+  {{- range $user, $v := .Values.accounts }}
+  {{ $user }}: {{ $v | quote }}
+  {{- end }}
+{{- end }}

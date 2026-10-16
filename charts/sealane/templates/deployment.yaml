@@ -145,7 +145,7 @@ spec:
           emptyDir: {}
         - name: home
           emptyDir: {}
-        # Not managed by Helm (see examples/accounts-configmap.yaml) so helm upgrade never overwrites accounts. optional: without it nobody can log in, nothing else breaks.
+        # Created by Sealane (or by the chart when .Values.accounts is set — then helm upgrade rewrites it). optional: without it nobody can log in, nothing else breaks.
         - name: accounts
           configMap:
             name: {{ .Values.accountsConfigMap }}

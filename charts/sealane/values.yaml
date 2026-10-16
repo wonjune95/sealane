@@ -17,10 +17,19 @@ service:
   type: ClusterIP
   port: 8080
 
-# Local accounts ConfigMap (not managed by Helm — see examples/accounts-configmap.yaml).
-# One key = one user, value = "role:bcryptHash" (role: admin|editor|viewer).
+# Local accounts ConfigMap. One key = one user, value = "role:bcryptHash" (role: admin|editor|viewer).
+# By default Helm does not create it: Sealane creates it with admin/admin at first start and the
+# settings page edits it, so helm upgrade/uninstall never touch accounts (see examples/accounts-configmap.yaml).
 # Upgrading from Istio Dashboard? Set this to istio-dashboard-accounts to keep existing users.
 accountsConfigMap: sealane-accounts
+
+# Seed accounts from values instead (GitOps, no UI). When non-empty the chart creates the ConfigMap above
+# and OWNS it: every helm upgrade rewrites it to this list, so passwords changed in the UI are reverted —
+# keep them here. helm uninstall keeps the ConfigMap. If the ConfigMap already exists outside Helm, delete it first.
+# Hash a password:  go run ./hack/bcrypt-hash.go 'password'   (or: htpasswd -bnBC 10 "" 'password' | tr -d ':\n')
+accounts: {}
+#  admin: "admin:$2a$10$..."
+#  viewer1: "viewer:$2a$10$..."
 
 # Multi-cluster: Secret holding remote kubeconfigs (key = cluster name, value = kubeconfig).
 # The settings page manages this Secret. Set to istio-dashboard-clusters when upgrading.

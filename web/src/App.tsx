@@ -1,7 +1,7 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import { useCapabilities } from './api/capabilities'
-import { ApiError, apiPost, getCluster, setCluster } from './api/client'
+import { ApiError, apiPost, errorText, getCluster, setCluster } from './api/client'
 import { useClusters } from './api/clusters'
 import { Layout } from './components/Layout'
 import { Guard } from './pages/Guard'
@@ -127,7 +127,7 @@ function ForcePasswordChange() {
       await apiPost('/api/account/password', { currentPassword: current, newPassword: next })
       window.location.reload()
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : String(err))
+      setError(errorText(err))
       setBusy(false)
     }
   }

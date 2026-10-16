@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict'
+import { readFileSync } from 'node:fs'
 import { chromium } from 'playwright'
 
 const base = process.env.SEALANE_TEST_URL ?? 'http://127.0.0.1:5173'
@@ -53,6 +54,15 @@ await context.route('**/api/**', async (interception) => {
   const path = new URL(interception.request().url()).pathname
   if (!path.startsWith('/api/')) return interception.continue()
   if (path.startsWith('/api/access/')) return interception.fulfill({ json: { create: true, update: true, delete: true } })
+  if (path === '/api/test/conflict') {
+    return interception.fulfill({
+      status: 409,
+      json: { error: { reason: 'Conflict', code: 'conflict', message: 'the resource was modified; refresh and retry', httpStatus: 409 } },
+    })
+  }
+  if (path === '/api/test/invalid') {
+    return interception.fulfill({ status: 422, json: { error: { reason: 'Invalid', message: 'spec.hosts: Required value', httpStatus: 422 } } })
+  }
   return interception.fulfill({ json: fixtures[path] ?? [] })
 })
 const page = await context.newPage()
@@ -124,6 +134,20 @@ try {
   await status.getByText('Could not find spec.tcp[0].route[0].destination.host in the YAML').waitFor()
   assert.equal(await page.locator('.cm-focus-line').count(), 0)
   assert.ok((await yamlTab.getAttribute('class')).includes('border-accent'), 'YAML tab is active')
+
+  // (c) A coded server error shows in the active language; an uncoded one keeps the server text.
+  const errorTexts = () =>
+    page.evaluate(async () => {
+      const { apiPut, errorText } = await import('/src/api/client.ts')
+      const out = []
+      for (const path of ['/api/test/conflict', '/api/test/invalid']) await apiPut(path, {}).catch((e) => out.push(errorText(e)))
+      return out
+    })
+  assert.deepEqual(await errorTexts(), ['the resource was modified; refresh and retry', 'spec.hosts: Required value'])
+  await page.evaluate(() => localStorage.setItem('sealane-locale', 'ko'))
+  await page.reload()
+  const ko = JSON.parse(readFileSync(new URL('../src/i18n/ko.json', import.meta.url), 'utf8'))
+  assert.deepEqual(await errorTexts(), [ko['err.conflict'], 'spec.hosts: Required value'])
 
   assert.deepEqual(errors, [])
   console.log('ok')

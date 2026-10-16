@@ -7,7 +7,7 @@ import { useResourceTypes, type ResourceType } from '../api/resourceTypes'
 import { useGateways } from '../api/gateways'
 import { useServices } from '../api/services'
 import { useAccess } from '../api/access'
-import { apiGet, apiPost, apiPut, apiDelete, ApiError } from '../api/client'
+import { apiGet, apiPost, apiPut, apiDelete, ApiError, errorText } from '../api/client'
 import { YamlEditor } from '../components/YamlEditor'
 import { DangerConfirm } from '../components/DangerConfirm'
 import { DiffModal } from '../components/DiffModal'
@@ -320,7 +320,7 @@ export function ResourceEdit() {
           /* fall through to generic error */
         }
       }
-      toast('error', e instanceof ApiError ? `${e.status} ${e.reason}: ${e.message}` : String(e))
+      toast('error', e instanceof ApiError ? `${e.status} ${e.reason}: ${errorText(e)}` : String(e))
     } finally {
       setBusy(false)
     }
@@ -340,7 +340,7 @@ export function ResourceEdit() {
       queryClient.invalidateQueries({ queryKey: ['audit'] })
       navigate(`/resources/${type}`)
     } catch (e) {
-      toast('error', e instanceof ApiError ? `${e.status} ${e.reason}: ${e.message}` : String(e))
+      toast('error', e instanceof ApiError ? `${e.status} ${e.reason}: ${errorText(e)}` : String(e))
     } finally {
       setBusy(false)
     }
@@ -370,7 +370,7 @@ export function ResourceEdit() {
         newYaml: yamlDump(cleanManifest(result.raw)),
       })
     } catch (e) {
-      toast('error', e instanceof ApiError ? `${e.status} ${e.reason}: ${e.message}` : String(e))
+      toast('error', e instanceof ApiError ? `${e.status} ${e.reason}: ${errorText(e)}` : String(e))
     } finally {
       setBusy(false)
     }
@@ -385,7 +385,7 @@ export function ResourceEdit() {
       queryClient.invalidateQueries({ queryKey: ['audit'] })
       navigate(`/resources/${type}`)
     } catch (e) {
-      toast('error', e instanceof ApiError ? `${e.status} ${e.reason}: ${e.message}` : String(e))
+      toast('error', e instanceof ApiError ? `${e.status} ${e.reason}: ${errorText(e)}` : String(e))
     } finally {
       setBusy(false)
     }

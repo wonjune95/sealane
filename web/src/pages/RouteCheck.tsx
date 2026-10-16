@@ -3,7 +3,7 @@ import { EmptyState } from '../components/EmptyState'
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import { useCapabilities } from '../api/capabilities'
-import { ApiError } from '../api/client'
+import { errorText } from '../api/client'
 import { useNamespaces } from '../api/namespaces'
 import { useServices } from '../api/services'
 import { checkRoute, type RouteMatchResult } from '../api/routematch'
@@ -78,7 +78,7 @@ export function RouteCheck() {
       setResTab('route')
     } catch (err) {
       setRoute(null)
-      setError(err instanceof ApiError ? err.message : String(err))
+      setError(errorText(err))
     } finally {
       setBusy('')
     }
@@ -105,7 +105,7 @@ export function RouteCheck() {
       setResTab('body')
     } catch (err) {
       setRes(null)
-      setError(err instanceof ApiError ? err.message : String(err))
+      setError(errorText(err))
     } finally {
       setBusy('')
     }

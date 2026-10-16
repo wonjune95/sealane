@@ -5,7 +5,7 @@ import { useResources, type ResourceSummary, type ResourceDetail } from '../api/
 import { useResourceTypes } from '../api/resourceTypes'
 import { useNamespaces } from '../api/namespaces'
 import { useNamespace } from '../ui/namespace'
-import { apiGet, apiDelete, ApiError } from '../api/client'
+import { apiGet, apiDelete, ApiError, errorText } from '../api/client'
 import { useToast } from '../components/Toast'
 import { downloadText, toManifestYaml } from '../lib/download'
 import { Icon } from '../components/icons'
@@ -83,7 +83,7 @@ export function ResourceList() {
       toast('success', t('list.deleted'))
       queryClient.invalidateQueries({ queryKey: ['resources', type] })
     } catch (e) {
-      toast('error', e instanceof ApiError ? `${e.status} ${e.reason}: ${e.message}` : String(e))
+      toast('error', e instanceof ApiError ? `${e.status} ${e.reason}: ${errorText(e)}` : String(e))
     } finally {
       queryClient.invalidateQueries({ queryKey: ['audit'] })
     }

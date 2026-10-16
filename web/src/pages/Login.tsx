@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { ApiError, apiPost } from '../api/client'
+import { ApiError, apiPost, errorText } from '../api/client'
 import { Icon } from '../components/icons'
 import { useTheme } from '../ui/theme'
 import { useAuthMethods } from '../api/auth'
@@ -36,7 +36,7 @@ export function Login() {
       await apiPost('/api/login', { username: username.trim(), password })
       window.location.reload()
     } catch (err) {
-      setError(err instanceof ApiError ? (err.status === 429 ? t('login.throttled') : err.message) : String(err))
+      setError(err instanceof ApiError && err.status === 429 ? t('login.throttled') : errorText(err))
       setBusy(false)
     }
   }

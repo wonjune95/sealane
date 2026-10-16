@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useCapabilities } from '../api/capabilities'
 import { useClusters, type Cluster } from '../api/clusters'
-import { ApiError, apiDelete, apiGet, apiPost, apiPut, getCluster, setCluster } from '../api/client'
+import { apiDelete, apiGet, apiPost, apiPut, errorText, getCluster, setCluster } from '../api/client'
 import { useToast } from '../components/Toast'
 import { PageHeader } from '../components/PageHeader'
 import { Icon } from '../components/icons'
@@ -30,7 +30,7 @@ export function Settings() {
       setNext('')
       setConfirm('')
     } catch (err) {
-      toast('error', err instanceof ApiError ? err.message : String(err))
+      toast('error', errorText(err))
     } finally {
       setBusy(false)
     }
@@ -152,7 +152,7 @@ function ClustersPanel() {
       setKubeconfig('')
       void clusters.refetch()
     } catch (err) {
-      toast('error', err instanceof ApiError ? err.message : String(err))
+      toast('error', errorText(err))
     } finally {
       setBusy(false)
     }
@@ -169,7 +169,7 @@ function ClustersPanel() {
       toast('success', t('settings.cluster.deleted', { name: target }))
       void clusters.refetch()
     } catch (err) {
-      toast('error', err instanceof ApiError ? err.message : String(err))
+      toast('error', errorText(err))
     }
   }
 
@@ -268,7 +268,7 @@ function AccountsPanel({ me }: { me: string }) {
     apiGet<Account[]>('/api/accounts')
       .then(setAccounts)
       .catch((err) => {
-        toast('error', err instanceof ApiError ? err.message : String(err))
+        toast('error', errorText(err))
       })
   }, [toast])
   useEffect(reload, [reload])
@@ -291,7 +291,7 @@ function AccountsPanel({ me }: { me: string }) {
       setRole('viewer')
       reload()
     } catch (err) {
-      toast('error', err instanceof ApiError ? err.message : String(err))
+      toast('error', errorText(err))
     } finally {
       setBusy(false)
     }
@@ -304,7 +304,7 @@ function AccountsPanel({ me }: { me: string }) {
       toast('success', t('settings.account.deleted', { name: target }))
       reload()
     } catch (err) {
-      toast('error', err instanceof ApiError ? err.message : String(err))
+      toast('error', errorText(err))
     }
   }
 

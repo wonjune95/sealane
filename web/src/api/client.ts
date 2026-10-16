@@ -1,12 +1,23 @@
+import { lookup } from '../i18n'
+
 // Mirrors the backend error envelope.
 export class ApiError extends Error {
   status: number
   reason: string
-  constructor(status: number, reason: string, message: string) {
+  code?: string
+  constructor(status: number, reason: string, message: string, code?: string) {
     super(message)
     this.status = status
     this.reason = reason
+    this.code = code
   }
+}
+
+// Sealane's own messages carry a code; show its err.<code> translation when the
+// locale has one. Kubernetes and validation messages pass through as sent.
+export function errorText(err: unknown): string {
+  const coded = err instanceof ApiError && err.code ? lookup(`err.${err.code}`) : undefined
+  return coded ?? (err instanceof Error ? err.message : String(err))
 }
 
 // Multi-cluster: the selected cluster is appended to every API call as ?cluster=.
@@ -41,16 +52,18 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
   if (!res.ok) {
     let reason = 'Error'
     let message = res.statusText
+    let code: string | undefined
     try {
       const env = await res.json()
       if (env?.error) {
         reason = env.error.reason ?? reason
         message = env.error.message ?? message
+        code = env.error.code
       }
     } catch {
       // non-JSON error body; keep status text
     }
-    throw new ApiError(res.status, reason, message)
+    throw new ApiError(res.status, reason, message, code)
   }
   if (res.status === 204) return undefined as T
   return res.json() as Promise<T>

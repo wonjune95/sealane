@@ -5,6 +5,7 @@ import { load } from 'js-yaml'
 const base = process.env.SEALANE_TEST_URL ?? 'http://127.0.0.1:5173'
 const VS = 'virtualservices.networking.istio.io'
 const DR = 'destinationrules.networking.istio.io'
+const HR = 'httproutes.gateway.networking.k8s.io'
 const browser = await chromium.launch({
   headless: true,
   ...(process.env.SEALANE_CHROMIUM_PATH ? { executablePath: process.env.SEALANE_CHROMIUM_PATH } : {}),
@@ -45,7 +46,6 @@ async function open(role) {
 const createVS = 'New VirtualService for this service'
 const createDR = 'New DestinationRule for this service'
 const createHR = 'New HTTPRoute for this service'
-const HR = 'httproutes.gateway.networking.k8s.io'
 try {
   // A viewer sees the Service page without create buttons.
   {
@@ -68,10 +68,11 @@ try {
     return load(await page.locator('.cm-content').evaluate((el) => el.cmTile.view.state.doc.toString()))
   }
 
-  // An editor gets both buttons, pointing at the prefilled create URLs.
+  // An editor gets the create buttons, pointing at the prefilled create URLs.
   await page.goto(`${base}/services/shop/reviews`)
   await page.getByRole('link', { name: createDR }).waitFor()
   assert.equal(await page.getByRole('link', { name: createDR }).getAttribute('href'), `/resources/${DR}/new?ns=shop&host=reviews&port=9080`)
+  assert.equal(await page.getByRole('link', { name: createHR }).getAttribute('href'), `/resources/${HR}/new?ns=shop&host=reviews&port=9080`)
   await page.getByRole('link', { name: createVS }).click()
 
   // VirtualService: Form tab, identity and hosts seeded from the service.

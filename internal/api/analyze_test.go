@@ -157,7 +157,9 @@ func TestAnalyzeHostConflictAndNamespaceScope(t *testing.T) {
 }
 
 func TestAnalyzeGatewayAPIStatusAndBackends(t *testing.T) {
-	kube := kubefake.NewSimpleClientset(svc("apps", "shop", nil)) // exists, no Endpoints object → 0 ready
+	shop := svc("apps", "shop", nil) // exists, no Endpoints object → 0 ready
+	shop.Spec.Ports = []corev1.ServicePort{{Port: 80}}
+	kube := kubefake.NewSimpleClientset(shop)
 	falseCond := metav1.Condition{Type: "Accepted", Status: metav1.ConditionFalse, Reason: "NoMatchingParent", Message: "no listener"}
 	port := gwapi.PortNumber(80)
 	hr := &gwapi.HTTPRoute{ObjectMeta: metav1.ObjectMeta{Namespace: "apps", Name: "route"},
@@ -401,12 +403,15 @@ func TestAnalyzeInjection(t *testing.T) {
 func TestAnalyzeHTTPRoutePortNotExposed(t *testing.T) {
 	shop := svc("apps", "shop", nil)
 	shop.Spec.Ports = []corev1.ServicePort{{Port: 8080}}
-	kube := kubefake.NewSimpleClientset(shop)
+	ext := svc("apps", "ext", nil)
+	ext.Spec.Type = corev1.ServiceTypeExternalName
+	kube := kubefake.NewSimpleClientset(shop, ext)
 	bad, good := gwapi.PortNumber(80), gwapi.PortNumber(8080)
 	hr := &gwapi.HTTPRoute{ObjectMeta: metav1.ObjectMeta{Namespace: "apps", Name: "route"},
 		Spec: gwapi.HTTPRouteSpec{Rules: []gwapi.HTTPRouteRule{{BackendRefs: []gwapi.HTTPBackendRef{
 			{BackendRef: gwapi.BackendRef{BackendObjectReference: gwapi.BackendObjectReference{Name: "shop", Port: &bad}}},
 			{BackendRef: gwapi.BackendRef{BackendObjectReference: gwapi.BackendObjectReference{Name: "shop", Port: &good}}},
+			{BackendRef: gwapi.BackendRef{BackendObjectReference: gwapi.BackendObjectReference{Name: "ext", Port: &bad}}}, // ExternalName: not checked
 		}}}}}
 	c := &k8s.Clients{Kube: kube, Istio: istiofake.NewSimpleClientset(), Gateway: gwfake.NewSimpleClientset(hr)}
 	a := analyzeMesh(context.Background(), c, "")

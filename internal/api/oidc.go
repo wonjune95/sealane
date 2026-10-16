@@ -49,7 +49,7 @@ func randomToken() string {
 // travel in a signed cookie so any replica can finish the flow.
 func (s *Server) handleOIDCLogin(w http.ResponseWriter, r *http.Request) {
 	if s.oidc == nil {
-		writeError(w, http.StatusNotFound, "NotFound", "single sign-on is not configured")
+		writeCoded(w, http.StatusNotFound, "NotFound", "sso-not-configured", "single sign-on is not configured")
 		return
 	}
 	state, nonce, verifier := randomToken(), randomToken(), oauth2.GenerateVerifier()

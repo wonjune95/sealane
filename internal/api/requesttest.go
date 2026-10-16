@@ -90,12 +90,12 @@ func (s *Server) handlePods(w http.ResponseWriter, r *http.Request) {
 // requestTesterAllowed enforces the opt-in flag and the admin role.
 func (s *Server) requestTesterAllowed(w http.ResponseWriter, r *http.Request) bool {
 	if !s.requestTester {
-		writeError(w, http.StatusForbidden, "Forbidden",
+		writeCoded(w, http.StatusForbidden, "Forbidden", "tester-disabled",
 			"request tester is disabled (set Helm value requestTester.enabled=true)")
 		return false
 	}
 	if identityFrom(r.Context()).Role != "admin" {
-		writeError(w, http.StatusForbidden, "Forbidden", "request tester is admin only")
+		writeCoded(w, http.StatusForbidden, "Forbidden", "tester-admin-only", "request tester is admin only")
 		return false
 	}
 	return true
@@ -131,7 +131,7 @@ func (s *Server) handleRequestTest(w http.ResponseWriter, r *http.Request) {
 	id := identityFrom(r.Context())
 	var in reqTestInput
 	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, reqTestMaxBody+8<<10)).Decode(&in); err != nil {
-		writeError(w, http.StatusBadRequest, "BadRequest", "invalid request body")
+		writeCoded(w, http.StatusBadRequest, "BadRequest", "invalid-body", "invalid request body")
 		return
 	}
 	argv, err := buildCurlArgv(&in)

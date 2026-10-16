@@ -15,6 +15,7 @@ type errBody struct {
 	Reason     string `json:"reason"`
 	Message    string `json:"message"`
 	HTTPStatus int    `json:"httpStatus"`
+	Code       string `json:"code,omitempty"` // set only on Sealane-authored messages, for UI translation
 }
 
 func writeJSON(w http.ResponseWriter, status int, v any) {
@@ -24,14 +25,20 @@ func writeJSON(w http.ResponseWriter, status int, v any) {
 }
 
 func writeError(w http.ResponseWriter, status int, reason, msg string) {
-	writeJSON(w, status, errEnvelope{errBody{Reason: reason, Message: msg, HTTPStatus: status}})
+	writeCoded(w, status, reason, "", msg)
+}
+
+// writeCoded is writeError for a fixed Sealane-authored message; code is its
+// stable slug, which the UI looks up as err.<code> to show a translation.
+func writeCoded(w http.ResponseWriter, status int, reason, code, msg string) {
+	writeJSON(w, status, errEnvelope{errBody{Reason: reason, Message: msg, HTTPStatus: status, Code: code}})
 }
 
 // writeK8sError maps a Kubernetes API error to the Sealane error envelope.
 func writeK8sError(w http.ResponseWriter, err error) {
 	switch {
 	case apierrors.IsConflict(err):
-		writeError(w, http.StatusConflict, "Conflict", "the resource was modified; refresh and retry")
+		writeCoded(w, http.StatusConflict, "Conflict", "conflict", "the resource was modified; refresh and retry")
 	case apierrors.IsForbidden(err):
 		writeError(w, http.StatusForbidden, "Forbidden", err.Error())
 	case apierrors.IsUnauthorized(err):

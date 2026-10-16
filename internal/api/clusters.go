@@ -137,16 +137,16 @@ func (s *Server) clustersGuard(w http.ResponseWriter, r *http.Request) (string, 
 		return "", false
 	}
 	if s.clustersSecret.Name == "" {
-		writeError(w, http.StatusInternalServerError, "Internal", "clusters Secret location is not configured (CLUSTERS_SECRET/POD_NAMESPACE)")
+		writeCoded(w, http.StatusInternalServerError, "Internal", "clusters-not-configured", "clusters Secret location is not configured (CLUSTERS_SECRET/POD_NAMESPACE)")
 		return "", false
 	}
 	name := r.PathValue("name")
 	if name == "local" {
-		writeError(w, http.StatusBadRequest, "BadRequest", "the local cluster cannot be modified")
+		writeCoded(w, http.StatusBadRequest, "BadRequest", "local-cluster-readonly", "the local cluster cannot be modified")
 		return "", false
 	}
 	if !validUsername.MatchString(name) {
-		writeError(w, http.StatusBadRequest, "BadRequest", "cluster name must start with a letter or digit and contain only letters, digits, '-', '.', '_' (max 64 characters)")
+		writeCoded(w, http.StatusBadRequest, "BadRequest", "cluster-name-invalid", "cluster name must start with a letter or digit and contain only letters, digits, '-', '.', '_' (max 64 characters)")
 		return "", false
 	}
 	return name, true
@@ -163,11 +163,11 @@ func (s *Server) handleClusterUpsert(w http.ResponseWriter, r *http.Request) {
 		Kubeconfig string `json:"kubeconfig"`
 	}
 	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 1<<20)).Decode(&in); err != nil {
-		writeError(w, http.StatusBadRequest, "BadRequest", "invalid request body")
+		writeCoded(w, http.StatusBadRequest, "BadRequest", "invalid-body", "invalid request body")
 		return
 	}
 	if in.Kubeconfig == "" {
-		writeError(w, http.StatusBadRequest, "BadRequest", "kubeconfig is empty")
+		writeCoded(w, http.StatusBadRequest, "BadRequest", "kubeconfig-empty", "kubeconfig is empty")
 		return
 	}
 	f, err := k8s.NewClientFactoryFromKubeconfig([]byte(in.Kubeconfig))

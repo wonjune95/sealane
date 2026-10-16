@@ -134,7 +134,7 @@ func (s *Server) withAuth(next http.Handler) http.Handler {
 			return
 		}
 		if r.Method != http.MethodGet && !id.CanWrite() {
-			writeError(w, http.StatusForbidden, "Forbidden", "viewer role cannot make changes")
+			writeCoded(w, http.StatusForbidden, "Forbidden", "viewer-readonly", "viewer role cannot make changes")
 			return
 		}
 		// ?cluster= selects the target cluster (empty/local = the cluster the pod runs in).

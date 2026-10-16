@@ -80,11 +80,16 @@ func TestLoginReturns429WhenThrottled(t *testing.T) {
 	for i := 0; i < throttleMax; i++ {
 		if rec := post("wrong"); rec.Code != http.StatusUnauthorized {
 			t.Fatalf("attempt %d: status = %d, want 401", i+1, rec.Code)
+		} else if code := errCode(t, rec); code != "invalid-credentials" {
+			t.Fatalf("attempt %d: code = %q, want invalid-credentials", i+1, code)
 		}
 	}
 	rec := post("wrong")
 	if rec.Code != http.StatusTooManyRequests || rec.Header().Get("Retry-After") == "" {
 		t.Fatalf("status = %d, Retry-After = %q; want 429 with header", rec.Code, rec.Header().Get("Retry-After"))
+	}
+	if code := errCode(t, rec); code != "too-many-attempts" {
+		t.Fatalf("code = %q, want too-many-attempts", code)
 	}
 	if rec := post("s3cret"); rec.Code != http.StatusTooManyRequests {
 		t.Fatalf("right password while blocked: status = %d, want 429", rec.Code)

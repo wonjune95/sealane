@@ -57,7 +57,7 @@ func (s *Server) handleRouteMatch(w http.ResponseWriter, r *http.Request) {
 	q := r.URL.Query()
 	host := strings.TrimSpace(q.Get("host"))
 	if host == "" {
-		writeError(w, http.StatusBadRequest, "BadRequest", "host is required (example: shop.example.com)")
+		writeCoded(w, http.StatusBadRequest, "BadRequest", "host-required", "host is required (example: shop.example.com)")
 		return
 	}
 	method := strings.ToUpper(strings.TrimSpace(q.Get("method")))

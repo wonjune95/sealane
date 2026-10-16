@@ -74,7 +74,7 @@ type AccountsCMRef struct{ Namespace, Name string }
 // The mounted dir syncs within ~1min, so the old password works until then.
 func (s *Server) handlePasswordChange(w http.ResponseWriter, r *http.Request) {
 	if s.dev {
-		writeError(w, http.StatusBadRequest, "BadRequest", "no accounts in dev mode")
+		writeCoded(w, http.StatusBadRequest, "BadRequest", "dev-mode-no-accounts", "no accounts in dev mode")
 		return
 	}
 	id, err := s.sessionIdentity(r)
@@ -83,7 +83,7 @@ func (s *Server) handlePasswordChange(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if id.Provider == auth.ProviderOIDC {
-		writeError(w, http.StatusBadRequest, "BadRequest", "password change is not available for single sign-on accounts")
+		writeCoded(w, http.StatusBadRequest, "BadRequest", "sso-no-password", "password change is not available for single sign-on accounts")
 		return
 	}
 	var in struct {
@@ -91,20 +91,20 @@ func (s *Server) handlePasswordChange(w http.ResponseWriter, r *http.Request) {
 		NewPassword     string `json:"newPassword"`
 	}
 	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 4096)).Decode(&in); err != nil {
-		writeError(w, http.StatusBadRequest, "BadRequest", "invalid request body")
+		writeCoded(w, http.StatusBadRequest, "BadRequest", "invalid-body", "invalid request body")
 		return
 	}
 	if len(in.NewPassword) < 8 {
-		writeError(w, http.StatusBadRequest, "BadRequest", "new password must be at least 8 characters")
+		writeCoded(w, http.StatusBadRequest, "BadRequest", "new-password-too-short", "new password must be at least 8 characters")
 		return
 	}
 	role, err := s.accounts.Authenticate(id.Name, in.CurrentPassword)
 	if err != nil {
-		writeError(w, http.StatusUnauthorized, "Unauthorized", "current password is incorrect")
+		writeCoded(w, http.StatusUnauthorized, "Unauthorized", "password-incorrect", "current password is incorrect")
 		return
 	}
 	if s.accountsCM.Name == "" {
-		writeError(w, http.StatusInternalServerError, "Internal", "accounts ConfigMap location is not configured (ACCOUNTS_CONFIGMAP/POD_NAMESPACE)")
+		writeCoded(w, http.StatusInternalServerError, "Internal", "accounts-not-configured", "accounts ConfigMap location is not configured (ACCOUNTS_CONFIGMAP/POD_NAMESPACE)")
 		return
 	}
 	hash, err := bcrypt.GenerateFromPassword([]byte(in.NewPassword), bcrypt.DefaultCost)
@@ -170,7 +170,7 @@ var validUsername = regexp.MustCompile(`^[a-zA-Z0-9][-._a-zA-Z0-9]{0,63}$`)
 // On failure the response is already written, so callers just return when ok=false.
 func (s *Server) adminOnly(w http.ResponseWriter, r *http.Request) (auth.Identity, bool) {
 	if s.dev {
-		writeError(w, http.StatusBadRequest, "BadRequest", "no accounts in dev mode")
+		writeCoded(w, http.StatusBadRequest, "BadRequest", "dev-mode-no-accounts", "no accounts in dev mode")
 		return auth.Identity{}, false
 	}
 	id, err := s.sessionIdentity(r)
@@ -179,7 +179,7 @@ func (s *Server) adminOnly(w http.ResponseWriter, r *http.Request) (auth.Identit
 		return auth.Identity{}, false
 	}
 	if id.Role != "admin" {
-		writeError(w, http.StatusForbidden, "Forbidden", "admin role required")
+		writeCoded(w, http.StatusForbidden, "Forbidden", "admin-required", "admin role required")
 		return auth.Identity{}, false
 	}
 	return id, true
@@ -192,7 +192,7 @@ func (s *Server) adminGuard(w http.ResponseWriter, r *http.Request) (auth.Identi
 		return auth.Identity{}, false
 	}
 	if s.accountsCM.Name == "" {
-		writeError(w, http.StatusInternalServerError, "Internal", "accounts ConfigMap location is not configured (ACCOUNTS_CONFIGMAP/POD_NAMESPACE)")
+		writeCoded(w, http.StatusInternalServerError, "Internal", "accounts-not-configured", "accounts ConfigMap location is not configured (ACCOUNTS_CONFIGMAP/POD_NAMESPACE)")
 		return auth.Identity{}, false
 	}
 	return id, true
@@ -235,7 +235,7 @@ func (s *Server) handleAccountUpsert(w http.ResponseWriter, r *http.Request) {
 	}
 	name := r.PathValue("name")
 	if !validUsername.MatchString(name) {
-		writeError(w, http.StatusBadRequest, "BadRequest", "username must start with a letter or digit and contain only letters, digits, '-', '.', '_' (max 64 characters)")
+		writeCoded(w, http.StatusBadRequest, "BadRequest", "username-invalid", "username must start with a letter or digit and contain only letters, digits, '-', '.', '_' (max 64 characters)")
 		return
 	}
 	var in struct {
@@ -243,21 +243,21 @@ func (s *Server) handleAccountUpsert(w http.ResponseWriter, r *http.Request) {
 		Password string `json:"password"`
 	}
 	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 4096)).Decode(&in); err != nil {
-		writeError(w, http.StatusBadRequest, "BadRequest", "invalid request body")
+		writeCoded(w, http.StatusBadRequest, "BadRequest", "invalid-body", "invalid request body")
 		return
 	}
 	if !auth.ValidRole(in.Role) {
-		writeError(w, http.StatusBadRequest, "BadRequest", "role must be one of admin, editor, viewer")
+		writeCoded(w, http.StatusBadRequest, "BadRequest", "role-invalid", "role must be one of admin, editor, viewer")
 		return
 	}
 	if name == id.Name && in.Role != id.Role {
-		writeError(w, http.StatusBadRequest, "BadRequest", "you cannot change your own role")
+		writeCoded(w, http.StatusBadRequest, "BadRequest", "own-role", "you cannot change your own role")
 		return
 	}
 	var entry string
 	if in.Password != "" {
 		if len(in.Password) < 8 {
-			writeError(w, http.StatusBadRequest, "BadRequest", "password must be at least 8 characters")
+			writeCoded(w, http.StatusBadRequest, "BadRequest", "password-too-short", "password must be at least 8 characters")
 			return
 		}
 		hash, err := bcrypt.GenerateFromPassword([]byte(in.Password), bcrypt.DefaultCost)
@@ -280,7 +280,7 @@ func (s *Server) handleAccountUpsert(w http.ResponseWriter, r *http.Request) {
 		}
 		_, hash, found := strings.Cut(cm.Data[name], ":")
 		if !found {
-			writeError(w, http.StatusBadRequest, "BadRequest", "a new account requires a password")
+			writeCoded(w, http.StatusBadRequest, "BadRequest", "password-required", "a new account requires a password")
 			return
 		}
 		entry = in.Role + ":" + hash
@@ -300,11 +300,11 @@ func (s *Server) handleAccountDelete(w http.ResponseWriter, r *http.Request) {
 	}
 	name := r.PathValue("name")
 	if name == "admin" {
-		writeError(w, http.StatusBadRequest, "BadRequest", "the admin account cannot be deleted")
+		writeCoded(w, http.StatusBadRequest, "BadRequest", "admin-undeletable", "the admin account cannot be deleted")
 		return
 	}
 	if name == id.Name {
-		writeError(w, http.StatusBadRequest, "BadRequest", "you cannot delete your own account")
+		writeCoded(w, http.StatusBadRequest, "BadRequest", "own-account", "you cannot delete your own account")
 		return
 	}
 	if err := s.patchAccount(r.Context(), name, nil); err != nil {

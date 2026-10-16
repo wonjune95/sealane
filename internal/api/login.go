@@ -22,7 +22,7 @@ var SecureCookies bool
 // handleLogin verifies a local account (ConfigMap-backed) and sets the session cookie.
 func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 	if s.dev {
-		writeError(w, http.StatusBadRequest, "BadRequest", "login is not required in dev mode")
+		writeCoded(w, http.StatusBadRequest, "BadRequest", "dev-mode-no-login", "login is not required in dev mode")
 		return
 	}
 	var in struct {
@@ -30,29 +30,29 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 		Password string `json:"password"`
 	}
 	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 4096)).Decode(&in); err != nil {
-		writeError(w, http.StatusBadRequest, "BadRequest", "invalid request body")
+		writeCoded(w, http.StatusBadRequest, "BadRequest", "invalid-body", "invalid request body")
 		return
 	}
 	keys := []string{"u:" + in.Username, "ip:" + clientIP(r)}
 	for _, k := range keys {
 		if d := s.loginThrottle.blocked(k); d > 0 {
 			w.Header().Set("Retry-After", strconv.Itoa(int(d.Seconds())+1))
-			writeError(w, http.StatusTooManyRequests, "TooManyAttempts", "too many failed sign-in attempts; try again later")
+			writeCoded(w, http.StatusTooManyRequests, "TooManyAttempts", "too-many-attempts", "too many failed sign-in attempts; try again later")
 			return
 		}
 	}
 	role, err := s.accounts.Authenticate(in.Username, in.Password)
 	if err != nil {
 		slog.Warn("login failed", "user", in.Username)
-		status := http.StatusUnauthorized
+		status, code := http.StatusUnauthorized, "invalid-credentials"
 		if !errors.Is(err, auth.ErrBadCredentials) {
-			status = http.StatusInternalServerError // misconfigured account entry
+			status, code = http.StatusInternalServerError, "" // misconfigured account entry
 		} else {
 			for _, k := range keys {
 				s.loginThrottle.fail(k)
 			}
 		}
-		writeError(w, status, "Unauthorized", err.Error())
+		writeCoded(w, status, "Unauthorized", code, err.Error())
 		return
 	}
 	for _, k := range keys {

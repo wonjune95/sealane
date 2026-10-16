@@ -380,6 +380,9 @@ func TestPasswordChange_RoundTrip(t *testing.T) {
 	if rec.Code != http.StatusUnauthorized {
 		t.Fatalf("wrong current pw: status = %d, want 401: %s", rec.Code, rec.Body.String())
 	}
+	if code := errCode(t, rec); code != "password-incorrect" {
+		t.Fatalf("wrong current pw: code = %q, want password-incorrect", code)
+	}
 
 	rec = httptest.NewRecorder()
 	req = httptest.NewRequest("POST", "/api/account/password", strings.NewReader(`{"currentPassword":"oldpw123","newPassword":"newpw1234"}`))

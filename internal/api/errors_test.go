@@ -1,6 +1,7 @@
 package api
 
 import (
+	"encoding/json"
 	"errors"
 	"net/http/httptest"
 	"testing"
@@ -30,6 +31,23 @@ func TestWriteK8sError_StatusMapping(t *testing.T) {
 			if rec.Code != c.want {
 				t.Fatalf("status = %d, want %d", rec.Code, c.want)
 			}
+			want := "" // only the Conflict message is Sealane's own
+			if c.want == 409 {
+				want = "conflict"
+			}
+			if got := errCode(t, rec); got != want {
+				t.Fatalf("code = %q, want %q", got, want)
+			}
 		})
 	}
+}
+
+// errCode returns the error envelope's code.
+func errCode(t *testing.T, rec *httptest.ResponseRecorder) string {
+	t.Helper()
+	var env errEnvelope
+	if err := json.Unmarshal(rec.Body.Bytes(), &env); err != nil {
+		t.Fatalf("decode envelope: %v: %s", err, rec.Body.String())
+	}
+	return env.Error.Code
 }

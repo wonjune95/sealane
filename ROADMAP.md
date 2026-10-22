@@ -71,6 +71,9 @@ Sealane is moving from an internal tool to a public project in four releases. Da
 ## 1.11 (shipped)
 - The chart and install.yaml ship the accounts ConfigMap and a `sealane-cm` settings ConfigMap (OIDC keys documented in comments, read through `envFrom`), like Argo CD's `argocd-cm`.
 
+## 1.12 (shipped)
+- install.yaml and GitOps installs get a generated session-signing key stored in `sealane-secret`, so restarts keep sessions and replicas share the key.
+
 ## After 1.0 (candidates, not promised)
 - Recipes and wizards for common routing changes.
 - Revision history with rollback.

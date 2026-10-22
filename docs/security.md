@@ -44,9 +44,9 @@ Images and charts are signed keyless with cosign (GitHub OIDC identity via Sigst
 
 ```bash
 cosign verify --certificate-identity-regexp 'https://github.com/wonjune95/sealane/' \
-  --certificate-oidc-issuer https://token.actions.githubusercontent.com ghcr.io/wonjune95/sealane:1.11.0
+  --certificate-oidc-issuer https://token.actions.githubusercontent.com ghcr.io/wonjune95/sealane:1.12.0
 cosign verify --certificate-identity-regexp 'https://github.com/wonjune95/sealane/' \
-  --certificate-oidc-issuer https://token.actions.githubusercontent.com ghcr.io/wonjune95/charts/sealane:1.11.0
+  --certificate-oidc-issuer https://token.actions.githubusercontent.com ghcr.io/wonjune95/charts/sealane:1.12.0
 ```
 
 Use cosign 3.x. From 1.0.0 on, signatures are stored as OCI referrers (Sigstore bundles) next to the image and chart rather than as `.sig` tags; cosign 3.x verifies both forms, older cosign only the tags.

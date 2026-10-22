@@ -1,10 +1,18 @@
-import { useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useFlowMap } from '../api/flowmap'
 import { PageHeader } from '../components/PageHeader'
 import { EmptyState } from '../components/EmptyState'
 import { Icon } from '../components/icons'
-import { t, locale, type Key } from '../i18n'
+import { t, locale } from '../i18n'
+import {
+  CANVAS_WIDTH,
+  NODE_R,
+  edgeKey,
+  edgePath,
+  layoutTopology,
+  type Point,
+} from './flowLayout'
 import {
   buildTopology,
   connectedNodes,
@@ -13,9 +21,7 @@ import {
   type Topology,
 } from './flowTopology'
 
-type Offsets = Record<string, { x: number; y: number }>
-const CANVAS_WIDTH = 1064
-const stages: Key[] = ['flow.source', 'flow.gateways', 'flow.routes', 'flow.destinations']
+type Offsets = Record<string, Point>
 
 export function FlowMap() {
   const { data, isLoading, error, isFetching, refetch, dataUpdatedAt } =
@@ -219,7 +225,27 @@ export function FlowMap() {
         ) : (
           <FlowCanvas key={direction} topology={filtered} />
         )}
-        <div className="flow-footer">
+        <div className="flow-footer" role="group" aria-label={t('flow.legend')}>
+          <span>
+            <svg aria-hidden="true" className="flow-legend-shape flow-tone-blue" viewBox="-14 -14 28 28"><circle className="flow-shape" r={10} /></svg>
+            {t('flow.source')}
+          </span>
+          <span>
+            <svg aria-hidden="true" className="flow-legend-shape flow-tone-blue" viewBox="-14 -14 28 28"><rect className="flow-shape" x={-10} y={-10} width={20} height={20} rx={5} /></svg>
+            {t('flow.gateways')}
+          </span>
+          <span>
+            <svg aria-hidden="true" className="flow-legend-shape flow-tone-violet" viewBox="-14 -14 28 28"><polygon className="flow-shape" points="0,-12 12,0 0,12 -12,0" /></svg>
+            {t('flow.routes')}
+          </span>
+          <span>
+            <svg aria-hidden="true" className="flow-legend-shape flow-tone-green" viewBox="-14 -14 28 28"><circle className="flow-shape" r={10} /></svg>
+            {t('flow.legend.service')}
+          </span>
+          <span>
+            <svg aria-hidden="true" className="flow-legend-shape flow-tone-slate" viewBox="-14 -14 28 28"><circle className="flow-shape is-dashed" r={10} /></svg>
+            {t('flow.legend.external')}
+          </span>
           <span>
             <span className="flow-legend-line" /> {t('flow.legendConfigured')}
           </span>
@@ -240,23 +266,40 @@ function FlowCanvas({ topology }: { topology: Topology }) {
   const [offsets, setOffsets] = useState<Offsets>({})
   const [zoom, setZoom] = useState<number | null>(null)
   const [viewportWidth, setViewportWidth] = useState(CANVAS_WIDTH + 48)
-  const [height, setHeight] = useState(340)
   const viewportRef = useRef<HTMLDivElement>(null)
-  const canvasRef = useRef<HTMLDivElement>(null)
-  const refs = useRef(new Map<string, HTMLButtonElement>())
-  const [paths, setPaths] = useState<
-    { key: string; from: string; to: string; d: string; broken?: boolean }[]
-  >([])
+  const layout = useMemo(() => layoutTopology(topology), [topology])
   const scale =
-    zoom ?? Math.max(0.65, Math.min(1, (viewportWidth - 48) / CANVAS_WIDTH))
+    zoom ?? Math.max(0.65, Math.min(1, (viewportWidth - 48) / layout.width))
   const fit = () =>
-    setZoom(Math.max(0.25, Math.min(1, (viewportWidth - 48) / CANVAS_WIDTH)))
+    setZoom(
+      Math.max(
+        0.25,
+        Math.min(1, (viewportWidth - 48) / layout.width, 612 / layout.height),
+      ),
+    )
   const selectedNode = topology.nodes.find((n) => n.id === selected)
   const highlight = useMemo(
     () =>
       selectedNode ? connectedNodes([selectedNode.id], topology.edges) : null,
     [selectedNode, topology.edges],
   )
+  // Offsets outlive re-layouts (filters, refetch), so clamp them to the current canvas here.
+  const placed = (id: string): { at: Point; offset: Point } => {
+    const at = layout.positions.get(id) ?? { x: 0, y: 0 }
+    const raw = offsets[id] ?? { x: 0, y: 0 }
+    const clamp = (v: number, lo: number, hi: number) => Math.min(Math.max(v, lo), hi)
+    return {
+      at,
+      offset: {
+        x: clamp(raw.x, NODE_R - at.x, layout.width - NODE_R - at.x),
+        y: clamp(raw.y, NODE_R - at.y, layout.height - NODE_R - at.y),
+      },
+    }
+  }
+  const position = (id: string): Point => {
+    const { at, offset } = placed(id)
+    return { x: at.x + offset.x, y: at.y + offset.y }
+  }
 
   useLayoutEffect(() => {
     const viewport = viewportRef.current
@@ -266,53 +309,6 @@ function FlowCanvas({ topology }: { topology: Topology }) {
     )
     observer.observe(viewport)
     return () => observer.disconnect()
-  }, [])
-
-  useLayoutEffect(() => {
-    const canvas = canvasRef.current
-    if (!canvas) return
-    const draw = () => {
-      const bounds = canvas.getBoundingClientRect()
-      let bottom = 320
-      for (const node of refs.current.values())
-        bottom = Math.max(
-          bottom,
-          (node.getBoundingClientRect().bottom - bounds.top) / scale + 32,
-        )
-      setHeight(bottom)
-      setPaths(
-        topology.edges.flatMap((edge) => {
-          const a = refs.current.get(edge.from)?.getBoundingClientRect()
-          const b = refs.current.get(edge.to)?.getBoundingClientRect()
-          if (!a || !b) return []
-          const x1 = (a.right - bounds.left) / scale,
-            y1 = (a.top + a.height / 2 - bounds.top) / scale
-          const x2 = (b.left - bounds.left) / scale,
-            y2 = (b.top + b.height / 2 - bounds.top) / scale
-          const bend = Math.max(28, (x2 - x1) / 2)
-          return [
-            {
-              ...edge,
-              key: `${edge.from}>${edge.to}`,
-              d: `M ${x1} ${y1} C ${x1 + bend} ${y1}, ${x2 - bend} ${y2}, ${x2} ${y2}`,
-            },
-          ]
-        }),
-      )
-    }
-    draw()
-    const observer = new ResizeObserver(draw)
-    for (const node of refs.current.values()) observer.observe(node)
-    window.addEventListener('resize', draw)
-    return () => {
-      observer.disconnect()
-      window.removeEventListener('resize', draw)
-    }
-  }, [topology, offsets, scale])
-
-  const register = useCallback((id: string, el: HTMLButtonElement | null) => {
-    if (el) refs.current.set(id, el)
-    else refs.current.delete(id)
   }, [])
 
   return (
@@ -372,100 +368,90 @@ function FlowCanvas({ topology }: { topology: Topology }) {
           if (e.key === 'Escape') setSelected(null)
         }}
         onClick={(e) => {
-          if (!(e.target as HTMLElement).closest('button')) setSelected(null)
+          if (!(e.target as Element).closest('.flow-node')) setSelected(null)
         }}
       >
-        <div
-          style={{
-            width: CANVAS_WIDTH * scale,
-            height: height * scale,
-            margin: 24,
-          }}
+        <svg
+          className="flow-svg"
+          width={layout.width * scale}
+          height={layout.height * scale}
+          viewBox={`0 0 ${layout.width} ${layout.height}`}
+          style={{ margin: 24 }}
         >
-          <div
-            ref={canvasRef}
-            className="flow-canvas"
-            style={{
-              width: CANVAS_WIDTH,
-              minHeight: height,
-              transform: `scale(${scale})`,
-              transformOrigin: 'top left',
-            }}
-          >
-            <svg
-              className="pointer-events-none absolute inset-0 h-full w-full"
-              aria-hidden="true"
-            >
-              {paths.map((path) => {
-                const active =
-                  !!highlight &&
-                  highlight.has(path.from) &&
-                  highlight.has(path.to)
-                return (
-                  <g
-                    key={path.key}
-                    className={highlight && !active ? 'opacity-20' : ''}
-                  >
-                    <path
-                      d={path.d}
-                      className={`flow-edge ${path.broken ? 'is-broken' : active ? 'is-active' : ''}`}
-                      fill="none"
-                    />
-                    <path
-                      d={path.d}
-                      className={`flow-edge-motion ${path.broken ? 'is-broken' : ''}`}
-                      fill="none"
-                    />
-                  </g>
-                )
-              })}
-            </svg>
-            <div className="flow-columns">
-              {stages.map((stage, index) => (
-                <div key={stage} className="min-w-0">
-                  <div className="flow-stage">
-                    <span>{String(index + 1).padStart(2, '0')}</span>
-                    {t(stage)}
-                    <small>
-                      {topology.nodes.filter((n) => n.stage === index).length}
-                    </small>
-                  </div>
-                  <div className="flex flex-col gap-5">
-                    {topology.nodes
-                      .filter((n) => n.stage === index)
-                      .map((node) => (
-                        <DraggableCard
-                          key={node.id}
-                          node={node}
-                          selected={selectedNode?.id === node.id}
-                          dimmed={!!highlight && !highlight.has(node.id)}
-                          offset={offsets[node.id] ?? { x: 0, y: 0 }}
-                          register={register}
-                          scale={scale}
-                          onSelect={() =>
-                            setSelected(selected === node.id ? null : node.id)
-                          }
-                          onMove={(offset) =>
-                            setOffsets((previous) => ({
-                              ...previous,
-                              [node.id]: offset,
-                            }))
-                          }
-                        />
-                      ))}
-                    {!topology.nodes.some((n) => n.stage === index) && (
-                      <div className="flow-stage-empty">
-                        {index === 1 || index === 2
-                          ? t('flow.directPath')
-                          : t('flow.noNodes')}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
+          <defs>
+            {(['', 'is-active', 'is-broken'] as const).map((variant) => (
+              <marker
+                key={variant}
+                id={`flow-arrow${variant ? `-${variant}` : ''}`}
+                className={`flow-arrow ${variant}`}
+                viewBox="0 0 10 10"
+                refX="9"
+                refY="5"
+                markerWidth="7"
+                markerHeight="7"
+                orient="auto-start-reverse"
+              >
+                <path d="M 0 0 L 10 5 L 0 10 z" />
+              </marker>
+            ))}
+          </defs>
+          {layout.bands.map((band) => (
+            <g className="flow-ns" key={band.namespace || '*'}>
+              <rect
+                x={band.x}
+                y={band.y}
+                width={band.width}
+                height={band.height}
+                rx={14}
+              />
+              <text x={band.x + 14} y={band.y + 22}>
+                {band.namespace || t('flow.legend.external')}
+              </text>
+            </g>
+          ))}
+          {topology.edges.map((edge) => {
+            const active =
+              !!highlight && highlight.has(edge.from) && highlight.has(edge.to)
+            const variant = edge.broken ? 'is-broken' : active ? 'is-active' : ''
+            const d = edgePath(position(edge.from), position(edge.to))
+            return (
+              <g
+                key={edgeKey(edge)}
+                className={highlight && !active ? 'opacity-20' : ''}
+              >
+                <path
+                  d={d}
+                  className={`flow-edge ${variant}`}
+                  fill="none"
+                  markerEnd={`url(#flow-arrow${variant ? `-${variant}` : ''})`}
+                />
+                <path
+                  d={d}
+                  className={`flow-edge-motion ${edge.broken ? 'is-broken' : ''}`}
+                  fill="none"
+                />
+              </g>
+            )
+          })}
+          {topology.nodes.map((node) => (
+            <GraphNode
+              key={node.id}
+              node={node}
+              at={placed(node.id).at}
+              offset={placed(node.id).offset}
+              selected={selectedNode?.id === node.id}
+              dimmed={!!highlight && !highlight.has(node.id)}
+              scale={scale}
+              bounds={layout}
+              onSelect={() =>
+                setSelected(selected === node.id ? null : node.id)
+              }
+              onMove={(offset) =>
+                setOffsets((previous) => ({ ...previous, [node.id]: offset }))
+              }
+            />
+          ))}
+        </svg>
       </div>
       {selectedNode ? (
         <NodeDetails
@@ -482,39 +468,75 @@ function FlowCanvas({ topology }: { topology: Topology }) {
   )
 }
 
-function DraggableCard({
+const shorten = (text: string, max = 18) =>
+  text.length > max ? `${text.slice(0, max - 1)}…` : text
+
+// Kiali-style node: a small shape per kind with the icon inside and the name below.
+function GraphNode({
   node,
+  at,
+  offset,
   selected,
   dimmed,
-  offset,
-  register,
   scale,
+  bounds,
   onSelect,
   onMove,
 }: {
   node: FlowNode
+  at: Point
+  offset: Point
   selected: boolean
   dimmed: boolean
-  offset: { x: number; y: number }
-  register: (id: string, el: HTMLButtonElement | null) => void
   scale: number
+  bounds: { width: number; height: number }
   onSelect: () => void
-  onMove: (offset: { x: number; y: number }) => void
+  onMove: (offset: Point) => void
 }) {
   const drag = useRef<{ x: number; y: number; moved: boolean } | null>(null)
   const suppressClick = useRef(false)
+  const external = node.icon === 'globe' && node.stage === 3
+  const sub =
+    node.hosts[0] ??
+    [node.port ? `:${node.port}` : '', node.stage === 3 ? node.status : '']
+      .filter(Boolean)
+      .join(' · ')
+  const shape =
+    node.stage === 1 ? (
+      <rect
+        className="flow-shape"
+        x={-NODE_R + 2}
+        y={-NODE_R + 2}
+        width={NODE_R * 2 - 4}
+        height={NODE_R * 2 - 4}
+        rx={10}
+      />
+    ) : node.stage === 2 ? (
+      <polygon
+        className="flow-shape"
+        points={`0,${-NODE_R - 2} ${NODE_R + 2},0 0,${NODE_R + 2} ${-NODE_R - 2},0`}
+      />
+    ) : (
+      <circle className={`flow-shape ${external ? 'is-dashed' : ''}`} r={NODE_R} />
+    )
   return (
-    <button
-      ref={(el) => register(node.id, el)}
-      type="button"
+    <g
+      className={`flow-node flow-tone-${node.tone} ${selected ? 'is-selected' : ''} ${dimmed ? 'is-dimmed' : ''}`}
+      style={{ transform: `translate(${offset.x}px, ${offset.y}px)` }}
+      role="button"
+      tabIndex={0}
       aria-label={`${node.kind} ${node.name}${node.status ? `, ${node.status}` : ''}`}
       aria-pressed={selected}
-      className={`flow-node flow-tone-${node.tone} ${node.stage === 0 ? 'flow-source' : ''} ${selected ? 'is-selected' : ''} ${dimmed ? 'is-dimmed' : ''}`}
-      style={{ transform: `translate(${offset.x}px, ${offset.y}px)` }}
       onClick={(e) => {
         e.stopPropagation()
         if (!suppressClick.current) onSelect()
         suppressClick.current = false
+      }}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault()
+          onSelect()
+        }
       }}
       onPointerDown={(e) => {
         if (e.pointerType !== 'mouse' || e.button !== 0) return
@@ -528,12 +550,14 @@ function DraggableCard({
           dy = (e.clientY - drag.current.y) / scale
         if (Math.abs(dx) + Math.abs(dy) > 4) drag.current.moved = true
         if (drag.current.moved) {
-          const columnStart = [0, 176, 472, 768][node.stage]
           const x = Math.min(
-            Math.max(offset.x + dx, -columnStart),
-            CANVAS_WIDTH - columnStart - (node.stage === 0 ? 120 : 240),
+            Math.max(offset.x + dx, NODE_R - at.x),
+            bounds.width - NODE_R - at.x,
           )
-          const y = Math.max(-12, offset.y + dy)
+          const y = Math.min(
+            Math.max(offset.y + dy, NODE_R - at.y),
+            bounds.height - NODE_R - at.y,
+          )
           onMove({ x, y })
           drag.current.x = e.clientX
           drag.current.y = e.clientY
@@ -548,41 +572,35 @@ function DraggableCard({
         suppressClick.current = false
       }}
     >
-      <div className="flex items-center gap-2.5">
-        <span className="flow-icon">
-          <Icon name={node.icon} className="h-4 w-4" />
-        </span>
-        <span className="min-w-0 flex-1">
-          <span className="block text-[10px] font-semibold uppercase tracking-wider text-muted">
-            {node.kind}
-          </span>
-          <span
-            className="flow-node-name mt-0.5 block truncate text-sm font-semibold text-strong"
-            title={node.name}
-          >
-            {node.name}
-          </span>
-        </span>
-      </div>
-      {node.namespace && (
-        <p className="mt-3 truncate text-[11px] text-muted">
-          {node.namespace}
-          {node.port ? ` · :${node.port}` : ''}
-        </p>
-      )}
-      {node.hosts.length > 0 && (
-        <p className="flow-hosts" title={node.hosts.join(', ')}>
-          {node.hosts.join(', ')}
-        </p>
-      )}
-      {node.status && (
-        <span className={`flow-status ${node.issue ? 'is-issue' : ''}`}>
-          <span />
-          {node.status}
-        </span>
-      )}
-      {selected && <span className="flow-selected-dot" />}
-    </button>
+      <g transform={`translate(${at.x} ${at.y})`}>
+        <title>
+          {`${node.kind} · ${node.name}${node.status ? ` · ${node.status}` : ''}`}
+        </title>
+        {/* transparent hit area so the label and the gaps around the shape are clickable/draggable */}
+        <rect className="flow-hit" x={-36} y={-30} width={72} height={84} />
+        {selected && <circle className="flow-ring" r={NODE_R + 7} />}
+        {shape}
+        <g transform="translate(-8 -8)">
+          <Icon name={node.icon} className="flow-node-icon" size={16} />
+        </g>
+        {node.issue && (
+          <g transform={`translate(${NODE_R - 6} ${-NODE_R + 6})`}>
+            <circle className="flow-badge" r={8} />
+            <text y={3.5} textAnchor="middle">
+              !
+            </text>
+          </g>
+        )}
+        <text className="flow-label" y={NODE_R + 17} textAnchor="middle">
+          {shorten(node.name)}
+        </text>
+        {sub && (
+          <text className="flow-sublabel" y={NODE_R + 31} textAnchor="middle">
+            {shorten(sub, 24)}
+          </text>
+        )}
+      </g>
+    </g>
   )
 }
 

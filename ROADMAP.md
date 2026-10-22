@@ -74,6 +74,9 @@ Sealane is moving from an internal tool to a public project in four releases. Da
 ## 1.12 (shipped)
 - install.yaml and GitOps installs get a generated session-signing key stored in `sealane-secret`, so restarts keep sessions and replicas share the key.
 
+## 1.13 (shipped)
+- Traffic flow map redrawn as a Kiali-style graph: namespace boxes, shaped nodes with icons, arrowed edges, badges and a legend.
+
 ## After 1.0 (candidates, not promised)
 - Recipes and wizards for common routing changes.
 - Revision history with rollback.

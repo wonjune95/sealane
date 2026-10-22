@@ -187,12 +187,13 @@ try {
   // Zoom and drag must use the same coordinate system, and dragging must not select.
   await page.getByRole('button', { name: 'Zoom in', exact: true }).click()
   const before = await checkout.boundingBox()
-  await page.mouse.move(before.x + 45, before.y + 35)
+  const cx = before.x + before.width / 2, cy = before.y + before.height / 3
+  await page.mouse.move(cx, cy)
   await page.mouse.down()
-  await page.mouse.move(before.x + 75, before.y + 85, { steps: 8 })
+  await page.mouse.move(cx + 30, cy + 50, { steps: 8 })
   await page.mouse.up()
   const after = await checkout.boundingBox()
-  assert.ok(Math.abs(after.y - before.y - 50) < 3)
+  assert.ok(Math.abs(after.y - before.y - 50) < 3, `drag moved ${after.y - before.y}px`)
   assert.equal(await details.count(), 0)
   await page.getByRole('button', { name: 'Reset layout' }).click()
   assert.equal(
@@ -202,6 +203,19 @@ try {
   console.log(
     'PASS: keyboard selection, focus-visible links, scaled drag, Escape and layout reset work',
   )
+  // Kiali-style graph: one namespace box per namespace, stages flow left → right, arrows on edges.
+  const boxes = page.locator('.flow-ns')
+  assert.deepEqual(
+    (await boxes.locator('text').allTextContents()).sort(),
+    ['External', 'apps', 'edge'],
+  )
+  const x = async (name) =>
+    (await cards.filter({ has: page.locator('.flow-label', { hasText: new RegExp(`^${name}$`) }) }).boundingBox()).x
+  assert.ok((await x('public-gateway')) < (await x('checkout-route')) && (await x('checkout-route')) < (await x('checkout')))
+  assert.ok((await page.locator('.flow-edge[marker-end]').count()) > 0)
+  assert.equal(await page.locator('.flow-edge.is-broken').count(), 3)
+  assert.equal(await page.locator('.flow-badge').count(), 2)
+  console.log('PASS: namespace boxes, left-to-right stages, arrowheads and issue badges render')
 
   await checkout.click()
   await page.getByRole('button', { name: 'Dark mode', exact: true }).click()

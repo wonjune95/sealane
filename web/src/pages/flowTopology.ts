@@ -171,7 +171,7 @@ export function buildTopology(
         hosts: entry.hosts,
         stage: 3,
         icon: 'globe',
-        tone: 'green',
+        tone: 'slate',
         status: t('flow.status.direct'),
         to: `/resources/${entry.typeId}/${entry.namespace}/${entry.name}`,
       })

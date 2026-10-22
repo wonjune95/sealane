@@ -46,13 +46,17 @@ const PATHS: Record<string, string> = {
 export function Icon({
   name,
   className = 'h-5 w-5',
+  size,
 }: {
   name: keyof typeof PATHS | string
   className?: string
+  size?: number // width/height attributes, for use inside another SVG where no Tailwind size class applies
 }) {
   return (
     <svg
       className={className}
+      width={size}
+      height={size}
       viewBox="0 0 24 24"
       fill="none"
       stroke="currentColor"

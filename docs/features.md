@@ -21,10 +21,11 @@ A single CRUD path (`/api/resources/{type}`) built on the dynamic client (unstru
 ## Traffic flow map
 Draws the traffic path purely from routing configuration — no metrics dependency, so it works on any cluster immediately.
 
-- **Ingress** — External → Gateway → Route (hosts) → Service (endpoint counts). Backends that don't exist or have zero endpoints get red edges + warning pills, so dead-end configs are caught at a glance.
-- **Egress** — Mesh → egress Gateway → external hosts; ServiceEntries not referenced by any route are shown as direct egress paths. External backends get a badge with the ServiceEntry that covers them (wildcard host matching included).
+- **Ingress** — External → Gateway → Route (hosts) → Service (endpoint counts). Backends that don't exist or have zero endpoints get red dashed edges and a red badge, so dead-end configs are caught at a glance.
+- **Egress** — Mesh → egress Gateway → external hosts; ServiceEntries not referenced by any route are shown as direct egress paths. The tooltip and details panel name the ServiceEntry that covers an external backend (wildcard host matching included).
+- **Graph** — drawn like Kiali's service graph: one dashed box per namespace, small shaped nodes (rounded square = gateway, diamond = route, circle = service, dashed circle = external host) with the kind icon inside and the name and host or endpoint count below, arrowed edges from left to right, a red badge on nodes that need attention, and a legend under the graph. Stages flow source → gateways → routes → destinations, each namespace keeping its own band so boxes never overlap.
 - **Navigation** — switch between ingress and egress, search by name/host/kind, filter by namespace or problem paths. Matching nodes retain their upstream and downstream connections. Missing gateway references appear as warning nodes.
-- **Interaction** — select a node with a click or keyboard to highlight its paths. The details panel shows its status, hosts, port and resource link. Mouse drag, zoom, fit and layout reset are available. On mobile, horizontal scrolling stays inside the graph.
+- **Interaction** — select a node with a click or keyboard to highlight its paths and dim the rest. The details panel shows its status, hosts, port and resource link. Mouse drag, zoom, fit and layout reset are available.
 - **Refresh** — configuration refreshes every 30 seconds, with a manual refresh button. Failed queries show an error and retry action. Animated connections do not represent actual traffic volume or latency.
 
 ![Traffic flow map — path navigation and selected node details](img/screenshot-flowmap.png)

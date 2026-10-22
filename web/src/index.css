@@ -419,53 +419,74 @@ button:disabled {
     );
     background-size: 20px 20px;
   }
-  .flow-canvas {
-    @apply relative;
+  .flow-svg {
+    display: block;
+    overflow: visible;
+    user-select: none;
   }
-  .flow-columns {
-    @apply relative grid items-start;
-    grid-template-columns: 120px repeat(3, 240px);
-    gap: 56px;
+  /* Namespace boxes, like Kiali's namespace groups */
+  .flow-ns rect {
+    fill: rgb(148 163 184 / 0.07);
+    stroke: rgb(148 163 184 / 0.5);
+    stroke-dasharray: 6 4;
   }
-  .flow-stage {
-    @apply mb-5 flex h-8 items-center gap-2 text-[11px] font-semibold text-muted;
-  }
-  .flow-stage > span {
-    @apply rounded border border-base bg-white px-1.5 py-0.5 text-[10px] text-faint dark:bg-slate-900;
-  }
-  .flow-stage small {
-    @apply ml-auto text-[10px] font-normal tabular-nums text-faint;
-  }
-  .flow-stage-empty {
-    @apply rounded-lg border border-dashed border-base py-5 text-center text-[11px] text-faint;
+  .flow-ns text {
+    @apply fill-slate-500 text-[11px] font-semibold uppercase tracking-wider dark:fill-slate-400;
   }
   .flow-node {
-    @apply relative block w-full select-none rounded-xl border border-base bg-white p-3.5 text-left shadow-sm transition-opacity dark:bg-slate-900;
     cursor: grab;
+    transition: opacity 150ms;
   }
-  .flow-source > div {
-    flex-direction: column;
-    text-align: center;
-  }
-  .flow-source .flow-node-name {
-    white-space: normal;
-    font-size: 12px;
+  /* The graph draws its own focus/selection ring (thicker stroke, .flow-ring); the global outline would box the whole label */
+  .flow-svg .flow-node:focus-visible {
+    outline: none;
   }
   .flow-node:active {
     cursor: grabbing;
   }
-  .flow-node:hover {
-    border-color: rgb(var(--accent-ring));
-    box-shadow: 0 4px 14px rgb(15 23 42 / 0.08);
-  }
   .flow-node.is-dimmed {
-    opacity: 0.3;
+    opacity: 0.25;
   }
-  .flow-node.is-selected {
-    border-color: rgb(var(--accent));
-    box-shadow:
-      0 0 0 3px rgb(var(--accent) / 0.13),
-      0 4px 14px rgb(15 23 42 / 0.08);
+  .flow-hit {
+    fill: transparent;
+  }
+  .flow-shape {
+    @apply fill-white dark:fill-slate-900;
+    stroke-width: 2;
+    transition: stroke-width 100ms;
+  }
+  .flow-node:hover .flow-shape,
+  .flow-node:focus-visible .flow-shape,
+  .flow-node.is-selected .flow-shape {
+    stroke-width: 3;
+  }
+  .flow-shape.is-dashed {
+    stroke-dasharray: 4 3;
+  }
+  .flow-ring {
+    fill: rgb(var(--accent) / 0.12);
+    stroke: rgb(var(--accent));
+    stroke-width: 1.5;
+  }
+  .flow-badge {
+    fill: #ef4444;
+  }
+  .flow-badge + text {
+    fill: white;
+    font-size: 11px;
+    font-weight: 700;
+  }
+  .flow-label {
+    @apply fill-slate-900 dark:fill-slate-100;
+    font-size: 12px;
+    font-weight: 600;
+  }
+  .flow-sublabel {
+    @apply fill-slate-500 dark:fill-slate-400;
+    font-size: 10px;
+  }
+  .flow-legend-shape {
+    @apply inline-block h-4 w-4;
   }
   .flow-icon {
     @apply inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg;
@@ -490,26 +511,44 @@ button:disabled {
   .flow-tone-slate .flow-icon {
     @apply bg-slate-500/10 text-slate-600 dark:text-slate-400;
   }
-  .flow-tone-red.flow-node {
-    @apply border-red-500/30;
+  .flow-tone-blue .flow-shape {
+    @apply stroke-blue-500;
   }
-  .flow-hosts {
-    @apply mt-3 truncate rounded-md bg-slate-500/5 px-2 py-1.5 text-[11px] text-muted;
+  .flow-tone-blue .flow-node-icon {
+    @apply text-blue-600 dark:text-blue-400;
   }
-  .flow-status {
-    @apply mt-3 inline-flex max-w-full items-center gap-1.5 break-all rounded-md bg-emerald-500/10 px-2 py-1 text-[10px] font-medium text-emerald-700 dark:text-emerald-400;
+  .flow-tone-violet .flow-shape {
+    @apply stroke-violet-500;
   }
-  .flow-tone-slate .flow-status {
-    @apply bg-slate-500/10 text-muted;
+  .flow-tone-violet .flow-node-icon {
+    @apply text-violet-600 dark:text-violet-400;
   }
-  .flow-status.is-issue {
-    @apply bg-red-500/10 text-red-600 dark:text-red-400;
+  .flow-tone-green .flow-shape {
+    @apply stroke-emerald-500;
   }
-  .flow-status > span {
-    @apply h-1.5 w-1.5 shrink-0 rounded-full bg-current;
+  .flow-tone-green .flow-node-icon {
+    @apply text-emerald-600 dark:text-emerald-400;
   }
-  .flow-selected-dot {
-    @apply absolute -right-1 -top-1 h-2.5 w-2.5 rounded-full border-2 border-white bg-accent dark:border-slate-900;
+  .flow-tone-red .flow-shape {
+    @apply stroke-red-500;
+  }
+  .flow-tone-red .flow-node-icon {
+    @apply text-red-600 dark:text-red-400;
+  }
+  .flow-tone-slate .flow-shape {
+    @apply stroke-slate-400;
+  }
+  .flow-tone-slate .flow-node-icon {
+    @apply text-slate-500 dark:text-slate-400;
+  }
+  .flow-arrow path {
+    fill: #94a3b8;
+  }
+  .flow-arrow.is-active path {
+    fill: rgb(var(--accent));
+  }
+  .flow-arrow.is-broken path {
+    fill: #ef4444;
   }
   .flow-edge {
     stroke: #94a3b8;

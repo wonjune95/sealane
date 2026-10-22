@@ -8,7 +8,7 @@ require (
 	golang.org/x/crypto v0.58.0
 	golang.org/x/oauth2 v0.37.0
 	istio.io/api v1.32.0-alpha.0
-	istio.io/client-go v1.31.1
+	istio.io/client-go v1.31.2
 	k8s.io/api v0.37.1
 	k8s.io/apimachinery v0.37.1
 	k8s.io/client-go v0.37.1

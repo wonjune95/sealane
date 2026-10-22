@@ -63,7 +63,17 @@ func main() {
 		}
 	}
 	api.AppVersion = version
-	srv := api.NewServer(*dev, factory, auth.NewStore(accountsDir), auth.NewSessions(os.Getenv("SESSION_SECRET")),
+	// No SESSION_SECRET env (install.yaml, GitOps): keep a generated key in the
+	// SESSION_SECRET_NAME Secret so restarts and replicas share it.
+	sessionSecret := os.Getenv("SESSION_SECRET")
+	if name := os.Getenv("SESSION_SECRET_NAME"); sessionSecret == "" && name != "" && !*dev {
+		if c, err := factory.Base(); err != nil {
+			slog.Warn("session secret: k8s client unavailable, using a per-boot key", "err", err)
+		} else if sessionSecret, err = api.LoadSessionSecret(context.Background(), c.Kube, os.Getenv("POD_NAMESPACE"), name); err != nil {
+			slog.Warn("session secret: using a per-boot key (restart = re-login)", "secret", name, "err", err)
+		}
+	}
+	srv := api.NewServer(*dev, factory, auth.NewStore(accountsDir), auth.NewSessions(sessionSecret),
 		api.AccountsCMRef{Namespace: os.Getenv("POD_NAMESPACE"), Name: os.Getenv("ACCOUNTS_CONFIGMAP")},
 		// Multi-cluster: Secret holding remote-cluster kubeconfigs (unset = local only)
 		api.ClustersSecretRef{Namespace: os.Getenv("POD_NAMESPACE"), Name: os.Getenv("CLUSTERS_SECRET")})

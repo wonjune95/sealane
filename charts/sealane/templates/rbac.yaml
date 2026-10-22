@@ -69,10 +69,10 @@ rules:
   - apiGroups: [""]
     resources: ["configmaps"]
     verbs: ["create"]
-  # Multi-cluster: read/update the remote kubeconfig Secret (that Secret only)
+  # Multi-cluster: read/update the remote kubeconfig Secret; settings Secret: read/store the generated session key (those two only)
   - apiGroups: [""]
     resources: ["secrets"]
-    resourceNames: [{{ .Values.clustersSecret | quote }}]
+    resourceNames: [{{ .Values.clustersSecret | quote }}, {{ printf "%s-secret" (include "sealane.fullname" .) | quote }}]
     verbs: ["get", "patch"]
   - apiGroups: [""]
     resources: ["secrets"]

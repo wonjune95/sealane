@@ -13,7 +13,8 @@ Sealane is configured with a few flags and environment variables. When you insta
 | `ACCOUNTS_DIR` | `/etc/sealane/accounts` | accounts ConfigMap mount path |
 | `ACCOUNTS_CONFIGMAP` / `POD_NAMESPACE` | (set by Helm) | CM that password changes / initial-admin creation patch |
 | `ISTIO_NAMESPACE` | `istio-system` (set by the chart from `istioNamespace`) | namespace where istiod runs; used to show the control-plane version on the home page |
-| `SESSION_SECRET` | (set by Helm from `<release>-session`; empty = random per boot) | session cookie signing key; empty = random per boot (restart = re-login) |
+| `SESSION_SECRET` | (set by Helm from `<release>-session`) | session cookie signing key; empty = read or generate one in the `SESSION_SECRET_NAME` Secret |
+| `SESSION_SECRET_NAME` | `sealane-secret` (set by the chart) | Secret where Sealane stores a generated key (key `SESSION_SECRET`) when `SESSION_SECRET` is empty, so restarts and replicas share it; unset = random per boot (restart = re-login) |
 | `REQUEST_TESTER` | (set by Helm) | `true` enables the in-pod request tester (needs pods/exec, admin only) |
 | `CLUSTERS_SECRET` / `POD_NAMESPACE` | (set by Helm) | multi-cluster: Secret holding remote kubeconfigs (empty = local only) |
 | `SHUTDOWN_DELAY` | `5s` | wait before closing the listener on SIGTERM so in-flight requests and endpoint propagation finish; set `0s` to disable through the `extraEnv` Helm value (`- {name: SHUTDOWN_DELAY, value: "0s"}`) or by editing install.yaml |
@@ -50,7 +51,7 @@ The same table is in the [chart README](https://github.com/wonjune95/sealane/blo
 | `accounts` | `{}` | Seed local accounts from values (`user: "role:bcryptHash"`). Helm manages exactly these keys (changing or removing one here changes it in the cluster); keys added in the UI are kept. |
 | `clustersSecret` | `sealane-clusters` | Remote kubeconfigs Secret (not managed by the chart) |
 | `requestTester.enabled` | `false` | Grants `pods/exec` cluster-wide; admin-only UI feature |
-| `sessionSecret.create` | `true` | Generate and keep a session-signing key (sessions survive restarts). GitOps tools (Argo CD, Flux) and plain "helm template" cannot use lookup and would render a new key on every sync — point existingSecret at a Secret you manage instead. |
+| `sessionSecret.create` | `true` | Generate and keep a session-signing key with Helm `lookup`. With `false` and no `existingSecret` (install.yaml, GitOps, `helm template`) Sealane generates one itself into Secret `<release>-secret`, key `SESSION_SECRET`. |
 | `sessionSecret.existingSecret` | `""` | Use your own Secret (key `session-secret`) |
 | `ingress.enabled` / `className` / `hosts` / `tls` / `annotations` | `false` … | Standard Ingress |
 | `httpRoute.enabled` / `parentRefs` / `hostnames` / `annotations` | `false` … | Gateway API HTTPRoute |

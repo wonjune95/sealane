@@ -41,8 +41,23 @@ jobs:
         run: |
           kind load docker-image sealane:ci --name "$KIND_CLUSTER"
           helm install sealane charts/sealane -n sealane --create-namespace \
-            --set image.repository=sealane --set image.tag=ci --set image.pullPolicy=Never
+            --set image.repository=sealane --set image.tag=ci --set image.pullPolicy=Never --set sessionSecret.create=false
           kubectl -n sealane rollout status deploy/sealane --timeout=180s
+      # sessionSecret.create=false is the install.yaml/GitOps shape: the app must generate the key into sealane-secret itself
+      - name: Generated session key survives a restart
+        run: |
+          [ "$(kubectl -n sealane get secret sealane-secret -o jsonpath='{.data.SESSION_SECRET}' | base64 -d | wc -c)" = 64 ]
+          kubectl -n sealane port-forward svc/sealane 8080:8080 >/tmp/pf0.log 2>&1 &
+          for i in $(seq 1 30); do curl -sf http://localhost:8080/healthz >/dev/null && break; sleep 1; done
+          curl -sf -c /tmp/jar -X POST -H 'Content-Type: application/json' -d '{"username":"admin","password":"admin"}' http://localhost:8080/api/login >/dev/null
+          kill %1
+          kubectl -n sealane rollout restart deploy/sealane
+          kubectl -n sealane rollout status deploy/sealane --timeout=180s
+          kubectl -n sealane port-forward svc/sealane 8080:8080 >/tmp/pf0.log 2>&1 &
+          for i in $(seq 1 30); do curl -sf http://localhost:8080/healthz >/dev/null && break; sleep 1; done
+          code=$(curl -s -o /dev/null -w '%{http_code}' -b /tmp/jar http://localhost:8080/api/capabilities)
+          kill %1
+          [ "$code" = 200 ] || { echo "session lost after restart: HTTP $code"; exit 1; }
       - name: Smoke test
         run: |
           kubectl -n sealane port-forward svc/sealane 8080:8080 >/tmp/pf.log 2>&1 &

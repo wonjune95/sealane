@@ -61,6 +61,9 @@ spec:
             # emptyDir so readOnlyRootFilesystem holds (Gemini review).
             - name: HOME
               value: /home/nonroot
+            # Without SESSION_SECRET (install.yaml, GitOps) Sealane generates a key once into this Secret, so restarts and replicas share it.
+            - name: SESSION_SECRET_NAME
+              value: {{ include "sealane.fullname" . }}-secret
             {{- $ss := default dict .Values.sessionSecret }}
             {{- if or $ss.create $ss.existingSecret }}
             # Stable session-signing key (see values.sessionSecret)

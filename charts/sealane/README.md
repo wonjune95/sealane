@@ -22,7 +22,7 @@ kubectl -n sealane port-forward svc/sealane 8080:8080   # http://localhost:8080 
 | `accounts` | `{}` | Seed local accounts (`user: "role:bcryptHash"`); Helm manages exactly these keys, UI-added ones are kept |
 | `clustersSecret` | `sealane-clusters` | Remote kubeconfigs Secret (not managed by the chart) |
 | `requestTester.enabled` | `false` | Grants `pods/exec` cluster-wide; admin-only UI feature |
-| `sessionSecret.create` | `true` | Generate and keep a session-signing key (sessions survive restarts). GitOps tools (Argo CD, Flux) and plain "helm template" cannot use lookup and would render a new key on every sync — point existingSecret at a Secret you manage instead. |
+| `sessionSecret.create` | `true` | Generate and keep a session-signing key with Helm `lookup`. With `false` and no `existingSecret` (install.yaml, GitOps, `helm template`) Sealane generates one itself into Secret `<release>-secret`, key `SESSION_SECRET`. |
 | `sessionSecret.existingSecret` | `""` | Use your own Secret (key `session-secret`) |
 | `ingress.enabled` / `className` / `hosts` / `tls` / `annotations` | `false` … | Standard Ingress |
 | `httpRoute.enabled` / `parentRefs` / `hostnames` / `annotations` | `false` … | Gateway API HTTPRoute |

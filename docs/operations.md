@@ -7,8 +7,7 @@ Sealane keeps no state of its own. Accounts live in the accounts ConfigMap, remo
 Every replica must sign sessions with the **same key**, otherwise a cookie issued by one pod is rejected by another (and an SSO sign-in that comes back to a different pod fails with `oidc_error=state`):
 
 - **Helm** — `sessionSecret.create=true` (the default) generates a random key once into the `<release>-session` Secret and keeps it across upgrades, so sessions also survive restarts.
-- **GitOps (Argo CD, Flux) or `helm template`** — these cannot use Helm's `lookup` and would render a new key on every sync. Create a Secret yourself (key `session-secret`) and set `sessionSecret.existingSecret`.
-- **`install.yaml`** — rendered with `sessionSecret.create=false`, so each pod uses a random per-boot key: a restart signs everyone out, and you should stay at one replica.
+- **`install.yaml`, GitOps (Argo CD, Flux) or `helm template`** — no `lookup` there, so no key is rendered; Sealane generates one on first start and stores it in the `sealane-secret` Secret (key `SESSION_SECRET`), like Argo CD's `argocd-secret`. Every pod reads that Secret, so restarts and replicas share the key. Set `sessionSecret.existingSecret` (key `session-secret`) to bring your own instead.
 
 The change history on the home page is in memory per pod (last 200 entries) and resets on restart; with several replicas each pod shows the changes it served. The structured audit log (below) is the durable record.
 

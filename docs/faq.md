@@ -14,7 +14,7 @@ Passing each user's Kubernetes token through was tried first. It was accurate bu
 
 ## Does it work in an air-gapped cluster?
 
-Yes. The frontend is embedded in the binary and nothing is fetched from the internet at runtime. Mirror the image (`ghcr.io/wonjune95/sealane:1.11.0`) and the chart to your registry, then set `image.repository` and, if needed, `imagePullSecrets`. For SSO the IdP only has to be reachable from the browser and the Sealane pod.
+Yes. The frontend is embedded in the binary and nothing is fetched from the internet at runtime. Mirror the image (`ghcr.io/wonjune95/sealane:1.11.0`) and the chart to your registry, then set `image.repository` and, if needed, `imagePullSecrets`. Without Helm, download `install.yaml` from the release, replace the `image:` line with your mirror (and add `imagePullSecrets` under the pod spec if the registry needs them) and `kubectl apply` it; the SBOM and the cosign signature on the release page let you verify what you mirrored. For SSO the IdP only has to be reachable from the browser and the Sealane pod.
 
 ## My cluster has only Gateway API (or only Istio). Is that fine?
 
@@ -33,7 +33,7 @@ The change applies within about a minute. Alternatively, delete the `admin` key 
 
 ## Why do I have to log in again after a restart?
 
-Sessions are signed cookies, and the signing key must outlive the pod. The Helm chart keeps one in the `<release>-session` Secret by default (`sessionSecret.create=true`). `install.yaml`, `sessionSecret.create=false`, or GitOps rendering without `sessionSecret.existingSecret` leave Sealane with a random per-boot key, so a restart — or a second replica — signs people out. See [Operations](operations.md#high-availability).
+Sessions are signed cookies, and the signing key must outlive the pod. The Helm chart keeps one in the `<release>-session` Secret (`sessionSecret.create=true`); `install.yaml` and GitOps installs get one that Sealane generates into the `sealane-secret` Secret on first start. You are signed out after a restart only when the pod cannot read or create that Secret (the log says `session secret: using a per-boot key`) or when `SESSION_SECRET_NAME` was removed from the Deployment. See [Operations](operations.md#high-availability).
 
 ## Does it run on ARM?
 

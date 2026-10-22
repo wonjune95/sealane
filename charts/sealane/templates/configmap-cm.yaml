@@ -21,6 +21,7 @@
 #   LOCAL_LOGIN: hidden                      # hide the username/password form; /?local=1 brings it back
 # The client secret goes in Secret {{ include "sealane.fullname" . }}-secret, key OIDC_CLIENT_SECRET:
 #   kubectl -n {{ .Release.Namespace }} create secret generic {{ include "sealane.fullname" . }}-secret --from-literal=OIDC_CLIENT_SECRET='...'
+# Sealane also stores its generated session-signing key in that Secret (SESSION_SECRET), so sessions survive restarts and are shared by replicas.
 # Other optional keys: SHUTDOWN_DELAY (5s), SSL_CERT_FILE (private CA for the issuer; mount it with extraVolumes).
 apiVersion: v1
 kind: ConfigMap

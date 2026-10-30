@@ -211,6 +211,18 @@ try {
   const nodeAfter = await checkout.boundingBox()
   assert.ok(Math.abs(nodeAfter.x - nodeBefore.x - 40) < 3 && Math.abs(nodeAfter.y - nodeBefore.y - 30) < 3, 'nodes move with their box')
   assert.ok(await nodeInBox())
+  // No right or bottom limit: a node dragged past the laid-out canvas takes the canvas with it.
+  const svgBefore = await page.locator('.flow-svg').boundingBox()
+  const far = await checkout.boundingBox()
+  await page.mouse.move(far.x + far.width / 2, far.y + far.height / 3)
+  await page.mouse.down()
+  await page.mouse.move(far.x + far.width / 2 + 500, far.y + far.height / 3 + 400, { steps: 12 })
+  await page.mouse.up()
+  const farAfter = await checkout.boundingBox()
+  const svgAfter = await page.locator('.flow-svg').boundingBox()
+  assert.ok(Math.abs(farAfter.x - far.x - 500) < 3 && Math.abs(farAfter.y - far.y - 400) < 3, `free drag moved ${farAfter.x - far.x}, ${farAfter.y - far.y}`)
+  assert.ok(svgAfter.height >= svgBefore.height && farAfter.y + farAfter.height <= svgAfter.y + svgAfter.height && farAfter.x + farAfter.width <= svgAfter.x + svgAfter.width, 'the canvas holds the dragged node')
+  assert.ok(await nodeInBox())
   await page.getByRole('button', { name: 'Reset layout' }).click()
   assert.equal(
     await checkout.evaluate((el) => el.style.transform),

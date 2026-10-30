@@ -6,7 +6,7 @@
 
 ```bash
 # Helm (OCI)
-helm install sealane oci://ghcr.io/wonjune95/charts/sealane --version 1.18.2 -n sealane --create-namespace
+helm install sealane oci://ghcr.io/wonjune95/charts/sealane --version 1.18.3 -n sealane --create-namespace
 # or plain manifests
 kubectl apply -f https://github.com/wonjune95/sealane/releases/latest/download/install.yaml
 kubectl -n sealane port-forward svc/sealane 8080:8080   # → http://localhost:8080, log in as admin / admin
@@ -23,7 +23,7 @@ kubectl -n sealane port-forward svc/sealane 8080:8080   # → http://localhost:8
 
 ```bash
 # prebuilt image (recommended)
-ghcr.io/wonjune95/sealane:1.18.2     # or :latest
+ghcr.io/wonjune95/sealane:1.18.3     # or :latest
 ```
 
 직접 빌드할 수도 있습니다.

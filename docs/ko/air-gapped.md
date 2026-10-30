@@ -7,7 +7,7 @@ Sealane은 실행 중에 인터넷에서 아무것도 가져오지 않습니다.
 ## 외부망: 내려받고 검증하기
 
 ```bash
-V=1.18.2
+V=1.18.3
 # Image with both architectures; an OCI archive keeps the digest when you push it later
 skopeo copy --all --preserve-digests docker://ghcr.io/wonjune95/sealane:$V oci-archive:sealane-$V.oci.tar:$V
 # Manifests (and, for Helm, the chart)

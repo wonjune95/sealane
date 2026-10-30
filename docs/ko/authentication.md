@@ -158,7 +158,7 @@ kubectl -n sealane rollout restart deploy/sealane
 실제 IdP 없이 SSO를 시험하려면 [`examples/dex-demo.yaml`](https://github.com/wonjune95/sealane/blob/main/examples/dex-demo.yaml)을 배포합니다. 이 파일은 Dex를 **mock connector**로 실행합니다. 모든 로그인이 `authors` 그룹에 속한 `kilgore@kilgore.trout` 사용자로 성공합니다. 절차는 파일 맨 위 주석에 있습니다. 두 `example.com` 호스트를 바꾸고(Dex는 브라우저**와** Sealane 파드 양쪽에서 같은 발급자 URL로 접근할 수 있어야 합니다), 파일을 적용한 다음 Sealane을 다음과 같이 업그레이드합니다.
 
 ```bash
-helm upgrade sealane oci://ghcr.io/wonjune95/charts/sealane --version 1.18.2 -n sealane --reset-then-reuse-values \
+helm upgrade sealane oci://ghcr.io/wonjune95/charts/sealane --version 1.18.3 -n sealane --reset-then-reuse-values \
   --set oidc.enabled=true --set oidc.displayName=Dex \
   --set oidc.issuerURL=http://dex.example.com/dex --set oidc.clientID=sealane \
   --set oidc.clientSecretRef.name=sealane-dex-client \

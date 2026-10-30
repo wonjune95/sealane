@@ -9,6 +9,9 @@ import {
   CANVAS_WIDTH,
   NODE_R,
   ARROW,
+  BAND_BOTTOM,
+  BAND_PAD,
+  BOX_PAD_X,
   EXTERNAL,
   boxAround,
   edgeKey,
@@ -210,30 +213,21 @@ function FlowCanvas({ topology }: { topology: Topology }) {
   const scale =
     zoom ?? Math.max(0.65, Math.min(1, (viewportWidth - 48) / layout.width))
   const fit = () =>
-    setZoom(
-      Math.max(
-        0.25,
-        Math.min(1, (viewportWidth - 48) / layout.width, 612 / layout.height),
-      ),
-    )
+    setZoom(Math.max(0.25, Math.min(1, (viewportWidth - 48) / canvas.contentWidth, 612 / canvas.contentHeight)))
   const selectedNode = topology.nodes.find((n) => n.id === selected)
   const highlight = useMemo(
     () =>
       selectedNode ? connectedNodes([selectedNode.id], topology.edges) : null,
     [selectedNode, topology.edges],
   )
-  // Offsets outlive re-layouts (filters, refetch), so clamp them to the current canvas here.
+  // Nodes can go anywhere right of and below the canvas origin; the canvas grows to follow them.
+  // Only the top and left are fixed, so nothing is dragged out of reach (boxes keep their margin).
+  const stageOf = useMemo(() => new Map(topology.nodes.map((n) => [n.id, n.stage])), [topology.nodes])
   const placed = (id: string): { at: Point; offset: Point } => {
     const at = layout.positions.get(id) ?? { x: 0, y: 0 }
     const raw = offsets[id] ?? { x: 0, y: 0 }
-    const clamp = (v: number, lo: number, hi: number) => Math.min(Math.max(v, lo), hi)
-    return {
-      at,
-      offset: {
-        x: clamp(raw.x, NODE_R - at.x, layout.width - NODE_R - at.x),
-        y: clamp(raw.y, NODE_R - at.y, layout.height - NODE_R - at.y),
-      },
-    }
+    const min = floorOf(stageOf.get(id) ?? 0)
+    return { at, offset: { x: Math.max(raw.x, min.x - at.x), y: Math.max(raw.y, min.y - at.y) } }
   }
   const position = (id: string): Point => {
     const { at, offset } = placed(id)
@@ -249,18 +243,22 @@ function FlowCanvas({ topology }: { topology: Topology }) {
   const boxes = layout.bands.map(
     (band) => boxAround(band.namespace, (members.get(band.namespace) ?? []).map(position)) ?? band,
   )
+  // Canvas: the layout, grown to wherever nodes were dragged, and at least as wide as the viewport.
+  const canvas = (() => {
+    const points = topology.nodes.map((n) => position(n.id))
+    const contentWidth = Math.max(layout.width, ...points.map((p) => p.x + BOX_PAD_X + 16))
+    const contentHeight = Math.max(layout.height, ...points.map((p) => p.y + BAND_BOTTOM + 16))
+    return { contentWidth, contentHeight, width: Math.max(contentWidth, (viewportWidth - 48) / scale), height: contentHeight }
+  })()
   // Dragging a box moves every node in it, like dragging a Kiali group.
   const moveGroup = (ns: string, dx: number, dy: number) =>
     setOffsets((previous) => {
       const next = { ...previous }
-      const clamp = (v: number, lo: number, hi: number) => Math.min(Math.max(v, lo), hi)
       for (const id of members.get(ns) ?? []) {
         const at = layout.positions.get(id) ?? { x: 0, y: 0 }
         const o = previous[id] ?? { x: 0, y: 0 }
-        next[id] = {
-          x: clamp(o.x + dx, NODE_R - at.x, layout.width - NODE_R - at.x),
-          y: clamp(o.y + dy, NODE_R - at.y, layout.height - NODE_R - at.y),
-        }
+        const min = floorOf(stageOf.get(id) ?? 0)
+        next[id] = { x: Math.max(o.x + dx, min.x - at.x), y: Math.max(o.y + dy, min.y - at.y) }
       }
       return next
     })
@@ -299,9 +297,9 @@ function FlowCanvas({ topology }: { topology: Topology }) {
         >
           <svg
             className="flow-svg"
-            width={layout.width * scale}
-            height={layout.height * scale}
-            viewBox={`0 0 ${layout.width} ${layout.height}`}
+            width={canvas.width * scale}
+            height={canvas.height * scale}
+            viewBox={`0 0 ${canvas.width} ${canvas.height}`}
             style={{ margin: 24 }}
           >
             <defs>
@@ -375,7 +373,7 @@ function FlowCanvas({ topology }: { topology: Topology }) {
                 selected={selectedNode?.id === node.id}
                 dimmed={!!highlight && !highlight.has(node.id)}
                 scale={scale}
-                bounds={layout}
+                floor={floorOf(node.stage)}
                 onSelect={() =>
                   setSelected(selected === node.id ? null : node.id)
                 }
@@ -451,6 +449,10 @@ function FlowCanvas({ topology }: { topology: Topology }) {
   )
 }
 
+// Smallest position a node may be dragged to: boxed nodes keep their box inside the canvas.
+const floorOf = (stage: number): Point =>
+  stage === 0 ? { x: NODE_R + 8, y: NODE_R + 8 } : { x: BOX_PAD_X, y: BAND_PAD }
+
 const shorten = (text: string, max = 18) =>
   text.length > max ? `${text.slice(0, max - 1)}…` : text
 
@@ -504,7 +506,7 @@ function GraphNode({
   selected,
   dimmed,
   scale,
-  bounds,
+  floor,
   onSelect,
   onMove,
 }: {
@@ -514,7 +516,7 @@ function GraphNode({
   selected: boolean
   dimmed: boolean
   scale: number
-  bounds: { width: number; height: number }
+  floor: Point
   onSelect: () => void
   onMove: (offset: Point) => void
 }) {
@@ -560,15 +562,7 @@ function GraphNode({
           dy = (e.clientY - drag.current.y) / scale
         if (Math.abs(dx) + Math.abs(dy) > 4) drag.current.moved = true
         if (drag.current.moved) {
-          const x = Math.min(
-            Math.max(offset.x + dx, NODE_R - at.x),
-            bounds.width - NODE_R - at.x,
-          )
-          const y = Math.min(
-            Math.max(offset.y + dy, NODE_R - at.y),
-            bounds.height - NODE_R - at.y,
-          )
-          onMove({ x, y })
+          onMove({ x: Math.max(offset.x + dx, floor.x - at.x), y: Math.max(offset.y + dy, floor.y - at.y) })
           drag.current.x = e.clientX
           drag.current.y = e.clientY
         }

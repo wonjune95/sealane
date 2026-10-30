@@ -2,8 +2,8 @@ apiVersion: v2
 name: sealane
 description: Routing console for Istio and Gateway API — browse, create and edit Istio and Gateway API resources through schema-driven forms or YAML, with dry-run, diff preview and role-based accounts.
 type: application
-version: 1.18.2
-appVersion: "1.18.2"
+version: 1.18.3
+appVersion: "1.18.3"
 kubeVersion: ">=1.28.0-0"
 home: https://github.com/wonjune95/sealane
 sources:
@@ -28,4 +28,4 @@ annotations:
       url: https://github.com/wonjune95/sealane/blob/main/docs/upgrading.md
   artifacthub.io/images: |
     - name: sealane
-      image: ghcr.io/wonjune95/sealane:1.18.2
+      image: ghcr.io/wonjune95/sealane:1.18.3

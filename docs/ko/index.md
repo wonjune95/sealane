@@ -23,7 +23,7 @@ kubectl -n sealane get secret sealane-initial-admin -o jsonpath='{.data.password
 
 ## 요약
 
-- **로컬 계정과 역할** — 사용자는 ConfigMap 하나에 저장합니다(`user: "role:bcryptHash"`). 로그인하면 HMAC으로 서명한 세션 쿠키를 발급합니다. 클러스터 호출은 파드의 ServiceAccount로 실행하고, 누가 무엇을 바꿀 수 있는지는 앱 역할(`admin` / `editor` / `viewer`)이 정합니다. 처음 기동하면 `admin`/`admin` 계정을 만들고 비밀번호 변경을 강제합니다.
+- **로컬 계정과 역할** — 사용자는 ConfigMap 하나에 저장합니다(`user: "role:bcryptHash"`). 로그인하면 HMAC으로 서명한 세션 쿠키를 발급합니다. 클러스터 호출은 파드의 ServiceAccount로 실행하고, 누가 무엇을 바꿀 수 있는지는 앱 역할(`admin` / `editor` / `viewer`)이 정합니다. 처음 기동하면 `admin` 계정을 임의 비밀번호로 만들고, 그 비밀번호를 Secret `sealane-initial-admin`에 넣습니다.
 - **SSO(선택 사항)** — Keycloak, Dex, Google 등 OpenID Connect를 지원하는 제공자라면 어디로든 로그인할 수 있습니다. IdP 그룹은 같은 세 역할에 매핑합니다. 로컬 계정도 함께 쓸 수 있습니다. [인증](authentication.md)을 참고하세요.
 - **안전장치를 거치는 쓰기** — 모든 쓰기는 dry-run으로 검증하고, `kubectl diff` 형식으로 변경 내용을 미리 보여 주며, `resourceVersion`으로 충돌을 확인합니다. 그래서 409가 나면 *내 사본과 서버 버전*을 나란히 보여 줍니다. 고위험 리소스 종류는 리소스 이름을 직접 입력해야 적용됩니다. UI로 한 모든 변경은 계정 이름, 이전 버전과 함께 변경 기록에 남아서 비교하고 복원할 수 있습니다.
 - **무상태, 폐쇄망 지원** — React를 Go 바이너리에 내장했습니다. 세션은 서명된 쿠키라서 복제본을 원하는 만큼 수평 확장할 수 있습니다. 실행 중에 인터넷에서 가져오는 것은 없습니다.

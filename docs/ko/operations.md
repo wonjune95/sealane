@@ -37,7 +37,7 @@ groups:
         expr: increase(sealane_account_read_errors_total{job="sealane"}[10m]) > 5
 ```
 
-`job`은 수집 설정에서 붙인 이름으로 바꾸세요. 변경 기록 저장에 실패하면 로그 메시지 `change history not saved`에 원인이 나옵니다.
+`job`은 수집 설정에서 붙인 이름으로 바꾸세요. 변경 기록 저장에 실패하면 로그 메시지 `change history not saved`에 원인이 나옵니다. 클러스터별 메트릭은 없습니다. 등록한 클러스터의 연결 상태는 **설정** 화면에 나오고, 클러스터 호출이 실패하면 위의 5xx 응답으로 잡힙니다.
 
 프로브는 `/healthz`(liveness)와 `/readyz`(readiness)입니다. `/readyz`는 Kubernetes API 서버에 2초 타임아웃으로 요청을 보내고, 실패하면 503 `not ready`를 반환합니다. 차트가 두 프로브를 모두 설정합니다.
 

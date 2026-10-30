@@ -106,7 +106,7 @@ function RuleCard({
   return (
     <div className="space-y-4 rounded border border-base p-3">
       <div className="flex items-center gap-2">
-        <span className={label}>name<span className="text-faint"> {t('form.optionalWord')}</span></span>
+        <span className={label}>{t('form.ruleName')}<span className="text-faint"> {t('form.optionalWord')}</span></span>
         <input className={`${input} max-w-xs`} value={rule.name ?? ''} placeholder="reviews-v2"
           onChange={(e) => set({ name: e.target.value })} />
         <button onClick={onRemove} className={`ml-auto ${del}`}>{t('form.deleteRule')}</button>

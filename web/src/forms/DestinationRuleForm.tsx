@@ -81,7 +81,7 @@ function SubsetCard({ s, onChange, onRemove }: { s: DRSubsetModel; onChange: (s:
   return (
     <div className="space-y-2 rounded border border-base p-3">
       <div className="flex items-center gap-2">
-        <span className="text-xs text-muted">name<span className="text-red-500">*</span></span>
+        <span className="text-xs text-muted">{t('form.subsetName')}<span className="text-red-500">*</span></span>
         <input className={`${input} max-w-xs`} value={s.name} placeholder="v1"
           onChange={(e) => set({ name: e.target.value })} />
         <button onClick={onRemove} className={`ml-auto ${del}`}>{t('form.deleteSubset')}</button>

@@ -1295,10 +1295,13 @@ func TestKeepEnsuringInitialAdmin_RetriesTransientErrors(t *testing.T) {
 	s := NewServer(false, &stubSource{clients: &k8s.Clients{Kube: kube}},
 		auth.NewStore(t.TempDir()), testSessions, AccountsCMRef{Namespace: "ns1", Name: "accounts"}, ClustersSecretRef{})
 	s.SetInitialAdminSecret("sealane-initial-admin")
-	if s.EnsureInitialAdmin(context.Background()) {
-		t.Fatal("a failed Secret write must not count as settled")
+	if s.EnsureInitialAdmin(context.Background()) || !s.InitialAdminPending() {
+		t.Fatal("a failed Secret write must not count as settled, and must keep the pod not ready")
 	}
 	s.KeepEnsuringInitialAdmin(context.Background(), time.Millisecond)
+	if s.InitialAdminPending() {
+		t.Error("still pending after the admin was made")
+	}
 	cm, err := kube.CoreV1().ConfigMaps("ns1").Get(context.Background(), "accounts", metav1.GetOptions{})
 	if err != nil || !strings.HasPrefix(cm.Data["admin"], "admin:") {
 		t.Fatalf("admin not created after retries: %v %v", err, cm)

@@ -643,5 +643,9 @@
   "form.rewriteUri": "URI 재작성",
   "form.ph.header": "헤더",
   "form.ph.host": "호스트",
-  "form.ph.subset": "서브셋"
+  "form.ph.subset": "서브셋",
+  "form.backends": "백엔드",
+  "form.backend": "백엔드",
+  "form.subsetName": "이름",
+  "form.ruleName": "이름"
 }

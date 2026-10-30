@@ -35,7 +35,7 @@ groups:
         expr: increase(sealane_account_read_errors_total{job="sealane"}[10m]) > 5
 ```
 
-`job` is whatever your scrape config names it. The log message for a history failure says why (`change history not saved`).
+`job` is whatever your scrape config names it. The log message for a history failure says why (`change history not saved`). There is no per-cluster metric: the connection state of each registered cluster is on the **Settings** page, and failing calls to a cluster show up as 5xx responses above.
 
 Probes: `/healthz` (liveness) and `/readyz` (readiness — pings the Kubernetes API server with a 2 s timeout and returns 503 `not ready` on failure). The chart wires both.
 

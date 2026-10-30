@@ -36,7 +36,7 @@ kubectl -n sealane get secret sealane-initial-admin -o jsonpath='{.data.password
 
 ## TL;DR
 
-- **Local accounts and roles** — users live in one ConfigMap (`user: "role:bcryptHash"`); login issues an HMAC-signed session cookie. Cluster calls run as the pod's ServiceAccount; the app role (`admin` / `editor` / `viewer`) decides who may change what. A first boot creates `admin`/`admin` and forces a password change.
+- **Local accounts and roles** — users live in one ConfigMap (`user: "role:bcryptHash"`); login issues an HMAC-signed session cookie. Cluster calls run as the pod's ServiceAccount; the app role (`admin` / `editor` / `viewer`) decides who may change what. A first boot creates `admin` with a random password, stored in Secret `sealane-initial-admin`.
 - **Single sign-on (optional)** — OpenID Connect login (Keycloak, Dex, Google, ...) with IdP groups mapped to the same roles; local accounts keep working.
 - **Writes are guarded** — every write is dry-run validated, previewed as a `kubectl diff`-style change, and checked against `resourceVersion` so a 409 shows *your copy vs the server's*. High-risk kinds require typing the resource name. Every change made through the UI lands in the change history with the account name and the previous version, so it can be compared and restored.
 - **Stateless, air-gapped** — React is embedded in the Go binary; sessions are signed cookies, so N replicas scale horizontally and nothing is fetched from the internet at runtime.

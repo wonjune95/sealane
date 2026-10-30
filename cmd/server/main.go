@@ -135,6 +135,10 @@ func main() {
 		writeText(w, http.StatusOK, "ok")
 	})
 	mux.HandleFunc("GET /readyz", func(w http.ResponseWriter, _ *http.Request) {
+		if srv.InitialAdminPending() {
+			writeText(w, http.StatusServiceUnavailable, "not ready: the initial admin account could not be created yet (see the log)")
+			return
+		}
 		if err := factory.Ready(); err != nil {
 			slog.Warn("readiness check failed", "err", err)
 			writeText(w, http.StatusServiceUnavailable, "not ready")

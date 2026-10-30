@@ -33,6 +33,7 @@ import (
 // It reports whether it settled (an admin exists or was made, or there is nothing it may do);
 // a transient failure returns false, and KeepEnsuringInitialAdmin retries.
 func (s *Server) EnsureInitialAdmin(ctx context.Context) (settled bool) {
+	defer func() { s.adminPending.Store(!settled) }()
 	if s.dev || s.accountsCM.Name == "" {
 		return true
 	}
@@ -89,6 +90,10 @@ func (s *Server) EnsureInitialAdmin(ctx context.Context) (settled bool) {
 		"secret", s.accountsCM.Namespace+"/"+s.initialAdminSecret, "key", "password")
 	return true
 }
+
+// InitialAdminPending reports that the first admin account could not be made yet; the pod stays
+// not ready meanwhile, so a fresh install that nobody could sign in to does not look healthy.
+func (s *Server) InitialAdminPending() bool { return s.adminPending.Load() }
 
 // KeepEnsuringInitialAdmin runs EnsureInitialAdmin until it settles: a transient API error at
 // startup must not leave a fresh install without any account until someone restarts the pod.

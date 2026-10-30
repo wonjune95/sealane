@@ -643,5 +643,9 @@
   "form.rewriteUri": "Rewrite URI",
   "form.ph.header": "header",
   "form.ph.host": "host",
-  "form.ph.subset": "subset"
+  "form.ph.subset": "subset",
+  "form.backends": "Backends",
+  "form.backend": "backend",
+  "form.subsetName": "name",
+  "form.ruleName": "name"
 }

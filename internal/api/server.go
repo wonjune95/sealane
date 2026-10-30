@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -47,7 +48,8 @@ type Server struct {
 	auditLog []AuditEntry // newest first, capped at auditKeep
 	history  HistoryRef   // in-cluster change history (empty Name = memory only)
 
-	initialAdminSecret string // Secret that receives a generated initial admin password
+	adminPending       atomic.Bool // the initial admin could not be made yet (readiness)
+	initialAdminSecret string      // Secret that receives a generated initial admin password
 
 	requestTester bool // live request tester (Helm opt-in) — needs pods/exec
 	impersonate   bool // writes run as the user's role identity (impersonation.go)

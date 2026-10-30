@@ -98,7 +98,7 @@ function RuleCard({
       <div className="space-y-2">
         <div className="flex items-center justify-between">
           <span className="text-xs text-muted">
-            Backends (service<span className="text-red-500">*</span> / port<span className="text-red-500">*</span> / weight<span className="text-faint"> {t('form.optionalWord')}</span>)
+            {t('form.backends')} ({t('form.ph.service')}<span className="text-red-500">*</span> / {t('form.ph.port')}<span className="text-red-500">*</span> / {t('form.ph.weight')}<span className="text-faint"> {t('form.optionalWord')}</span>)
           </span>
           {rule.backendRefs.length > 1 && (
             <span className="text-xs text-faint">{t('form.weightSum', { n: weightSum })}</span>
@@ -111,7 +111,7 @@ function RuleCard({
         ))}
         <button
           onClick={() => onChange({ ...rule, backendRefs: [...rule.backendRefs, { name: '', port: 80 }] })}
-          className="text-sm text-accent hover:underline">+ backend</button>
+          className="text-sm text-accent hover:underline">+ {t('form.backend')}</button>
       </div>
     </div>
   )

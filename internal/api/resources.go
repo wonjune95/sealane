@@ -81,7 +81,7 @@ func (s *Server) handleCreateResource(w http.ResponseWriter, r *http.Request) {
 	if err == nil {
 		ns, name = detail.Namespace, detail.Name
 	}
-	s.auditResource(ctx, "create", typeID, ns, name, dryRun, err)
+	s.auditResource(ctx, "create", typeID, ns, name, dryRun, err, nil, detail.Raw)
 	if err != nil {
 		writeWriteError(w, err)
 		return
@@ -120,8 +120,9 @@ func (s *Server) handleUpdateResource(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	dryRun := r.URL.Query().Get("dryRun") == "true"
+	before := s.historyBefore(ctx, p, ns, name, dryRun)
 	detail, err := p.Update(ctx, ns, name, raw, dryRun)
-	s.auditResource(ctx, "update", typeID, ns, name, dryRun, err)
+	s.auditResource(ctx, "update", typeID, ns, name, dryRun, err, before, detail.Raw)
 	if err != nil {
 		writeWriteError(w, err)
 		return
@@ -137,11 +138,25 @@ func (s *Server) handleDeleteResource(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "BadRequest", err.Error())
 		return
 	}
+	before := s.historyBefore(ctx, p, ns, name, false)
 	err = p.Delete(ctx, ns, name)
-	s.auditResource(ctx, "delete", typeID, ns, name, false, err)
+	s.auditResource(ctx, "delete", typeID, ns, name, false, err, before, nil)
 	if err != nil {
 		writeK8sError(w, err)
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
+}
+
+// historyBefore reads the object a real update or delete is about to change, for the change
+// history; nil when the history is off or the object cannot be read.
+func (s *Server) historyBefore(ctx context.Context, p *k8s.ResourceProvider, ns, name string, dryRun bool) json.RawMessage {
+	if dryRun || s.history.Name == "" {
+		return nil
+	}
+	d, err := p.Get(ctx, ns, name)
+	if err != nil {
+		return nil
+	}
+	return d.Raw
 }

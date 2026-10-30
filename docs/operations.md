@@ -9,7 +9,7 @@ Every replica must sign sessions with the **same key**, otherwise a cookie issue
 - **Helm** — `sessionSecret.create=true` (the default) generates a random key once into the `<release>-session` Secret and keeps it across upgrades, so sessions also survive restarts.
 - **`install.yaml`, GitOps (Argo CD, Flux) or `helm template`** — no `lookup` there, so no key is rendered; Sealane generates one on first start and stores it in the `sealane-secret` Secret (key `SESSION_SECRET`), like Argo CD's `argocd-secret`. Every pod reads that Secret, so restarts and replicas share the key. Set `sessionSecret.existingSecret` (key `session-secret`) to bring your own instead.
 
-The change history on the home page is in memory per pod (last 200 entries) and resets on restart; with several replicas each pod shows the changes it served. The structured audit log (below) is the durable record.
+The change history lives in the `sealane-history` and `sealane-history-objects` ConfigMaps (`<release>-history…` with Helm) in Sealane's namespace, so replicas share it and restarts keep it. The list holds the last 200 changes; the objects ConfigMap keeps before/after versions up to about 768 KiB and drops the oldest first, so older entries can lose their restore content. Back them up with the namespace if you need the history after a reinstall; deleting them only clears the history. The structured audit log (below) stays the record to ship to your log system.
 
 ## Metrics
 

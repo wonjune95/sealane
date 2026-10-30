@@ -39,7 +39,7 @@ Single sign-on keeps this model: an OIDC login produces an app role from the use
 
 ### Why no real-time SSE streams
 
-The design stage considered per-user watch → SSE live sync. But keeping the server stateless for HA means opening a watch per connection — replicas × concurrent users watch connections against the API server. For an internal ops tool (tens of concurrent users, low change frequency) that cost wasn't justified. → Kept the server stateless and converged on the **in-memory change history** (30s refresh) plus manual refresh. *A deliberate trade: "unbreakable stateless HA" over "nice-to-have real-time".*
+The design stage considered per-user watch → SSE live sync. But keeping the server stateless for HA means opening a watch per connection — replicas × concurrent users watch connections against the API server. For an internal ops tool (tens of concurrent users, low change frequency) that cost wasn't justified. → Kept the server stateless and converged on a **change history polled every 30 s** (kept in two ConfigMaps since 1.16, so replicas agree) plus manual refresh. *A deliberate trade: "unbreakable stateless HA" over "nice-to-have real-time".*
 
 ### Why the `--dev` boot guardrail
 

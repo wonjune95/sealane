@@ -65,7 +65,12 @@ rules:
     resources: ["configmaps"]
     resourceNames: [{{ .Values.accountsConfigMap | quote }}]
     verbs: ["get", "patch"]
-  # Initial admin/admin bootstrap: creates the ConfigMap when missing (create cannot be limited by resourceNames, so it is namespace-scoped only)
+  # Change history: read and rewrite the two history ConfigMaps (list + objects) Sealane keeps
+  - apiGroups: [""]
+    resources: ["configmaps"]
+    resourceNames: [{{ printf "%s-history" (include "sealane.fullname" .) | quote }}, {{ printf "%s-history-objects" (include "sealane.fullname" .) | quote }}]
+    verbs: ["get", "update"]
+  # Initial admin/admin bootstrap and the history ConfigMaps: create when missing (create cannot be limited by resourceNames, so it is namespace-scoped only)
   - apiGroups: [""]
     resources: ["configmaps"]
     verbs: ["create"]

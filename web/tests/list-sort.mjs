@@ -52,6 +52,8 @@ try {
   const rows = page.locator('tbody tr')
   const first = (col) => rows.first().locator('td').nth(col).innerText()
   await rows.first().waitFor()
+  // The first row can still be the loading placeholder on a cold dev server.
+  await page.waitForFunction(() => document.querySelectorAll('tbody tr').length >= 50)
   assert.equal(await rows.count(), 50)
   await page.getByRole('button', { name: /Show more \(50 of 120\)/ }).click()
   assert.equal(await rows.count(), 100)

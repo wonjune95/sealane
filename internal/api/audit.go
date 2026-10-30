@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"encoding/json"
 	"log/slog"
 	"net/http"
 	"time"
@@ -9,10 +10,9 @@ import (
 	"github.com/wonjune95/sealane/internal/k8s"
 )
 
-// AuditEntry is one non-dry-run mutation performed through Sealane.
-// Entries live in an in-memory ring (auditKeep) shared by all users — the app is
-// deliberately store-less, so this history resets on pod restart;
-// the structured audit log below is the durable record.
+// AuditEntry is one non-dry-run mutation performed through Sealane. Entries go to the
+// structured log, to an in-memory ring (auditKeep; what dev mode and a failing store fall
+// back to) and, when configured, to the in-cluster change history (history.go).
 type AuditEntry struct {
 	Time      time.Time `json:"time"`
 	Cluster   string    `json:"cluster,omitempty"` // empty means local
@@ -27,19 +27,15 @@ type AuditEntry struct {
 
 const auditKeep = 200
 
-// handleAudit returns the recent mutation history (newest first).
-func (s *Server) handleAudit(w http.ResponseWriter, _ *http.Request) {
-	s.auditMu.Lock()
-	entries := make([]AuditEntry, len(s.auditLog))
-	copy(entries, s.auditLog)
-	s.auditMu.Unlock()
-	writeJSON(w, http.StatusOK, entries)
+// handleAudit returns the recent mutation history of every cluster (newest first).
+func (s *Server) handleAudit(w http.ResponseWriter, r *http.Request) {
+	writeJSON(w, http.StatusOK, s.historyList(r.Context()))
 }
 
 // auditResource audits a generic-engine mutation, flagging high-risk kinds so
-// monitoring can alert on them (Gemini review ⑦), and records it in the
-// in-memory history served at /api/audit.
-func (s *Server) auditResource(ctx context.Context, verb, typeID, ns, name string, dryRun bool, err error) {
+// monitoring can alert on them (Gemini review ⑦), and records it in the change
+// history with the object before and after (nil when there is none).
+func (s *Server) auditResource(ctx context.Context, verb, typeID, ns, name string, dryRun bool, err error, before, after json.RawMessage) {
 	if dryRun {
 		return
 	}
@@ -64,8 +60,7 @@ func (s *Server) auditResource(ctx context.Context, verb, typeID, ns, name strin
 		slog.Info("resource mutated", attrs...)
 	}
 
-	s.auditMu.Lock()
-	s.auditLog = append([]AuditEntry{{
+	e := AuditEntry{
 		Time:      time.Now(),
 		Cluster:   clusterFrom(ctx),
 		User:      identityFrom(ctx).User(),
@@ -75,9 +70,12 @@ func (s *Server) auditResource(ctx context.Context, verb, typeID, ns, name strin
 		Namespace: ns,
 		Name:      name,
 		OK:        err == nil,
-	}}, s.auditLog...)
+	}
+	s.auditMu.Lock()
+	s.auditLog = append([]AuditEntry{e}, s.auditLog...)
 	if len(s.auditLog) > auditKeep {
 		s.auditLog = s.auditLog[:auditKeep]
 	}
 	s.auditMu.Unlock()
+	s.recordRevision(ctx, e, before, after)
 }

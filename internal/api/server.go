@@ -37,6 +37,7 @@ type Server struct {
 
 	auditMu  sync.Mutex
 	auditLog []AuditEntry // newest first, capped at auditKeep
+	history  HistoryRef   // in-cluster change history (empty Name = memory only)
 
 	// Users who changed their password since this boot — releases the forced change
 	// screen without waiting for the mounted CM sync (~1 min). ponytail: per-pod state, so
@@ -89,6 +90,8 @@ func (s *Server) Routes(mux *http.ServeMux) {
 	mux.Handle("GET /api/services/{ns}/{name}/mesh", s.withAuth(http.HandlerFunc(s.handleServiceMesh)))
 	mux.Handle("GET /api/subsets", s.withAuth(http.HandlerFunc(s.handleSubsets)))
 	mux.Handle("GET /api/audit", s.withAuth(http.HandlerFunc(s.handleAudit)))
+	mux.Handle("GET /api/history", s.withAuth(http.HandlerFunc(s.handleHistory)))
+	mux.Handle("GET /api/history/{id}", s.withAuth(http.HandlerFunc(s.handleRevision)))
 	// Config-based ingress traffic flow map (Gateway → Route → Service)
 	mux.Handle("GET /api/flowmap", s.withAuth(http.HandlerFunc(s.handleFlowMap)))
 	// Route simulator — computes from config alone which rule a request matches (no traffic)

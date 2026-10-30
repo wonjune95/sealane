@@ -91,7 +91,13 @@ Policies are marked by scope: **workload** (the policy selector matches the Serv
 ## Role-aware UI + change history
 - The UI checks the signed-in user's role up front (local account or SSO): for viewers, forms and apply/delete buttons turn **read-only**. The server enforces the same rule (403), so the UI can't be bypassed.
 - Sign-in: local accounts (throttled after repeated failures) and optional SSO, whose `login` log line records the IdP groups; `oidc.hideLocalLogin` leaves only the SSO button. Local accounts live in the `sealane-accounts` ConfigMap (rendered empty by the chart and install.yaml, filled by Sealane and the UI, or seeded from the `accounts` value); single sign-on settings live in `sealane-cm`, rendered from the `oidc.*` values or edited directly like Argo CD's `argocd-cm`. See [Authentication](authentication.md).
-- The home page's **change history** panel records create/update/delete operations made through Sealane with account and timestamp (in-memory, last 200 — resets on restart; the structured audit log is the durable record). Home cards also show the actual istiod control-plane version (e.g. `1.30.2`).
+- The home page's **change history** panel records create/update/delete operations made through Sealane with account and timestamp. It is kept in the cluster (see [Change history and restore](#change-history-and-restore)), so every replica shows the same list and it survives restarts. Home cards also show the actual istiod control-plane version (e.g. `1.30.2`).
+
+## Change history and restore
+- Every create, update and delete made through Sealane is stored with the object **before and after** the change, in two ConfigMaps next to Sealane: `sealane-history` lists the last 200 changes, `sealane-history-objects` keeps their objects up to about 768 KiB and drops the oldest first. Sealane creates both on the first change; replicas share them.
+- The editor's **History** tab lists the changes made to that resource. **Compare with current** shows a diff between the live object and the version a change left behind; **Load into editor** puts that version in the editor with the current `resourceVersion`. Nothing changes until you press Apply, which runs the usual dry-run, diff preview and conflict check, so restoring is an ordinary, reviewable update.
+- A deleted resource shows **Restore** in the home page's change history: it opens the new-resource editor with the object as it was before the deletion.
+- Viewers can compare versions but not load them. Changes made outside Sealane (kubectl, Argo CD, Flux) are not recorded, and for resources a GitOps tool manages the [owner warning](#multiple-write-safeguards) still applies: restore in Git instead.
 
 ## Schema-driven forms + YAML dual editing
 - `react-jsonschema-form` reads the CRD OpenAPI schema and generates input forms — safe editing without knowing YAML.

@@ -16,6 +16,7 @@ Sealane is configured with a few flags and environment variables. When you insta
 | `SESSION_SECRET` | (set by Helm from `<release>-session`) | session cookie signing key; empty = read or generate one in the `SESSION_SECRET_NAME` Secret |
 | `SESSION_SECRET_NAME` | `sealane-secret` (set by the chart) | Secret where Sealane stores a generated key (key `SESSION_SECRET`) when `SESSION_SECRET` is empty, so restarts and replicas share it; unset = random per boot (restart = re-login) |
 | `SSL_CERT_DIR` | `/etc/ssl/certs:/etc/sealane/tls-certs` (set by the chart) | Go reads every certificate in these directories as trust roots; the second is the `<release>-tls-certs` ConfigMap mount (see [Private CA](authentication.md#private-ca)) |
+| `HISTORY_CONFIGMAP` | `sealane-history` (set by the chart) | ConfigMap that lists the last 200 changes made through Sealane; the objects go to `<name>-objects`. Both are created on the first change. Unset = history in memory only (dev mode) |
 | `REQUEST_TESTER` | (set by Helm) | `true` enables the in-pod request tester (needs pods/exec, admin only) |
 | `CLUSTERS_SECRET` / `POD_NAMESPACE` | (set by Helm) | multi-cluster: Secret holding remote kubeconfigs (empty = local only) |
 | `SHUTDOWN_DELAY` | `5s` | wait before closing the listener on SIGTERM so in-flight requests and endpoint propagation finish; set `0s` to disable through the `extraEnv` Helm value (`- {name: SHUTDOWN_DELAY, value: "0s"}`) or by editing install.yaml |

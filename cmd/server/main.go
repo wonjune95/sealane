@@ -94,6 +94,10 @@ func main() {
 		slog.Info("oidc enabled", "issuer", cfg.IssuerURL, "displayName", cfg.DisplayName)
 	}
 	srv.HideLocalLogin(os.Getenv("LOCAL_LOGIN") == "hidden")
+	// Change history in ConfigMaps next to Sealane (shared by replicas); unset = in memory only.
+	if name, ns := os.Getenv("HISTORY_CONFIGMAP"), os.Getenv("POD_NAMESPACE"); name != "" && ns != "" && !*dev {
+		srv.SetHistory(api.HistoryRef{Namespace: ns, Name: name})
+	}
 	// If there is no admin account, create the initial admin/admin account.
 	srv.EnsureInitialAdmin(context.Background())
 

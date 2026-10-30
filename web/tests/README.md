@@ -16,6 +16,7 @@ npm run test:editor-focus
 npm run test:service-create
 npm run test:managed-by
 npm run test:cluster-menu
+npm run test:history
 ```
 
 `npm run test:ui` runs every fixture-based check; CI runs it on each push (dev server on `127.0.0.1:5173`, `SEALANE_TEST_URL` set).
@@ -53,3 +54,5 @@ Set `SEALANE_TEST_URL` to change the frontend URL. Set `SEALANE_CHROMIUM_PATH` t
 `npm run test:managed-by` covers the owner badge (Argo CD, Helm) on resource list rows and its tooltip, search by tool name, and the editor warning on managed resources only, fixture-based.
 
 `npm run test:cluster-menu` covers the header cluster menu: no native select, current cluster checked and focused on open, Escape and outside click close it, arrow keys wrap, Enter switches the cluster (stored, app reloads), **Manage clusters…** opens Settings for admins and is absent for viewers, fixture-based.
+
+`npm run test:history` covers the change history: the editor's History tab (failed entries have no Compare), Compare with current and Load into editor carrying the current resourceVersion, a pruned revision's message, Restore on the home page only for deletions in the current cluster (opening the new-resource editor with the deleted object), and viewers who can compare but not load, fixture-based.

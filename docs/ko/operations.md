@@ -11,7 +11,7 @@ Sealane은 자체 상태를 저장하지 않습니다. 계정은 계정 ConfigMa
 - **Helm** — `sessionSecret.create=true`(기본값)이면 임의 키를 한 번 생성해 `<release>-session` Secret에 넣고, 업그레이드해도 그대로 둡니다. 그래서 재시작해도 세션이 유지됩니다.
 - **`install.yaml`, GitOps(Argo CD, Flux), `helm template`** — 이 방식에는 `lookup`이 없어 키가 렌더링되지 않습니다. 대신 Sealane이 처음 시작할 때 키를 생성해 `sealane-secret` Secret(키 `SESSION_SECRET`)에 저장합니다. Argo CD의 `argocd-secret`과 같은 방식입니다. 모든 파드가 이 Secret을 읽으므로 재시작해도, 복제본이 여러 개여도 같은 키를 씁니다. 직접 만든 키를 쓰려면 `sessionSecret.existingSecret`(키 `session-secret`)을 설정하세요.
 
-홈 화면의 변경 기록은 파드별 메모리에 저장되며(최근 200건) 재시작하면 초기화됩니다. 복제본이 여러 개면 각 파드는 자신이 처리한 변경만 보여 줍니다. 영구 기록은 아래의 구조화된 감사 로그입니다.
+변경 기록은 Sealane 네임스페이스의 `sealane-history`와 `sealane-history-objects` ConfigMap(Helm이면 `<release>-history…`)에 저장됩니다. 그래서 복제본이 같은 기록을 공유하고, 재시작해도 남습니다. 목록은 최근 200건을 담고, 객체 ConfigMap은 변경 전후 버전을 약 768 KiB까지 보관하며 오래된 것부터 지웁니다. 그래서 오래된 항목은 복원할 내용이 사라질 수 있습니다. 재설치 후에도 기록이 필요하면 네임스페이스와 함께 백업하세요. 지우면 기록만 사라집니다. 로그 시스템으로 보낼 기록은 여전히 아래의 구조화된 감사 로그입니다.
 
 ## 메트릭
 

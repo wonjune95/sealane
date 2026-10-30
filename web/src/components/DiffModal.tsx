@@ -29,7 +29,7 @@ export function DiffModal({
   subtitle?: string
   confirmLabel?: string
   warn?: boolean
-  onConfirm: () => void
+  onConfirm?: () => void // without it the modal only shows the diff
   onCancel: () => void
 }) {
   const [typed, setTyped] = useState('')
@@ -106,15 +106,17 @@ export function DiffModal({
           )}
           <div className="flex justify-end gap-2">
             <button onClick={onCancel} disabled={busy} className="btn-ghost text-sm">
-              {t('common.cancel')}
+              {onConfirm ? t('common.cancel') : t('diff.close')}
             </button>
-            <button
-              onClick={onConfirm}
-              disabled={!confirmOk}
-              className={`rounded-md px-4 py-1.5 text-sm font-medium text-white disabled:opacity-40 ${dangerous || warn ? 'bg-red-600 hover:bg-red-700' : 'btn-primary'}`}
-            >
-              {confirmLabel}
-            </button>
+            {onConfirm && (
+              <button
+                onClick={onConfirm}
+                disabled={!confirmOk}
+                className={`rounded-md px-4 py-1.5 text-sm font-medium text-white disabled:opacity-40 ${dangerous || warn ? 'bg-red-600 hover:bg-red-700' : 'btn-primary'}`}
+              >
+                {confirmLabel}
+              </button>
+            )}
           </div>
         </div>
       </div>

@@ -6,6 +6,7 @@ import { useCapabilities } from '../api/capabilities'
 import { useResourceTypes, CATEGORY_LABELS, type Category } from '../api/resourceTypes'
 import { CATEGORY_ORDER, CATEGORY_ICON, accentFor } from '../ui/categories'
 import { useAudit, type AuditEntry } from '../api/audit'
+import { VERB_LABEL, VERB_TINT, formatTime } from '../lib/verbs'
 import { useAnalysis } from '../api/analyze'
 import { Icon } from '../components/icons'
 import { PageHeader } from '../components/PageHeader'
@@ -244,7 +245,7 @@ export function Home() {
         ) : (
           <ul className="max-h-72 divide-y divide-slate-100 overflow-y-auto px-5 dark:divide-slate-800">
             {audit.data.map((a, i) => (
-              <ActionRow key={i} a={a} kind={kindOf(a.typeId)} />
+              <ActionRow key={a.id || i} a={a} kind={kindOf(a.typeId)} canRestore={canWrite} />
             ))}
           </ul>
         )}
@@ -253,18 +254,9 @@ export function Home() {
   )
 }
 
-const VERB_LABEL: Record<AuditEntry['verb'], Key> = {
-  create: 'home.verb.create',
-  update: 'home.verb.update',
-  delete: 'home.verb.delete',
-}
-const VERB_TINT: Record<AuditEntry['verb'], string> = {
-  create: 'bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400',
-  update: 'bg-blue-50 text-blue-700 dark:bg-blue-500/10 dark:text-blue-300',
-  delete: 'bg-red-50 text-red-700 dark:bg-red-500/10 dark:text-red-400',
-}
-function ActionRow({ a, kind }: { a: AuditEntry; kind: string }) {
-  const d = new Date(a.time)
+function ActionRow({ a, kind, canRestore }: { a: AuditEntry; kind: string; canRestore: boolean }) {
+  // A deletion made in the cluster being viewed can be reopened in the editor and recreated.
+  const restorable = canRestore && a.verb === 'delete' && a.ok && a.id && (a.cluster ?? '') === currentCluster()
   return (
     <li className="flex flex-wrap items-center gap-3 py-3 text-xs">
       <span className={`rounded-md px-2 py-1 font-medium ${VERB_TINT[a.verb]}`}>{t(VERB_LABEL[a.verb])}</span>
@@ -280,12 +272,23 @@ function ActionRow({ a, kind }: { a: AuditEntry; kind: string }) {
         </span>
       </span>
       {!a.ok && <span className="text-red-500">{t('home.failed')}</span>}
+      {restorable && (
+        <Link
+          to={`/resources/${a.typeId}/new?restore=${encodeURIComponent(a.id ?? '')}`}
+          title={t('home.restoreTitle')}
+          className="btn-ghost text-xs"
+        >
+          {t('home.restore')}
+        </Link>
+      )}
       <time dateTime={a.time} className="text-[11px] tabular-nums text-muted">
-        {d.toDateString() === new Date().toDateString() ? d.toLocaleTimeString() : d.toLocaleString()}
+        {formatTime(a.time)}
       </time>
     </li>
   )
 }
+const currentCluster = () => (getCluster() === 'local' ? '' : getCluster())
+
 function Diag({
   label,
   value,

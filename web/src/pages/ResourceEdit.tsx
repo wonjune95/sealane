@@ -20,6 +20,9 @@ import { KindBadge } from '../components/KindBadge'
 import { PageHeader } from '../components/PageHeader'
 import { Icon } from '../components/icons'
 import { managedText } from '../lib/managed'
+import { formatTime } from '../lib/verbs'
+import { getRevision, revisionObject } from '../api/history'
+import { HistoryPanel } from '../components/HistoryPanel'
 import { t } from '../i18n'
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -140,7 +143,7 @@ function seedForService(text: string, ns: string, host: string, port: number): s
   return yamlDump(obj)
 }
 
-type Tab = 'form' | 'yaml'
+type Tab = 'form' | 'yaml' | 'history'
 
 // Mid-edit YAML can have a list typed as a map (`http: {route: []}`); the
 // representability checks assume the schema shape and may throw — treat that
@@ -176,6 +179,7 @@ export function ResourceEdit() {
   const seedNs = searchParams.get('ns')
   const seedHost = searchParams.get('host')
   const seedPort = Number(searchParams.get('port')) || 0
+  const restoreId = isEdit ? null : searchParams.get('restore') // re-create a deleted resource from its history
 
   const [text, setText] = useState<string | null>(null)
   const [tab, setTab] = useState<Tab>('yaml')
@@ -194,6 +198,7 @@ export function ResourceEdit() {
     if (text !== null || !rt) return
     let initial: string
     if (!isEdit) {
+      if (restoreId) return // loaded by the effect below
       initial = richTemplates()[type] ?? genericTemplate(rt)
       if (seedNs && seedHost) initial = seedForService(initial, seedNs, seedHost, seedPort)
     }
@@ -213,8 +218,30 @@ export function ResourceEdit() {
       setTab('yaml')
       setFocus({ path: focusPath, line: findFocusLine(initial, focusPath, focusValue) })
     }
-  }, [isEdit, type, rt, resource.data, text, curated, hasAuto, focusPath, focusValue, seedNs, seedHost, seedPort])
+  }, [isEdit, type, rt, resource.data, text, curated, hasAuto, focusPath, focusValue, seedNs, seedHost, seedPort, restoreId])
   /* eslint-enable react-hooks/set-state-in-effect */
+
+  // ?restore=<revision>: start a new resource from what a deletion removed.
+  useEffect(() => {
+    if (!restoreId || text !== null || !rt) return
+    let cancelled = false
+    getRevision(restoreId)
+      .then((d) => {
+        if (cancelled) return
+        const obj = revisionObject(d)
+        if (!obj) throw new Error(t('history.notKept'))
+        setText(yamlDump(cleanManifest(obj)))
+        toast('success', t('history.restoreLoaded', { time: formatTime(d.time) }))
+      })
+      .catch((e) => {
+        if (cancelled) return
+        toast('error', e instanceof ApiError ? errorText(e) : String(e instanceof Error ? e.message : e))
+        setText(richTemplates()[type] ?? genericTemplate(rt))
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [restoreId, text, rt, type, toast])
 
   let obj: any = null
   let parseErr: string | null = null
@@ -262,6 +289,17 @@ export function ResourceEdit() {
     }
     if (next === 'form') setFocus(null) // the form re-serializes the YAML; the line would go stale
     setTab(next)
+  }
+
+  // History tab → "Load into editor": the old version with the current resourceVersion, so Apply
+  // runs the normal dry-run, diff preview and conflict check against what is live now.
+  function loadVersion(version: unknown, at: string) {
+    const o: any = structuredClone(version)
+    o.metadata = { ...o.metadata, resourceVersion: resource.data?.resourceVersion }
+    setText(yamlDump(o))
+    setFocus(null)
+    setTab('yaml')
+    toast('success', t('history.loaded', { time: formatTime(at) }))
   }
 
   // dangerous kinds require typed confirmation before a real mutation.
@@ -472,6 +510,11 @@ export function ResourceEdit() {
         <TabButton active={shownTab === 'yaml'} onClick={() => switchTab('yaml')}>
           YAML
         </TabButton>
+        {isEdit && (
+          <TabButton active={shownTab === 'history'} onClick={() => switchTab('history')}>
+            {t('history.tab')}
+          </TabButton>
+        )}
         {curated && !formAvailable && !parseErr && (
           <span className="ml-3 self-center text-xs text-amber-600 dark:text-amber-400">
             {t('edit.advancedDetected')}
@@ -486,7 +529,15 @@ export function ResourceEdit() {
         )}
       </div>
 
-      {shownTab === 'form' && formAvailable && curated ? (
+      {shownTab === 'history' ? (
+        <HistoryPanel
+          type={type}
+          ns={ns === '-' ? '' : ns}
+          name={name}
+          current={resource.data?.raw}
+          onLoad={readOnly ? undefined : loadVersion}
+        />
+      ) : shownTab === 'form' && formAvailable && curated ? (
         curated.render({
           model: curated.toModel(obj),
           onChange: (m: any) => setText(yamlDump(curated.fromModel(obj, m))),

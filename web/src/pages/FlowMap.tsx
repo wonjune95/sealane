@@ -9,6 +9,8 @@ import {
   CANVAS_WIDTH,
   NODE_R,
   ARROW,
+  EXTERNAL,
+  boxAround,
   edgeKey,
   edgePath,
   type Band,
@@ -74,46 +76,6 @@ export function FlowMap() {
           </button>
         }
       />
-      <div className="flow-summary">
-        {[
-          {
-            label: t('flow.gateways'),
-            value: topology.nodes.filter((n) => n.stage === 1).length,
-            icon: 'shield',
-            tone: 'blue',
-          },
-          {
-            label: t('flow.routes'),
-            value: topology.nodes.filter((n) => n.stage === 2).length,
-            icon: 'route',
-            tone: 'violet',
-          },
-          {
-            label: t('flow.destinations'),
-            value: topology.nodes.filter((n) => n.stage === 3).length,
-            icon: 'cube',
-            tone: 'green',
-          },
-          {
-            label: t('flow.issueNodes'),
-            value: issues,
-            icon: issues ? 'warning' : 'check',
-            tone: issues ? 'red' : 'green',
-          },
-        ].map((stat) => (
-          <div className="panel flex items-center gap-3 p-4" key={stat.label}>
-            <span className={`flow-icon flow-tone-${stat.tone}`}>
-              <Icon name={stat.icon} className="h-5 w-5" />
-            </span>
-            <div>
-              <p className="text-xs text-muted">{stat.label}</p>
-              <p className="mt-1 text-xl font-semibold tabular-nums text-strong">
-                {isLoading ? '—' : stat.value}
-              </p>
-            </div>
-          </div>
-        ))}
-      </div>
       <section
         className="panel min-w-0 overflow-hidden"
         aria-label={t('flow.explore')}
@@ -240,6 +202,8 @@ function FlowCanvas({ topology }: { topology: Topology }) {
   const [offsets, setOffsets] = useState<Offsets>({})
   const [zoom, setZoom] = useState<number | null>(null)
   const [legendOpen, setLegendOpen] = useState(false)
+  const [animate, setAnimate] = useState(true)
+  const groupDrag = useRef<{ ns: string; x: number; y: number } | null>(null)
   const [viewportWidth, setViewportWidth] = useState(CANVAS_WIDTH + 48)
   const viewportRef = useRef<HTMLDivElement>(null)
   const layout = useMemo(() => layoutTopology(topology), [topology])
@@ -275,6 +239,31 @@ function FlowCanvas({ topology }: { topology: Topology }) {
     const { at, offset } = placed(id)
     return { x: at.x + offset.x, y: at.y + offset.y }
   }
+  // Namespace boxes are drawn around their nodes' current positions, so they follow drags.
+  const members = useMemo(() => {
+    const m = new Map<string, string[]>()
+    for (const n of topology.nodes)
+      if (n.stage > 0) m.set(n.namespace ?? EXTERNAL, [...(m.get(n.namespace ?? EXTERNAL) ?? []), n.id])
+    return m
+  }, [topology.nodes])
+  const boxes = layout.bands.map(
+    (band) => boxAround(band.namespace, (members.get(band.namespace) ?? []).map(position)) ?? band,
+  )
+  // Dragging a box moves every node in it, like dragging a Kiali group.
+  const moveGroup = (ns: string, dx: number, dy: number) =>
+    setOffsets((previous) => {
+      const next = { ...previous }
+      const clamp = (v: number, lo: number, hi: number) => Math.min(Math.max(v, lo), hi)
+      for (const id of members.get(ns) ?? []) {
+        const at = layout.positions.get(id) ?? { x: 0, y: 0 }
+        const o = previous[id] ?? { x: 0, y: 0 }
+        next[id] = {
+          x: clamp(o.x + dx, NODE_R - at.x, layout.width - NODE_R - at.x),
+          y: clamp(o.y + dy, NODE_R - at.y, layout.height - NODE_R - at.y),
+        }
+      }
+      return next
+    })
 
   useLayoutEffect(() => {
     const viewport = viewportRef.current
@@ -333,21 +322,48 @@ function FlowCanvas({ topology }: { topology: Topology }) {
                 </marker>
               ))}
             </defs>
-            {layout.bands.map((band) => (
-              <rect key={band.namespace || '*'} className="flow-ns" x={band.x} y={band.y} width={band.width} height={band.height} rx={6} />
+            {boxes.map((band) => (
+              <rect
+                key={band.namespace || '*'}
+                className="flow-ns"
+                x={band.x}
+                y={band.y}
+                width={band.width}
+                height={band.height}
+                rx={6}
+                onPointerDown={(e) => {
+                  if (e.pointerType !== 'mouse' || e.button !== 0) return
+                  groupDrag.current = { ns: band.namespace, x: e.clientX, y: e.clientY }
+                  e.currentTarget.setPointerCapture(e.pointerId)
+                }}
+                onPointerMove={(e) => {
+                  const drag = groupDrag.current
+                  if (!drag) return
+                  moveGroup(drag.ns, (e.clientX - drag.x) / scale, (e.clientY - drag.y) / scale)
+                  drag.x = e.clientX
+                  drag.y = e.clientY
+                }}
+                onPointerUp={() => (groupDrag.current = null)}
+                onPointerCancel={() => (groupDrag.current = null)}
+              />
             ))}
             {topology.edges.map((edge) => {
               const active =
                 !!highlight && highlight.has(edge.from) && highlight.has(edge.to)
               const variant = edge.broken ? 'is-broken' : active ? 'is-active' : ''
+              const dimmed = highlight && !active ? 'is-dimmed' : ''
+              const d = edgePath(position(edge.from), position(edge.to))
               return (
-                <path
-                  key={edgeKey(edge)}
-                  d={edgePath(position(edge.from), position(edge.to))}
-                  className={`flow-edge ${variant} ${highlight && !active ? 'is-dimmed' : ''}`}
-                  fill="none"
-                  markerEnd={`url(#flow-arrow${variant ? `-${variant}` : ''})`}
-                />
+                <g key={edgeKey(edge)}>
+                  <path
+                    d={d}
+                    className={`flow-edge ${variant} ${dimmed}`}
+                    fill="none"
+                    markerEnd={`url(#flow-arrow${variant ? `-${variant}` : ''})`}
+                  />
+                  {/* Dots travelling along the edge, like Kiali's traffic animation; nothing flows down a broken path */}
+                  {animate && !edge.broken && <path d={d} className={`flow-edge-motion ${variant} ${dimmed}`} />}
+                </g>
               )
             })}
             {topology.nodes.map((node) => (
@@ -369,7 +385,7 @@ function FlowCanvas({ topology }: { topology: Topology }) {
               />
             ))}
             {/* Box labels last, so edges fanning out of a gateway never cover them */}
-            {layout.bands.map((band) => (
+            {boxes.map((band) => (
               <NamespaceLabel key={band.namespace || '*'} band={band} />
             ))}
           </svg>
@@ -404,6 +420,13 @@ function FlowCanvas({ topology }: { topology: Topology }) {
           <span className="flow-zoom" aria-live="polite">
             {Math.round(scale * 100)}%
           </span>
+          <button
+            className={`flow-control flow-legend-toggle ${animate ? 'is-active' : ''}`}
+            aria-pressed={animate}
+            onClick={() => setAnimate(!animate)}
+          >
+            {t('flow.animation')}
+          </button>
           <button
             className={`flow-control flow-legend-toggle ${legendOpen ? 'is-active' : ''}`}
             aria-pressed={legendOpen}

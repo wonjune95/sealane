@@ -370,9 +370,6 @@ button:disabled {
 }
 
 @layer components {
-  .flow-summary {
-    @apply grid grid-cols-2 gap-3 xl:grid-cols-4;
-  }
   .flow-toolbar {
     @apply flex flex-wrap items-center justify-between gap-4 border-b border-base p-5;
   }
@@ -419,6 +416,7 @@ button:disabled {
     --fl-brand: #06c;
     --fl-on-brand: #fff;
     --fl-config: #876fd4;
+    --fl-dot: #4d4d4d;
     @apply relative;
   }
   .dark .flow-stage {
@@ -436,6 +434,7 @@ button:disabled {
     --fl-brand: #4394e5;
     --fl-on-brand: #fff;
     --fl-config: #a18fff;
+    --fl-dot: #cbd5e1;
   }
   .flow-viewport {
     @apply relative overflow-auto border-y border-base;
@@ -590,6 +589,31 @@ button:disabled {
     stroke: var(--fl-danger);
     stroke-dasharray: 8 5;
   }
+  /* Kiali-style traffic dots: round dots spaced along the edge, sliding toward the target */
+  .flow-edge-motion {
+    fill: none;
+    stroke: var(--fl-dot);
+    stroke-width: 5;
+    stroke-linecap: round;
+    stroke-dasharray: 0 26;
+    pointer-events: none;
+    animation: flow-dots 1.1s linear infinite;
+  }
+  .flow-edge-motion.is-active {
+    stroke: var(--fl-brand);
+  }
+  .flow-edge-motion.is-dimmed {
+    opacity: 0.25;
+  }
+  rect.flow-ns {
+    cursor: grab;
+  }
+  rect.flow-ns:active {
+    cursor: grabbing;
+  }
+  .flow-ns-label {
+    pointer-events: none;
+  }
   /* Control bar and legend in the graph's lower left */
   .flow-controlbar {
     @apply absolute bottom-3 left-3 z-10 flex items-center gap-0.5 rounded-md border border-base bg-white p-0.5 shadow-sm dark:bg-slate-900;
@@ -704,6 +728,11 @@ button:disabled {
   background-color: rgb(245 158 11 / 0.12);
   animation: focus-line-fade 3s ease-out;
 }
+@keyframes flow-dots {
+  to {
+    stroke-dashoffset: -26;
+  }
+}
 @keyframes focus-line-fade {
   from {
     background-color: rgb(245 158 11 / 0.45);
@@ -793,6 +822,9 @@ button:disabled {
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .flow-edge-motion {
+    display: none;
+  }
   *,
   *::before,
   *::after {

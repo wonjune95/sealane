@@ -195,13 +195,29 @@ try {
   const after = await checkout.boundingBox()
   assert.ok(Math.abs(after.y - before.y - 50) < 3, `drag moved ${after.y - before.y}px`)
   assert.equal(await details.count(), 0)
+  // The namespace box follows its nodes, and dragging the box moves every node in it.
+  const appsBox = page.locator('rect.flow-ns').nth(0)
+  const nodeInBox = async () => {
+    const [b, n] = [await appsBox.boundingBox(), await checkout.boundingBox()]
+    return n.x >= b.x && n.x + n.width <= b.x + b.width && n.y + n.height / 3 <= b.y + b.height
+  }
+  assert.ok(await nodeInBox(), 'box grows around a dragged node')
+  const box = await appsBox.boundingBox()
+  const nodeBefore = await checkout.boundingBox()
+  await page.mouse.move(box.x + 8, box.y + 8)
+  await page.mouse.down()
+  await page.mouse.move(box.x + 8 + 40, box.y + 8 + 30, { steps: 8 })
+  await page.mouse.up()
+  const nodeAfter = await checkout.boundingBox()
+  assert.ok(Math.abs(nodeAfter.x - nodeBefore.x - 40) < 3 && Math.abs(nodeAfter.y - nodeBefore.y - 30) < 3, 'nodes move with their box')
+  assert.ok(await nodeInBox())
   await page.getByRole('button', { name: 'Reset layout' }).click()
   assert.equal(
     await checkout.evaluate((el) => el.style.transform),
     'translate(0px, 0px)',
   )
   console.log(
-    'PASS: keyboard selection, focus-visible links, scaled drag, Escape and layout reset work',
+    'PASS: keyboard selection, focus-visible links, scaled node and box drag, boxes following nodes, Escape and layout reset work',
   )
   // Kiali-style graph: one namespace box per namespace, stages flow left → right, arrows on edges.
   const boxes = page.locator('.flow-ns-label')
@@ -255,7 +271,18 @@ try {
       .evaluate((el) => el.scrollWidth > el.clientWidth + 1),
     false,
   )
-  console.log('PASS: 320–1440px layouts contain horizontal scrolling; fit works')
+  // Traffic dots along edges: none on broken paths, switchable, hidden for reduced motion.
+  const dots = page.locator('.flow-edge-motion')
+  assert.ok((await dots.count()) > 0)
+  assert.equal(await dots.count(), (await page.locator('.flow-edge').count()) - (await page.locator('.flow-edge.is-broken').count()))
+  await page.emulateMedia({ reducedMotion: 'reduce' })
+  assert.equal(await dots.first().evaluate((el) => getComputedStyle(el).display), 'none')
+  await page.emulateMedia({ reducedMotion: 'no-preference' })
+  await page.getByRole('button', { name: 'Animation', exact: true }).click()
+  assert.equal(await dots.count(), 0)
+  await page.getByRole('button', { name: 'Animation', exact: true }).click()
+  assert.ok((await dots.count()) > 0)
+  console.log('PASS: 320–1440px layouts contain horizontal scrolling; fit, traffic dots and reduced motion work')
 
   await page.getByRole('textbox', { name: 'Search flows' }).fill('no-such-host')
   await page.getByText('No matching paths', { exact: true }).waitFor()

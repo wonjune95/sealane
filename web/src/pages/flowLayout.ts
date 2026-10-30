@@ -12,6 +12,7 @@ export const ROW_GAP = 96 // node + label pill + sublabel
 export const BAND_PAD = 44 // above the first row: room for decorators
 export const BAND_BOTTOM = 80 // below the last row's centre: node half, label pill, sublabel, padding
 export const BAND_GAP = 48 // between boxes: the hanging box label plus air
+export const BOX_PAD_X = 80 // left/right of the outermost nodes: half a label pill plus air
 export const CANVAS_WIDTH = COLUMN_X[3] + 160
 
 export type Point = { x: number; y: number }
@@ -54,7 +55,7 @@ export function layoutTopology({ nodes, edges }: Topology): Layout {
   const heightOf = (ns: string) => BAND_PAD + (rowsOf(ns) - 1) * ROW_GAP + BAND_BOTTOM
   const pushBand = (ns: string, top: number) => {
     const { from, to } = span(ns)
-    bands.push({ namespace: ns, x: COLUMN_X[from] - 80, y: top, width: COLUMN_X[to] - COLUMN_X[from] + 160, height: heightOf(ns) })
+    bands.push({ namespace: ns, x: COLUMN_X[from] - BOX_PAD_X, y: top, width: COLUMN_X[to] - COLUMN_X[from] + 2 * BOX_PAD_X, height: heightOf(ns) })
   }
 
   const predecessors = new Map<string, string[]>()
@@ -141,3 +142,20 @@ export function edgePath(from: Point, to: Point) {
 }
 
 export const edgeKey = (edge: FlowEdge) => `${edge.from}>${edge.to}`
+
+// A namespace box around its nodes where they are now, so the box follows dragged nodes
+// (Kiali's compound groups do the same). Equal to the layout's band until something moves.
+export function boxAround(namespace: string, points: Point[]): Band | null {
+  if (!points.length) return null
+  const xs = points.map((p) => p.x),
+    ys = points.map((p) => p.y)
+  const minX = Math.min(...xs),
+    minY = Math.min(...ys)
+  return {
+    namespace,
+    x: minX - BOX_PAD_X,
+    y: minY - BAND_PAD,
+    width: Math.max(...xs) - minX + 2 * BOX_PAD_X,
+    height: Math.max(...ys) - minY + BAND_PAD + BAND_BOTTOM,
+  }
+}

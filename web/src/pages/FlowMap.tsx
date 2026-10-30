@@ -631,7 +631,7 @@ function GraphNode({
 function NamespaceLabel({ band }: { band: Band }) {
   const name = band.namespace || t('flow.legend.external')
   const ns = !!band.namespace
-  const width = name.length * 7 + 22 + (ns ? 30 : 0)
+  const width = name.length * 8 + 22 + (ns ? 30 : 0) // 12px semibold runs about 8px per character
   const cx = band.x + band.width / 2
   const y = band.y + band.height
   return (

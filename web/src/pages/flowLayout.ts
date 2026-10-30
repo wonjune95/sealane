@@ -127,18 +127,16 @@ export function layoutTopology({ nodes, edges }: Topology): Layout {
   return { width: CANVAS_WIDTH, height, positions, bands }
 }
 
-// Straight edge between the two node outlines, as Kiali draws them; the end stops short
-// so the arrowhead (ARROW long) touches the target.
+// Edge from the right side of `from` to the left side of `to` as a curve that leaves and arrives
+// horizontally: when one gateway feeds many routes, the vertical part runs in the gap between
+// boxes instead of across other nodes' labels. The end stops short so the arrowhead (ARROW
+// long) touches the target.
 export const ARROW = 10
 export function edgePath(from: Point, to: Point) {
-  const dx = to.x - from.x,
-    dy = to.y - from.y
-  const len = Math.hypot(dx, dy) || 1
-  const ux = dx / len,
-    uy = dy / len
-  const start = NODE_R + 2,
-    end = NODE_R + 2 + ARROW
-  return `M ${from.x + ux * start} ${from.y + uy * start} L ${to.x - ux * end} ${to.y - uy * end}`
+  const x1 = from.x + NODE_R + 2,
+    x2 = to.x - NODE_R - 2 - ARROW
+  const bend = Math.max(24, Math.abs(x2 - x1) / 2)
+  return `M ${x1} ${from.y} C ${x1 + bend} ${from.y}, ${x2 - bend} ${to.y}, ${x2} ${to.y}`
 }
 
 export const edgeKey = (edge: FlowEdge) => `${edge.from}>${edge.to}`

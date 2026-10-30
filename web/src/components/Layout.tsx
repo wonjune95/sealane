@@ -1,12 +1,13 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
-import { Link, useLocation, useNavigate } from 'react-router-dom'
+import { Link, useLocation } from 'react-router-dom'
 import { useCapabilities } from '../api/capabilities'
 import { useClusters } from '../api/clusters'
 import { useResourceTypes } from '../api/resourceTypes'
-import { apiPost, getCluster, setCluster } from '../api/client'
+import { apiPost, getCluster } from '../api/client'
 import { useTheme } from '../ui/theme'
 import { Icon } from './icons'
 import { Sidebar } from './Sidebar'
+import { ClusterMenu } from './ClusterMenu'
 import { t, locale, setLocale, type Key } from '../i18n'
 
 const PAGE_NAMES: Record<string, Key> = {
@@ -19,12 +20,10 @@ const PAGE_NAMES: Record<string, Key> = {
   '/analysis': 'nav.analysis',
   '/services': 'nav.services',
 }
-const MANAGE = '_manage' // cluster names must start with a letter or digit, so this never collides
 
 export function Layout({ children }: { children: ReactNode }) {
   const { data, isError } = useCapabilities()
   const clusters = useClusters().data
-  const navigate = useNavigate()
   const cluster = getCluster() || 'local'
   const types = useResourceTypes().data
   const { theme, toggle } = useTheme()
@@ -79,33 +78,12 @@ export function Layout({ children }: { children: ReactNode }) {
           <span className="truncate font-medium text-strong">{page}</span>
         </div>
         <div className="ml-auto flex items-center gap-1.5 pr-3 md:gap-3 md:pr-6">
-          <label className="hidden items-center gap-2 rounded-lg border border-base py-1 pl-2.5 pr-2 text-xs hover:bg-slate-50 sm:flex dark:hover:bg-slate-800">
-            <Icon name="network" className="h-4 w-4 text-muted" />
-            <span className="flex flex-col">
-              <span className="hidden text-[9px] font-semibold uppercase leading-3 tracking-[.12em] text-muted md:block">
-                {t('layout.cluster')}
-              </span>
-              <span className="relative flex items-center gap-1.5">
-                <span
-                  className={`h-1.5 w-1.5 shrink-0 rounded-full ${data && !isError ? 'bg-emerald-500' : 'bg-slate-400'}`}
-                />
-                <select
-                  aria-label={t('layout.selectCluster')}
-                  value={cluster}
-                  onChange={(e) => (e.target.value === MANAGE ? navigate('/settings') : setCluster(e.target.value))}
-                  className="max-w-40 appearance-none bg-transparent pr-5 font-medium leading-5 text-strong focus:outline-none"
-                >
-                  {(clusters?.length ? clusters : [{ name: 'local' }]).map((c) => (
-                    <option key={c.name} value={c.name}>
-                      {c.name}
-                    </option>
-                  ))}
-                  {data?.role === 'admin' && <option value={MANAGE}>{t('layout.manageClusters')}</option>}
-                </select>
-                <Icon name="down" className="pointer-events-none absolute right-0 h-3.5 w-3.5 text-faint" />
-              </span>
-            </span>
-          </label>
+          <ClusterMenu
+            clusters={(clusters?.length ? clusters : [{ name: 'local' }]).map((c) => c.name)}
+            current={cluster}
+            connected={!!data && !isError}
+            canManage={data?.role === 'admin'}
+          />
           {data?.devMode && (
             <span className="chip hidden bg-amber-50 text-amber-700 sm:inline-flex dark:bg-amber-500/10 dark:text-amber-300">
               {t('layout.devMode')}

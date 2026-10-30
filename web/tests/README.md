@@ -15,6 +15,7 @@ npm run test:services
 npm run test:editor-focus
 npm run test:service-create
 npm run test:managed-by
+npm run test:cluster-menu
 ```
 
 `npm run test:ui` runs every fixture-based check; CI runs it on each push (dev server on `127.0.0.1:5173`, `SEALANE_TEST_URL` set).
@@ -50,3 +51,5 @@ Set `SEALANE_TEST_URL` to change the frontend URL. Set `SEALANE_CHROMIUM_PATH` t
 `node tests/oidc-dex.mjs` runs a real OIDC round trip (SSO login, settings page, sign-out) against a running instance with `oidc.enabled=true` and the Dex demo from `examples/dex-demo.yaml` (`SEALANE_URL`, `SEALANE_SSO_NAME`, default `Dex`). The cluster needs Gateway API or Istio CRDs, otherwise every page redirects to the install guide. It is not part of CI.
 
 `npm run test:managed-by` covers the owner badge (Argo CD, Helm) on resource list rows and its tooltip, search by tool name, and the editor warning on managed resources only, fixture-based.
+
+`npm run test:cluster-menu` covers the header cluster menu: no native select, current cluster checked and focused on open, Escape and outside click close it, arrow keys wrap, Enter switches the cluster (stored, app reloads), **Manage clusters…** opens Settings for admins and is absent for viewers, fixture-based.

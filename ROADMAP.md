@@ -79,6 +79,7 @@ Sealane is moving from an internal tool to a public project in four releases. Da
 
 ## 1.14 (shipped)
 - Owner badge and editor warning for resources that Argo CD, Flux or Helm manage.
+- Header cluster menu in the app's style instead of the native select.
 
 ## After 1.0 (candidates, not promised)
 - Recipes and wizards for common routing changes.

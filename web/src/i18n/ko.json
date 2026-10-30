@@ -32,6 +32,7 @@
   "layout.selectCluster": "클러스터 선택",
   "layout.cluster": "클러스터",
   "layout.manageClusters": "클러스터 관리…",
+  "layout.switchCluster": "클러스터 전환",
   "layout.devMode": "개발 모드",
   "layout.accountSettings": "내 계정 설정",
   "layout.accountSettingsFor": "{user} 계정 설정",

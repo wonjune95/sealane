@@ -32,6 +32,7 @@
   "layout.selectCluster": "Select cluster",
   "layout.cluster": "Cluster",
   "layout.manageClusters": "Manage clusters…",
+  "layout.switchCluster": "Switch cluster",
   "layout.devMode": "Dev mode",
   "layout.accountSettings": "Account settings",
   "layout.accountSettingsFor": "Account settings for {user}",

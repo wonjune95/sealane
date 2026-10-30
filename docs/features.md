@@ -108,7 +108,7 @@ Policies are marked by scope: **workload** (the policy selector matches the Serv
 ## UI
 **Workspace navigation** — the sidebar lists the main screens (cluster overview, all resources, traffic flow, mesh analysis, services, request console) and the installed resource kinds grouped by category. A **single search box** narrows a long list of kinds, and each one carries its count.
 
-- **Cluster switcher** — the header picker shows the selected cluster with a connection dot and a shortcut to cluster management.
+- **Cluster switcher** — the header button shows the selected cluster with a connection dot and opens a menu of registered clusters (the current one checked) with a shortcut to cluster management for admins. The menu works with the keyboard (arrow keys, Home/End, Enter, Escape).
 - **Language** — English and Korean UI (header toggle). Sealane's own server errors (sign-in, accounts, clusters, conflicts, role checks) carry a stable `code` in the error envelope and are shown in the active language; Kubernetes validation messages stay as the API server returns them.
 - **Home shortcuts** — cards for traffic flow, the request console, mesh analysis (with current error and warning counts; amber with a warning icon while there are findings) and services.
 - **Lists** — every managed kind shows a one-line summary (hosts, DestinationRule host, AuthorizationPolicy action, mTLS mode, listeners, parent count, …). Resource lists sort by Namespace, Name, Summary (status pill first) and Age; Services by Namespace and Name; all resources by Kind, Namespace, Name and Age. Clicking a header again reverses it; until a header is clicked, rows keep the order the API returned. Lists show 50 rows, with "Show more" adding 50 at a time.

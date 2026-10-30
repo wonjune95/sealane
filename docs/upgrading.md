@@ -10,19 +10,19 @@ From any 1.x release you can go straight to the latest; there is no need to step
    With Helm (`--reset-then-reuse-values` needs Helm 3.14 or later; with an older Helm pass your values again with `-f values.yaml` instead):
 
    ```bash
-   helm upgrade sealane oci://ghcr.io/wonjune95/charts/sealane --version 1.19.0 -n <namespace> --reset-then-reuse-values
+   helm upgrade sealane oci://ghcr.io/wonjune95/charts/sealane --version 1.19.1 -n <namespace> --reset-then-reuse-values
    ```
 
    With `install.yaml`:
 
    ```bash
-   kubectl apply -f https://github.com/wonjune95/sealane/releases/download/v1.19.0/install.yaml
+   kubectl apply -f https://github.com/wonjune95/sealane/releases/download/v1.19.1/install.yaml
    ```
 
    **Only if you use impersonation mode** (`IMPERSONATION=true` on the Deployment), apply its RBAC after `install.yaml`. Without the mode, skip it: it makes Sealane's own role read-only, and writes would then fail.
 
    ```bash
-   kubectl apply -f https://github.com/wonjune95/sealane/releases/download/v1.19.0/impersonation.yaml
+   kubectl apply -f https://github.com/wonjune95/sealane/releases/download/v1.19.1/impersonation.yaml
    ```
 
 3. **Read the section for the versions you cross**, at least [From 1.11–1.18 to 1.19](#from-111118-to-119): everyone signs in again once, and an `admin` still on the old default password must change it first.

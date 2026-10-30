@@ -75,7 +75,7 @@ subjects:
 - **Without Helm:** each release attaches `impersonation.yaml`, the same RBAC rendered for namespace `sealane`, including Sealane's read-only ClusterRole. Apply it after `install.yaml` and switch the mode on. Applying `install.yaml` again (an upgrade) restores the ClusterRole that can write, so apply `impersonation.yaml` after it every time:
 
 ```bash
-kubectl apply -f https://github.com/wonjune95/sealane/releases/download/v1.19.0/impersonation.yaml
+kubectl apply -f https://github.com/wonjune95/sealane/releases/download/v1.19.1/impersonation.yaml
 kubectl -n sealane set env deploy/sealane IMPERSONATION=true
 ```
 
@@ -105,9 +105,9 @@ Images and charts are signed keyless with cosign (GitHub OIDC identity via Sigst
 
 ```bash
 cosign verify --certificate-identity-regexp 'https://github.com/wonjune95/sealane/' \
-  --certificate-oidc-issuer https://token.actions.githubusercontent.com ghcr.io/wonjune95/sealane:1.19.0
+  --certificate-oidc-issuer https://token.actions.githubusercontent.com ghcr.io/wonjune95/sealane:1.19.1
 cosign verify --certificate-identity-regexp 'https://github.com/wonjune95/sealane/' \
-  --certificate-oidc-issuer https://token.actions.githubusercontent.com ghcr.io/wonjune95/charts/sealane:1.19.0
+  --certificate-oidc-issuer https://token.actions.githubusercontent.com ghcr.io/wonjune95/charts/sealane:1.19.1
 ```
 
 Use cosign 3.x. From 1.0.0 on, signatures are stored as OCI referrers (Sigstore bundles) next to the image and chart rather than as `.sig` tags; cosign 3.x verifies both forms, older cosign only the tags.

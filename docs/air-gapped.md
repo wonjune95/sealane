@@ -5,7 +5,7 @@ Sealane fetches nothing from the internet at runtime: the UI is embedded in the 
 ## Outside: collect and verify
 
 ```bash
-V=1.19.0
+V=1.19.1
 # Image with both architectures; an OCI archive keeps the digest when you push it later
 skopeo copy --all --preserve-digests docker://ghcr.io/wonjune95/sealane:$V oci-archive:sealane-$V.oci.tar:$V
 # Manifests, the chart, license notices and the signed checksums of all of them

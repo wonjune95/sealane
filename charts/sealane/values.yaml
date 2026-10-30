@@ -51,6 +51,15 @@ clustersSecret: sealane-clusters
 requestTester:
   enabled: false
 
+# Impersonation: resource writes run as sealane:admin or sealane:editor (the signed-in user's role)
+# instead of the ServiceAccount, so cluster RBAC decides what each role may change and the API
+# server's audit log records the person. Reads stay on the ServiceAccount.
+impersonation:
+  enabled: false
+  # Let both identities edit the managed kinds in every namespace (what the ServiceAccount can).
+  # false = bind sealane:admin / sealane:editor yourself, e.g. editors only in their namespaces.
+  bindDefaults: true
+
 resources:
   requests:
     cpu: 50m

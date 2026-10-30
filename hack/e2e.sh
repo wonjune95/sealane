@@ -58,6 +58,7 @@ expect 200 "$(login_retry admin admin)" "login admin/admin"
 expect 200 "$(api GET /api/capabilities)" "capabilities"
 [ "$(jq -r '.mustChangePassword' "$BODY")" = "true" ] || fail "mustChangePassword should be true on first login"
 expect 204 "$(api POST /api/account/password "{\"currentPassword\":\"admin\",\"newPassword\":\"$NEWPASS\"}")" "change password"
+[ -z "${E2E_PASS_FILE:-}" ] || printf '%s' "$NEWPASS" > "$E2E_PASS_FILE" # for follow-up checks (hack/e2e-impersonation.sh)
 expect 200 "$(login_retry admin "$NEWPASS")" "login with new password"
 expect 200 "$(api GET /api/capabilities)" "capabilities after change"
 [ "$(jq -r '.mustChangePassword // false' "$BODY")" = "false" ] || fail "mustChangePassword should be false now"

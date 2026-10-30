@@ -12,7 +12,7 @@ Kiali는 메시를 관측하는 도구입니다. 텔레메트리 기반 토폴�
 
 ## 왜 모든 클러스터 호출을 ServiceAccount 하나로 실행하나요?
 
-처음에는 사용자마다 Kubernetes 토큰을 그대로 전달하는 방식을 시도했습니다. 권한은 정확했지만 사용자별로 토큰을 발급하고 전달하고 갱신하는 일이 번거로웠고, 로그인 경험도 나빴습니다. 지금은 Sealane이 자체 역할(로컬 계정 또는 SSO 그룹)로 사용자를 인가하고, 클러스터와는 자신의 ServiceAccount로 통신합니다. 그래서 Kubernetes 감사 로그에는 ServiceAccount가 남고, 사용자는 Sealane의 변경 기록과 감사 로그에 남습니다. [아키텍처와 보안 모델](../architecture.md#why-app-local-accounts-instead-of-token-passthrough)을 참고하세요.
+처음에는 사용자마다 Kubernetes 토큰을 그대로 전달하는 방식을 시도했습니다. 권한은 정확했지만 사용자별로 토큰을 발급하고 전달하고 갱신하는 일이 번거로웠고, 로그인 경험도 나빴습니다. 지금은 Sealane이 자체 역할(로컬 계정 또는 SSO 그룹)로 사용자를 인가하고, 클러스터와는 자신의 ServiceAccount로 통신합니다. 그래서 Kubernetes 감사 로그에는 ServiceAccount가 남고, 사용자는 Sealane의 변경 기록과 감사 로그에 남습니다. 역할별로 무엇을 바꿀 수 있는지 클러스터 RBAC가 정하게 하거나, Kubernetes 감사 로그에 사람 이름이 남아야 한다면 [사용자 권한 모드(impersonation)](../security.md#impersonation-mode)를 켜세요. 그러면 쓰기가 `sealane:admin` 또는 `sealane:editor`로 실행됩니다. [아키텍처와 보안 모델](../architecture.md#why-app-local-accounts-instead-of-token-passthrough)도 참고하세요.
 
 ## 폐쇄망 클러스터에서도 동작하나요?
 

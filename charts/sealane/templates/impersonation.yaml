@@ -1,0 +1,73 @@
+{{- $imp := default dict .Values.impersonation }}
+{{- if $imp.enabled }}
+# Impersonation mode: resource writes run as sealane:admin or sealane:editor (the signed-in user's role)
+# instead of the ServiceAccount, so cluster RBAC decides and the API server's audit log records the
+# person (user extra sealane-user). The ServiceAccount may impersonate exactly these two identities.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ include "sealane.fullname" . }}-impersonator
+  labels:
+    {{- include "sealane.labels" . | nindent 4 }}
+rules:
+  - apiGroups: [""]
+    resources: ["users", "groups"]
+    verbs: ["impersonate"]
+    resourceNames: ["sealane:admin", "sealane:editor"]
+  - apiGroups: ["authentication.k8s.io"]
+    resources: ["userextras/sealane-user", "userextras/sealane-provider"]
+    verbs: ["impersonate"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: {{ include "sealane.fullname" . }}-impersonator
+  labels:
+    {{- include "sealane.labels" . | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: {{ include "sealane.fullname" . }}-impersonator
+subjects:
+  - kind: ServiceAccount
+    name: {{ include "sealane.fullname" . }}
+    namespace: {{ .Release.Namespace }}
+{{- if ne $imp.bindDefaults false }}
+---
+# Default rights of the two identities: edit the managed kinds in every namespace, as the ServiceAccount
+# can. Set impersonation.bindDefaults=false and bind sealane:admin / sealane:editor yourself to narrow
+# this, for example editors to their team's namespaces with RoleBindings.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ include "sealane.fullname" . }}-writer
+  labels:
+    {{- include "sealane.labels" . | nindent 4 }}
+rules:
+  - apiGroups:
+      - networking.istio.io
+      - security.istio.io
+      - telemetry.istio.io
+      - gateway.networking.k8s.io
+    resources: ["*"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: {{ include "sealane.fullname" . }}-writer
+  labels:
+    {{- include "sealane.labels" . | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: {{ include "sealane.fullname" . }}-writer
+subjects:
+  - kind: Group
+    apiGroup: rbac.authorization.k8s.io
+    name: sealane:admin
+  - kind: Group
+    apiGroup: rbac.authorization.k8s.io
+    name: sealane:editor
+{{- end }}
+{{- end }}

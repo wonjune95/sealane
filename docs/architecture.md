@@ -33,7 +33,7 @@ The initial design had dedicated providers for `HTTPRoute`/`VirtualService`. But
 
 ### Why app-local accounts instead of token passthrough
 
-The first implementation passed the user's Kubernetes bearer token through, authorizing with cluster RBAC — accurate, but issuing/delivering/renewing tokens per user was operationally painful and login UX was poor. → Switched to **app-local accounts (ConfigMap) + roles**, with all cluster operations under a single SA identity. The downside (K8s audit logs show the SA, not the user) is offset by Sealane's own change history recording account names. If per-user K8s RBAC parity becomes necessary, this can be extended with Impersonation.
+The first implementation passed the user's Kubernetes bearer token through, authorizing with cluster RBAC — accurate, but issuing/delivering/renewing tokens per user was operationally painful and login UX was poor. → Switched to **app-local accounts (ConfigMap) + roles**, with all cluster operations under a single SA identity. The downside (K8s audit logs show the SA, not the user) is offset by Sealane's own change history recording account names. Since 1.16, [impersonation mode](security.md#impersonation-mode) closes most of that gap: writes run as `sealane:admin` or `sealane:editor`, so cluster RBAC decides per role and namespace and the Kubernetes audit log names the person.
 
 Single sign-on keeps this model: an OIDC login produces an app role from the user's IdP groups, and cluster calls still run as the ServiceAccount.
 
@@ -53,5 +53,6 @@ Permissions come in two separate layers — cluster permissions and user permiss
 |---|---|---|
 | Cluster (K8s RBAC) | pod ServiceAccount | CRUD on managed CRDs (`*.networking.istio.io`, `security/telemetry.istio.io`, `*.gateway.networking.k8s.io`) + read namespaces/services/endpoints/pods + patch accounts CM / clusters Secret. Configured by Helm. |
 | User (app roles) | accounts ConfigMap, or IdP groups for SSO users | `admin` = write + account/cluster management, `editor` = write, `viewer` = read-only. The server gates every mutating request (403). |
+| Impersonation (optional) | bindings for `sealane:admin` / `sealane:editor` | With `impersonation.enabled=true`, writes run as the role's identity, so cluster RBAC narrows the app roles (for example editors to some namespaces). See [Impersonation mode](security.md#impersonation-mode). |
 
 Account management: admins use the **account management UI** on the settings page, or edit the `sealane-accounts` ConfigMap directly (add key = add account, edit role string = change role, delete key = delete account). Local users change their own password on the settings page; SSO users manage their password at the identity provider.

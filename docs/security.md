@@ -34,6 +34,39 @@ What you should do:
 - **Restrict who reaches it** — for SSO, map only the groups that need access and consider `defaultRole: ""`. `/metrics`, `/healthz` and `/readyz` are unauthenticated; if that matters, keep them off your public route.
 - **Mind the clusters Secret** — it holds credentials for every registered cluster; on a remote cluster Sealane can do whatever that kubeconfig allows.
 
+## Impersonation mode
+
+By default every cluster call runs as Sealane's ServiceAccount and Sealane's roles decide who may write. With `impersonation.enabled=true` (`IMPERSONATION=true` without Helm), resource writes, their dry-runs and the editor's permission check run as the signed-in user's role instead, through Kubernetes user impersonation:
+
+| Sealane role | Kubernetes user and group | Extra on every request |
+|---|---|---|
+| `admin` | `sealane:admin` | `sealane-user` = the account or SSO user name, `sealane-provider` = `local` or `oidc` |
+| `editor` | `sealane:editor` | same |
+
+- **Cluster RBAC decides.** What admins and editors may change is whatever you bind to `sealane:admin` and `sealane:editor`. The chart binds both to edit rights on the managed kinds in every namespace (`impersonation.bindDefaults`, default `true`), which matches the mode off. Set it to `false` and write your own bindings to narrow it, for example editors only in their team's namespaces:
+
+```yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: sealane-editors
+  namespace: team-a
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: sealane-writer        # or your own role; rendered only with bindDefaults=true
+subjects:
+  - kind: Group
+    apiGroup: rbac.authorization.k8s.io
+    name: sealane:editor
+```
+
+- **The API server's audit log names the person.** Requests carry the impersonated user `sealane:<role>` and the user extras above, so Kubernetes audit events show who made a change made through Sealane, not only the ServiceAccount.
+- **Bounded.** The ServiceAccount may impersonate exactly the users and groups `sealane:admin` and `sealane:editor` (plus the two extras), not arbitrary identities, so a compromised Sealane cannot become `system:masters`.
+- **The editor follows RBAC.** The permission check behind read-only forms asks the API server (`SelfSubjectAccessReview`) as the impersonated identity, so an editor sees a read-only editor where RBAC would refuse the write.
+- **Unchanged:** viewers never write; reads, lists, the change history, account and cluster management and the request tester still use the ServiceAccount.
+- **Remote clusters:** the same applies there. The pasted kubeconfig's credentials need `impersonate` on those two users and groups and the two extras, and `sealane:admin` / `sealane:editor` need bindings on that cluster; otherwise writes there fail with 403.
+
 ## The request tester
 
 The real request sender (**Send** in the request console) runs `curl` inside a pod you pick, through `pods/exec`. Enabling it with `requestTester.enabled=true` gives Sealane's ServiceAccount `pods/exec` create cluster-wide — effectively arbitrary command execution in any pod. That is why it ships off. When enabled it is admin-only, builds argv without a shell, validates input (scheme, method, header newlines), caps timeout and response size, and audit-logs every request with user, source pod and target URL. Route check (the simulator) needs none of this and is safe for viewers.

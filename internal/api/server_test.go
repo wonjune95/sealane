@@ -23,6 +23,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	dynamicfake "k8s.io/client-go/dynamic/fake"
+	"k8s.io/client-go/rest"
 	kubefake "k8s.io/client-go/kubernetes/fake"
 	ktesting "k8s.io/client-go/testing"
 
@@ -50,6 +51,18 @@ type stubSource struct {
 	execErrS string
 	execErr  error
 	execArgv []string
+
+	// Impersonation: the identity asked for, and the clients handed out for it (nil = clients)
+	impersonated []rest.ImpersonationConfig
+	asClients    *k8s.Clients
+}
+
+func (s *stubSource) Impersonating(as rest.ImpersonationConfig) (*k8s.Clients, error) {
+	s.impersonated = append(s.impersonated, as)
+	if s.asClients != nil {
+		return s.asClients, nil
+	}
+	return s.clients, nil
 }
 
 func (s *stubSource) Base() (*k8s.Clients, error) {

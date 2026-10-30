@@ -10,7 +10,7 @@ No. It reads the Istio and Gateway API CRDs that are already in the cluster and 
 
 ## Why does every cluster call run as one ServiceAccount?
 
-Passing each user's Kubernetes token through was tried first. It was accurate but issuing, delivering and renewing tokens per user was painful, and the login experience was poor. Sealane now authorizes users with its own roles (local accounts or SSO groups) and talks to the cluster as its ServiceAccount. Kubernetes audit logs therefore show the ServiceAccount; Sealane's change history and audit log record the user. See [Architecture & security model](architecture.md#why-app-local-accounts-instead-of-token-passthrough).
+Passing each user's Kubernetes token through was tried first. It was accurate but issuing, delivering and renewing tokens per user was painful, and the login experience was poor. Sealane now authorizes users with its own roles (local accounts or SSO groups) and talks to the cluster as its ServiceAccount. Kubernetes audit logs therefore show the ServiceAccount; Sealane's change history and audit log record the user. If you need cluster RBAC to decide what each role may change, or the Kubernetes audit log to name the person, turn on [impersonation mode](security.md#impersonation-mode): writes then run as `sealane:admin` or `sealane:editor`. See [Architecture & security model](architecture.md#why-app-local-accounts-instead-of-token-passthrough).
 
 ## Does it work in an air-gapped cluster?
 

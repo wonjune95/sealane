@@ -55,6 +55,11 @@ spec:
             - name: REQUEST_TESTER
               value: "true"
             {{- end }}
+            {{- if (default dict .Values.impersonation).enabled }}
+            # Writes run as sealane:<role> (see templates/impersonation.yaml)
+            - name: IMPERSONATION
+              value: "true"
+            {{- end }}
             - name: ISTIO_NAMESPACE
               value: {{ .Values.istioNamespace | quote }}
             # client-go / libraries may write under $HOME; point it at a writable

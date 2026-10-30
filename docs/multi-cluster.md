@@ -25,6 +25,6 @@ The header cluster picker switches the current cluster and shows whether its API
 ## Limits
 
 - `local` is reserved and cannot be modified or deleted. Names start with a letter or digit and contain only letters, digits, `-`, `.` and `_` (at most 64 characters).
-- On a remote cluster Sealane can do exactly what the pasted kubeconfig's credentials allow; the chart's RBAC applies only to the local cluster. Use a dedicated ServiceAccount token on the target with the permissions you want Sealane to have.
+- On a remote cluster Sealane can do exactly what the pasted kubeconfig's credentials allow; the chart's RBAC applies only to the local cluster. Use a dedicated ServiceAccount token on the target with the permissions you want Sealane to have. In [impersonation mode](security.md#impersonation-mode) those credentials also need to impersonate `sealane:admin` and `sealane:editor`, and those identities need bindings on the target.
 - The image is distroless and contains no cloud CLIs, so kubeconfigs that rely on an `exec` credential plugin (for example `aws eks get-token` or `gke-gcloud-auth-plugin`) cannot authenticate. Use a token or client-certificate kubeconfig.
 - App roles are global: an `editor` can write on every registered cluster.

@@ -94,6 +94,10 @@ func main() {
 		slog.Info("oidc enabled", "issuer", cfg.IssuerURL, "displayName", cfg.DisplayName)
 	}
 	srv.HideLocalLogin(os.Getenv("LOCAL_LOGIN") == "hidden")
+	if os.Getenv("IMPERSONATION") == "true" {
+		srv.SetImpersonation(true)
+		slog.Info("impersonation enabled: resource writes run as sealane:<role>")
+	}
 	// Change history in ConfigMaps next to Sealane (shared by replicas); unset = in memory only.
 	if name, ns := os.Getenv("HISTORY_CONFIGMAP"), os.Getenv("POD_NAMESPACE"); name != "" && ns != "" && !*dev {
 		srv.SetHistory(api.HistoryRef{Namespace: ns, Name: name})

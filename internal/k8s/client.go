@@ -100,6 +100,23 @@ func newFactory(cfg *rest.Config) (*ClientFactory, error) {
 	return f, nil
 }
 
+// Impersonating returns clients that act as another identity through Kubernetes user
+// impersonation: the API server authorizes and audits each call as that identity, provided
+// the base identity may impersonate it. Built per call; client-go reuses the TLS transport.
+func (f *ClientFactory) Impersonating(as rest.ImpersonationConfig) (*Clients, error) {
+	cfg := rest.CopyConfig(f.baseCfg)
+	cfg.Impersonate = as
+	kube, err := kubernetes.NewForConfig(cfg)
+	if err != nil {
+		return nil, fmt.Errorf("impersonating kube client: %w", err)
+	}
+	dyn, err := dynamic.NewForConfig(cfg)
+	if err != nil {
+		return nil, fmt.Errorf("impersonating dynamic client: %w", err)
+	}
+	return &Clients{Kube: kube, Dynamic: dyn}, nil
+}
+
 // Ping checks API-server reachability (connection test when registering a cluster) and returns
 // the server's Kubernetes version.
 func (f *ClientFactory) Ping() (string, error) {

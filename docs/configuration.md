@@ -17,6 +17,7 @@ Sealane is configured with a few flags and environment variables. When you insta
 | `SESSION_SECRET_NAME` | `sealane-secret` (set by the chart) | Secret where Sealane stores a generated key (key `SESSION_SECRET`) when `SESSION_SECRET` is empty, so restarts and replicas share it; unset = random per boot (restart = re-login) |
 | `SSL_CERT_DIR` | `/etc/ssl/certs:/etc/sealane/tls-certs` (set by the chart) | Go reads every certificate in these directories as trust roots; the second is the `<release>-tls-certs` ConfigMap mount (see [Private CA](authentication.md#private-ca)) |
 | `HISTORY_CONFIGMAP` | `sealane-history` (set by the chart) | ConfigMap that lists the last 200 changes made through Sealane; the objects go to `<name>-objects`. Both are created on the first change. Unset = history in memory only (dev mode) |
+| `IMPERSONATION` | unset (chart: `impersonation.enabled`) | `true` = resource writes run as `sealane:admin` / `sealane:editor` through Kubernetes impersonation (see [Impersonation mode](security.md#impersonation-mode)) |
 | `REQUEST_TESTER` | (set by Helm) | `true` enables the in-pod request tester (needs pods/exec, admin only) |
 | `CLUSTERS_SECRET` / `POD_NAMESPACE` | (set by Helm) | multi-cluster: Secret holding remote kubeconfigs (empty = local only) |
 | `SHUTDOWN_DELAY` | `5s` | wait before closing the listener on SIGTERM so in-flight requests and endpoint propagation finish; set `0s` to disable through the `extraEnv` Helm value (`- {name: SHUTDOWN_DELAY, value: "0s"}`) or by editing install.yaml |
@@ -70,6 +71,7 @@ The same table is in the [chart README](https://github.com/wonjune95/sealane/blo
 | `extraEnv` / `extraVolumes` / `extraVolumeMounts` | `[]` | Passed through to the pod as-is: `SHUTDOWN_DELAY` or a proxy |
 | `tlsCerts` | `{}` | Extra CA certificates (PEM) rendered into the `<release>-tls-certs` ConfigMap, e.g. a private CA for the IdP (see [Private CA](authentication.md#private-ca)); keys added with kubectl are left alone |
 | `podDisruptionBudget.enabled` | `true` | PodDisruptionBudget with `maxUnavailable: 1`: one pod stays up during node drains when `replicaCount` is 2 or more |
+| `impersonation.enabled` / `impersonation.bindDefaults` | `false` / `true` | Writes run as the user's role identity; `bindDefaults` binds `sealane:admin` and `sealane:editor` to edit rights on the managed kinds cluster-wide (see [Impersonation mode](security.md#impersonation-mode)) |
 
 ## Probes and metrics
 

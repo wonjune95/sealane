@@ -6,6 +6,8 @@ import (
 	"net/http"
 	"sync"
 
+	"k8s.io/client-go/rest"
+
 	"github.com/wonjune95/sealane/internal/auth"
 	"github.com/wonjune95/sealane/internal/k8s"
 )
@@ -21,6 +23,8 @@ type ClientSource interface {
 	IstiodVersion(ctx context.Context) string
 	// Request tester only: runs argv inside a pod (no shell).
 	ExecInPod(ctx context.Context, ns, pod, container string, argv []string, maxBytes int) (string, string, error)
+	// Impersonation mode only: clients acting as another identity.
+	Impersonating(as rest.ImpersonationConfig) (*k8s.Clients, error)
 }
 
 // Server holds injected dependencies and exposes the JSON API handlers.
@@ -47,6 +51,7 @@ type Server struct {
 	pwChanged   map[string]bool
 
 	requestTester bool // live request tester (Helm opt-in) — needs pods/exec
+	impersonate   bool // writes run as the user's role identity (impersonation.go)
 
 	oidc *auth.OIDC // nil = local accounts only
 

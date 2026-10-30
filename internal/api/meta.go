@@ -10,6 +10,8 @@ import (
 	authzv1 "k8s.io/api/authorization/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	"github.com/wonjune95/sealane/internal/k8s"
 )
 
 // AppVersion is the build version injected by main (-X main.version); "dev" when unset.
@@ -88,11 +90,23 @@ func (s *Server) canListNamespaces(ctx context.Context) (bool, error) {
 // reads for everyone, writes for editor/admin. Kept as an endpoint so the UI's
 // read-only affordances (disabled buttons, banners) work unchanged.
 func (s *Server) handleAccess(w http.ResponseWriter, r *http.Request) {
-	if _, err := factoryFrom(r.Context()).ResolveType(r.PathValue("type")); err != nil {
+	rt, err := factoryFrom(r.Context()).ResolveType(r.PathValue("type"))
+	if err != nil {
 		writeError(w, http.StatusBadRequest, "BadRequest", err.Error())
 		return
 	}
 	canWrite := identityFrom(r.Context()).CanWrite()
+	// In impersonation mode cluster RBAC has the last word on writes, so ask it.
+	var as *k8s.Clients
+	if canWrite && s.impersonate {
+		if as, err = s.writeClients(r.Context()); err != nil {
+			canWrite = false
+		}
+	}
+	ns, name := nsParam(r), r.PathValue("name")
+	if name == "-" {
+		name = ""
+	}
 	out := map[string]bool{}
 	for _, v := range strings.Split(r.URL.Query().Get("verbs"), ",") {
 		switch v = strings.TrimSpace(v); v {
@@ -100,7 +114,7 @@ func (s *Server) handleAccess(w http.ResponseWriter, r *http.Request) {
 		case "get", "list", "watch":
 			out[v] = true
 		default:
-			out[v] = canWrite
+			out[v] = canWrite && (as == nil || canImpersonated(r.Context(), as, rt, v, ns, name))
 		}
 	}
 	writeJSON(w, http.StatusOK, out)

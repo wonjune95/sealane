@@ -62,7 +62,19 @@ jobs:
         run: |
           kubectl -n sealane port-forward svc/sealane 8080:8080 >/tmp/pf.log 2>&1 &
           for i in $(seq 1 30); do curl -sf http://localhost:8080/healthz >/dev/null && break; sleep 1; done
-          ./hack/e2e.sh http://localhost:8080 sealane
+          E2E_PASS_FILE=/tmp/e2e-admin-pass ./hack/e2e.sh http://localhost:8080 sealane
+      - name: Change history is stored in the cluster
+        run: |
+          kubectl -n sealane get cm sealane-history -o jsonpath='{.data.revisions}' |
+            jq -e 'map(select(.typeId=="virtualservices.networking.istio.io" and .name=="sealane-e2e" and .id != "")) | length >= 2'
+          kubectl -n sealane get cm sealane-history-objects -o json | jq -e '.data | length >= 2'
+      - name: Impersonation mode
+        run: |
+          helm upgrade sealane charts/sealane -n sealane --reuse-values --set impersonation.enabled=true
+          kubectl -n sealane rollout status deploy/sealane --timeout=180s
+          kubectl -n sealane port-forward svc/sealane 8081:8080 >/tmp/pf2.log 2>&1 &
+          for i in $(seq 1 30); do curl -sf http://localhost:8081/healthz >/dev/null && break; sleep 1; done
+          ./hack/e2e-impersonation.sh http://localhost:8081 sealane "$(cat /tmp/e2e-admin-pass)"
       - name: Logs on failure
         if: failure()
         run: |

@@ -63,7 +63,7 @@ func (s *Server) handleGetResource(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleCreateResource(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	typeID := r.PathValue("type")
-	p, err := s.resourceProvider(ctx, typeID)
+	p, err := s.writeProvider(ctx, typeID)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, "BadRequest", err.Error())
 		return
@@ -109,7 +109,7 @@ func rawMeta(raw json.RawMessage) (ns, name string) {
 func (s *Server) handleUpdateResource(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	typeID, ns, name := r.PathValue("type"), nsParam(r), r.PathValue("name")
-	p, err := s.resourceProvider(ctx, typeID)
+	p, err := s.writeProvider(ctx, typeID)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, "BadRequest", err.Error())
 		return
@@ -120,7 +120,7 @@ func (s *Server) handleUpdateResource(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	dryRun := r.URL.Query().Get("dryRun") == "true"
-	before := s.historyBefore(ctx, p, ns, name, dryRun)
+	before := s.historyBefore(ctx, typeID, ns, name, dryRun)
 	detail, err := p.Update(ctx, ns, name, raw, dryRun)
 	s.auditResource(ctx, "update", typeID, ns, name, dryRun, err, before, detail.Raw)
 	if err != nil {
@@ -133,12 +133,12 @@ func (s *Server) handleUpdateResource(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleDeleteResource(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	typeID, ns, name := r.PathValue("type"), nsParam(r), r.PathValue("name")
-	p, err := s.resourceProvider(ctx, typeID)
+	p, err := s.writeProvider(ctx, typeID)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, "BadRequest", err.Error())
 		return
 	}
-	before := s.historyBefore(ctx, p, ns, name, false)
+	before := s.historyBefore(ctx, typeID, ns, name, false)
 	err = p.Delete(ctx, ns, name)
 	s.auditResource(ctx, "delete", typeID, ns, name, false, err, before, nil)
 	if err != nil {
@@ -149,9 +149,14 @@ func (s *Server) handleDeleteResource(w http.ResponseWriter, r *http.Request) {
 }
 
 // historyBefore reads the object a real update or delete is about to change, for the change
-// history; nil when the history is off or the object cannot be read.
-func (s *Server) historyBefore(ctx context.Context, p *k8s.ResourceProvider, ns, name string, dryRun bool) json.RawMessage {
+// history (as the ServiceAccount, also in impersonation mode); nil when the history is off or
+// the object cannot be read.
+func (s *Server) historyBefore(ctx context.Context, typeID, ns, name string, dryRun bool) json.RawMessage {
 	if dryRun || s.history.Name == "" {
+		return nil
+	}
+	p, err := s.resourceProvider(ctx, typeID)
+	if err != nil {
 		return nil
 	}
 	d, err := p.Get(ctx, ns, name)

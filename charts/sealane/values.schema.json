@@ -50,6 +50,10 @@
     "accountsConfigMap": { "type": "string", "minLength": 1 },
     "accounts": { "type": "object", "additionalProperties": { "type": "string", "pattern": "^(admin|editor|viewer):.+" } },
     "tlsCerts": { "type": "object", "additionalProperties": { "type": "string", "pattern": "-----BEGIN CERTIFICATE-----" } },
+    "impersonation": {
+      "type": "object", "additionalProperties": false,
+      "properties": { "enabled": { "type": "boolean" }, "bindDefaults": { "type": "boolean" } }
+    },
     "podDisruptionBudget": {
       "type": "object", "additionalProperties": false,
       "properties": { "enabled": { "type": "boolean" } }

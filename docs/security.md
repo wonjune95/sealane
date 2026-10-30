@@ -68,7 +68,7 @@ subjects:
 - **Without Helm:** each release attaches `impersonation.yaml`, the same RBAC rendered for namespace `sealane`. Apply it next to `install.yaml` and switch the mode on; both survive the next `kubectl apply -f install.yaml`:
 
 ```bash
-kubectl apply -f https://github.com/wonjune95/sealane/releases/download/v1.18.1/impersonation.yaml
+kubectl apply -f https://github.com/wonjune95/sealane/releases/download/v1.18.2/impersonation.yaml
 kubectl -n sealane set env deploy/sealane IMPERSONATION=true
 ```
 
@@ -84,9 +84,9 @@ Images and charts are signed keyless with cosign (GitHub OIDC identity via Sigst
 
 ```bash
 cosign verify --certificate-identity-regexp 'https://github.com/wonjune95/sealane/' \
-  --certificate-oidc-issuer https://token.actions.githubusercontent.com ghcr.io/wonjune95/sealane:1.18.1
+  --certificate-oidc-issuer https://token.actions.githubusercontent.com ghcr.io/wonjune95/sealane:1.18.2
 cosign verify --certificate-identity-regexp 'https://github.com/wonjune95/sealane/' \
-  --certificate-oidc-issuer https://token.actions.githubusercontent.com ghcr.io/wonjune95/charts/sealane:1.18.1
+  --certificate-oidc-issuer https://token.actions.githubusercontent.com ghcr.io/wonjune95/charts/sealane:1.18.2
 ```
 
 Use cosign 3.x. From 1.0.0 on, signatures are stored as OCI referrers (Sigstore bundles) next to the image and chart rather than as `.sig` tags; cosign 3.x verifies both forms, older cosign only the tags.

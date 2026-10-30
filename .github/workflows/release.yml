@@ -41,7 +41,15 @@ jobs:
             ${{ env.IMAGE }}:latest
       - uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
       - name: Sign the image (keyless)
-        run: cosign sign --yes "${IMAGE}@${{ steps.build.outputs.digest }}"
+        # Rekor can accept an upload after cosign's 30 s timeout; cosign's own retry then gets 409
+        # "an equivalent entry already exists". A new attempt (new ephemeral key) goes through.
+        run: |
+          for attempt in 1 2 3; do
+            cosign sign --yes "${IMAGE}@${{ steps.build.outputs.digest }}" && exit 0
+            echo "signing attempt $attempt failed; retrying in 30 s"
+            sleep 30
+          done
+          exit 1
       - name: SBOM (SPDX)
         uses: anchore/sbom-action@66cbf4bc1f1c0d2edc94016e65bc221b6bb0ad6c # v0.24.3
         with:
@@ -61,8 +69,16 @@ jobs:
           TAG=${{ steps.meta.outputs.tag }}
           echo "${{ secrets.GITHUB_TOKEN }}" | helm registry login ghcr.io -u ${{ github.actor }} --password-stdin
           helm package charts/sealane --version "$TAG" --app-version "$TAG"
-          helm push "sealane-$TAG.tgz" "oci://ghcr.io/${{ github.repository_owner }}/charts"
-          cosign sign --yes "ghcr.io/${{ github.repository_owner }}/charts/sealane:$TAG"
+          set -o pipefail
+          DIGEST=$(helm push "sealane-$TAG.tgz" "oci://ghcr.io/${{ github.repository_owner }}/charts" 2>&1 | tee /dev/stderr | sed -n 's/^Digest: //p')
+          test -n "$DIGEST"
+          # Sign the pushed digest, with the same retry as the image (see above).
+          for attempt in 1 2 3; do
+            cosign sign --yes "ghcr.io/${{ github.repository_owner }}/charts/sealane@$DIGEST" && break
+            [ "$attempt" = 3 ] && exit 1
+            echo "signing attempt $attempt failed; retrying in 30 s"
+            sleep 30
+          done
       - name: Render install.yaml
         run: |
           TAG=${{ steps.meta.outputs.tag }}

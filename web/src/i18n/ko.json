@@ -266,6 +266,8 @@
   "edit.readOnlyAfter": " — 읽기 전용으로 표시됩니다.",
   "edit.noCreateStrong": "{kind} 생성 권한이 없습니다",
   "edit.noCreateAfter": " — 적용할 수 없습니다 (YAML 작성/다운로드는 가능).",
+  "managed.gitops": "{tool}이(가) 관리하는 리소스입니다({name}). 여기서 고치면 Git과 달라져서 {tool}이(가) 다음 동기화 때 되돌리거나 OutOfSync로 표시합니다. Git의 원본을 고치세요.",
+  "managed.helm": "Helm 릴리스 {name}이(가) 관리하는 리소스입니다. 여기서 고친 내용은 다음 helm upgrade 때 덮어써집니다. 차트 값을 고치세요.",
   "edit.tabForm": "폼",
   "edit.advancedDetected": "고급 필드 감지 — YAML 전용",
   "edit.legendRequired": "필수",

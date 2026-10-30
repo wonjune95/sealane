@@ -10,6 +10,13 @@ export interface ResourceSummary {
   status?: string
   age: string
   resourceVersion: string
+  managedBy?: ManagedBy
+}
+
+// The tool that owns the resource (from Argo CD, Flux or Helm metadata); edits made here get undone.
+export interface ManagedBy {
+  tool: 'argocd' | 'flux' | 'helm'
+  name: string
 }
 
 export interface ResourceDetail extends ResourceSummary {

@@ -14,6 +14,8 @@ import { EmptyState } from '../components/EmptyState'
 import { DangerConfirm } from '../components/DangerConfirm'
 import { useCapabilities } from '../api/capabilities'
 import { SortHeader } from '../components/SortHeader'
+import { ManagedBadge } from '../components/ManagedBadge'
+import { managedTool } from '../lib/managed'
 import { PAGE, sortBy, toggleSort, parseAge, type SortState } from '../lib/sort'
 import { t } from '../i18n'
 
@@ -37,7 +39,7 @@ export function ResourceList() {
   const keyOf = (r: ResourceSummary) => `${r.namespace}/${r.name}`
   const rows = sortBy(
     (data ?? []).filter((r) =>
-      `${r.name} ${r.namespace} ${r.summary} ${r.status ?? ''}`.toLowerCase().includes(search.toLowerCase()),
+      `${r.name} ${r.namespace} ${r.summary} ${r.status ?? ''} ${r.managedBy ? managedTool(r.managedBy) : ''}`.toLowerCase().includes(search.toLowerCase()),
     ),
     sort,
     (r, k) => (k === 'age' ? parseAge(r.age) : k === 'summary' ? `${r.status ?? ''} ${r.summary}` : k === 'name' ? r.name : r.namespace),
@@ -245,6 +247,7 @@ export function ResourceList() {
                     >
                       {r.name}
                     </Link>
+                    {r.managedBy && <ManagedBadge managedBy={r.managedBy} />}
                   </Td>
                   <Td className="text-muted">
                     {r.status && <StatusPill status={r.status} />}

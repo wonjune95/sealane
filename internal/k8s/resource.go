@@ -3,6 +3,7 @@ package k8s
 import (
 	"context"
 	"encoding/json"
+	"strings"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -11,14 +12,47 @@ import (
 
 // ResourceSummary is the generic list row for any kind.
 type ResourceSummary struct {
-	TypeID          string `json:"typeId"`
-	Kind            string `json:"kind"`
-	Namespace       string `json:"namespace"`
-	Name            string `json:"name"`
-	Summary         string `json:"summary"`          // per-kind short description (may be empty)
-	Status          string `json:"status,omitempty"` // "", "ok", "error:<Reason>", "warning:<Code>"
-	Age             string `json:"age"`
-	ResourceVersion string `json:"resourceVersion"`
+	TypeID          string     `json:"typeId"`
+	Kind            string     `json:"kind"`
+	Namespace       string     `json:"namespace"`
+	Name            string     `json:"name"`
+	Summary         string     `json:"summary"`          // per-kind short description (may be empty)
+	Status          string     `json:"status,omitempty"` // "", "ok", "error:<Reason>", "warning:<Code>"
+	Age             string     `json:"age"`
+	ResourceVersion string     `json:"resourceVersion"`
+	ManagedBy       *ManagedBy `json:"managedBy,omitempty"`
+}
+
+// ManagedBy names the tool that owns a resource, so the UI can warn that edits made
+// here are reverted on the next sync (Argo CD, Flux) or overwritten on the next
+// upgrade (Helm).
+type ManagedBy struct {
+	Tool string `json:"tool"` // "argocd", "flux" or "helm"
+	Name string `json:"name"` // Argo CD application, Flux Kustomization or HelmRelease, Helm release
+}
+
+func managedBy(u *unstructured.Unstructured) *ManagedBy {
+	a, l := u.GetAnnotations(), u.GetLabels()
+	// Argo CD first: charts it renders with `helm template` carry Helm's labels too.
+	if id := a["argocd.argoproj.io/tracking-id"]; id != "" { // annotation tracking, Argo CD 3.x default
+		app, _, _ := strings.Cut(id, ":")
+		return &ManagedBy{"argocd", app}
+	}
+	if app := l["argocd.argoproj.io/instance"]; app != "" { // common custom tracking label
+		return &ManagedBy{"argocd", app}
+	}
+	// Flux before Helm: helm-controller also writes Helm's release annotations.
+	if n := l["kustomize.toolkit.fluxcd.io/name"]; n != "" {
+		return &ManagedBy{"flux", n}
+	}
+	if n := l["helm.toolkit.fluxcd.io/name"]; n != "" {
+		return &ManagedBy{"flux", n}
+	}
+	// Only `helm install/upgrade` writes this; `helm template | kubectl apply` leaves just the label.
+	if n := a["meta.helm.sh/release-name"]; n != "" {
+		return &ManagedBy{"helm", n}
+	}
+	return nil
 }
 
 type ResourceDetail struct {
@@ -55,6 +89,7 @@ func (p *ResourceProvider) summary(u *unstructured.Unstructured) ResourceSummary
 		Status:          statusOf(p.rt.TypeID, u),
 		Age:             age(u.GetCreationTimestamp()),
 		ResourceVersion: u.GetResourceVersion(),
+		ManagedBy:       managedBy(u),
 	}
 }
 

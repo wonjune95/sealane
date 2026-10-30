@@ -138,3 +138,40 @@ func TestListAndDelete(t *testing.T) {
 		t.Fatalf("after delete List = %+v, want only web", items)
 	}
 }
+
+func TestManagedBy(t *testing.T) {
+	cases := []struct {
+		name        string
+		labels      map[string]string
+		annotations map[string]string
+		want        *ManagedBy
+	}{
+		{"unmanaged", nil, nil, nil},
+		{"argocd annotation tracking", nil,
+			map[string]string{"argocd.argoproj.io/tracking-id": "shop-prod:networking.istio.io/VirtualService:shop/reviews"},
+			&ManagedBy{"argocd", "shop-prod"}},
+		// Argo CD renders charts with `helm template`, so Helm's label is there too.
+		{"argocd wins over helm label", map[string]string{"app.kubernetes.io/managed-by": "Helm"},
+			map[string]string{"argocd.argoproj.io/tracking-id": "shop:networking.istio.io/VirtualService:shop/reviews"},
+			&ManagedBy{"argocd", "shop"}},
+		{"argocd instance label", map[string]string{"argocd.argoproj.io/instance": "shop"}, nil, &ManagedBy{"argocd", "shop"}},
+		{"flux kustomization", map[string]string{"kustomize.toolkit.fluxcd.io/name": "apps"}, nil, &ManagedBy{"flux", "apps"}},
+		// helm-controller also sets Helm's release annotations.
+		{"flux helmrelease", map[string]string{"helm.toolkit.fluxcd.io/name": "shop"},
+			map[string]string{"meta.helm.sh/release-name": "shop"}, &ManagedBy{"flux", "shop"}},
+		{"helm release", map[string]string{"app.kubernetes.io/managed-by": "Helm"},
+			map[string]string{"meta.helm.sh/release-name": "shop"}, &ManagedBy{"helm", "shop"}},
+		// Rendered with `helm template` and applied by hand (install.yaml): nothing upgrades it.
+		{"helm template only", map[string]string{"app.kubernetes.io/managed-by": "Helm"}, nil, nil},
+		{"kustomize label only", map[string]string{"app.kubernetes.io/managed-by": "kustomize"}, nil, nil},
+	}
+	for _, c := range cases {
+		u := &unstructured.Unstructured{}
+		u.SetLabels(c.labels)
+		u.SetAnnotations(c.annotations)
+		got := managedBy(u)
+		if (got == nil) != (c.want == nil) || (got != nil && *got != *c.want) {
+			t.Errorf("%s: managedBy = %+v, want %+v", c.name, got, c.want)
+		}
+	}
+}

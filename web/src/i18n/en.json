@@ -266,6 +266,8 @@
   "edit.readOnlyAfter": " this resource — it is shown read-only.",
   "edit.noCreateStrong": "You don't have permission to create {kind}",
   "edit.noCreateAfter": " — you can't apply it (writing and downloading YAML still work).",
+  "managed.gitops": "Managed by {tool} ({name}). Edits made here drift from Git: {tool} reverts them on its next sync or marks the resource out of sync. Change the source in Git instead.",
+  "managed.helm": "Managed by Helm release {name}. The next helm upgrade overwrites edits made here. Change the chart values instead.",
   "edit.tabForm": "Form",
   "edit.advancedDetected": "Advanced fields detected — YAML only",
   "edit.legendRequired": "required",

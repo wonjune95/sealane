@@ -19,6 +19,7 @@ import { useToast } from '../components/Toast'
 import { KindBadge } from '../components/KindBadge'
 import { PageHeader } from '../components/PageHeader'
 import { Icon } from '../components/icons'
+import { managedText } from '../lib/managed'
 import { t } from '../i18n'
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -441,6 +442,15 @@ export function ResourceEdit() {
           {t('edit.readOnlyBefore')}
           <strong>{t('edit.readOnlyStrong')}</strong>
           {t('edit.readOnlyAfter')}
+        </div>
+      )}
+      {isEdit && resource.data?.managedBy && (
+        <div
+          role="note"
+          className="flex items-start gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-300"
+        >
+          <Icon name="warning" className="mt-0.5 h-4 w-4 shrink-0" />
+          {managedText(resource.data.managedBy)}
         </div>
       )}
       {noCreate && (

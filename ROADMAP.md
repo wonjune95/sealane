@@ -77,6 +77,9 @@ Sealane is moving from an internal tool to a public project in four releases. Da
 ## 1.13 (shipped)
 - Traffic flow map redrawn as a Kiali-style graph: namespace boxes, shaped nodes with icons, arrowed edges, badges and a legend.
 
+## 1.14 (shipped)
+- Owner badge and editor warning for resources that Argo CD, Flux or Helm manage.
+
 ## After 1.0 (candidates, not promised)
 - Recipes and wizards for common routing changes.
 - Revision history with rollback.

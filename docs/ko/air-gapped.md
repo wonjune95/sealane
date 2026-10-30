@@ -7,7 +7,7 @@ Sealane은 실행 중에 인터넷에서 아무것도 가져오지 않습니다.
 ## 외부망: 내려받고 검증하기
 
 ```bash
-V=1.15.0
+V=1.16.0
 # Image with both architectures; an OCI archive keeps the digest when you push it later
 skopeo copy --all --preserve-digests docker://ghcr.io/wonjune95/sealane:$V oci-archive:sealane-$V.oci.tar:$V
 # Manifests (and, for Helm, the chart)
@@ -43,6 +43,7 @@ kubectl apply -f install-internal.yaml
 | IdP용 사설 CA | `sealane-tls-certs` ConfigMap에 인증서를 추가하고 재시작([사설 CA](../authentication.md#private-ca) 참고) | 예 |
 | 복제본 2개 | `kubectl -n sealane scale deploy sealane --replicas=2`(노드 드레인 중에는 PodDisruptionBudget이 하나를 계속 띄워 둠) | 아니요: apply하면 1로 돌아감 |
 | 실제 요청 테스터 | `sealane` ClusterRole에 `pods/exec` `create`를 추가하고 `kubectl -n sealane set env deploy/sealane REQUEST_TESTER=true` 실행 | 환경 변수는 예, ClusterRole 규칙은 아니요 |
+| 사용자 권한 모드(impersonation) | 릴리스에 첨부된 `impersonation.yaml`도 함께 반입해 `kubectl apply -f impersonation.yaml` 한 뒤 `kubectl -n sealane set env deploy/sealane IMPERSONATION=true` ([Impersonation mode](../security.md#impersonation-mode) 참고) | 예 |
 | SSO | `kubectl -n sealane edit cm sealane-cm`으로 수정하고 client secret을 `sealane-secret` Secret에 넣음([Helm 없이](../authentication.md#without-helm-installyaml) 참고) | 예 |
 
 Helm을 쓰면 같은 설정이 values(`imagePullSecrets`, `tlsCerts`, `replicaCount`, `requestTester.enabled`, `oidc.*`)로 들어가고, `helm upgrade`를 해도 유지됩니다.

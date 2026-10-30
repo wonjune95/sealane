@@ -85,14 +85,16 @@ Sealane is moving from an internal tool to a public project in four releases. Da
 - Private CA certificates through the `sealane-tls-certs` ConfigMap, PodDisruptionBudget.
 - Air-gapped install guide; Korean docs for getting started, air-gapped install, authentication, operations and FAQ.
 
+## 1.16 (shipped)
+- Change history kept in the cluster with compare and restore.
+- Impersonation mode: writes run as `sealane:admin` / `sealane:editor` so cluster RBAC decides and the Kubernetes audit log names the person.
+
 ## After 1.0 (candidates, not promised)
 - Recipes and wizards for common routing changes.
-- Revision history with rollback.
 - OIDC refresh and logout at the IdP.
 - Metrics overlay on the flow map.
 - Conversion from Istio routing to Gateway API.
 - Bulk export and import.
-- Kubernetes impersonation mode: act as the signed-in user instead of the ServiceAccount.
 - Korean translation of the remaining docs pages.
 - Gateway API policy kinds as they reach the standard channel.
 

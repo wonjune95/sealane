@@ -156,7 +156,7 @@ When upgrading an existing release from 0.9, use `--reset-then-reuse-values` (He
 To try SSO without a real IdP, deploy [`examples/dex-demo.yaml`](https://github.com/wonjune95/sealane/blob/main/examples/dex-demo.yaml). It runs Dex with the **mock connector**: every sign-in succeeds as `kilgore@kilgore.trout` with the group `authors`. The comments at the top of the file give the steps: replace the two `example.com` hosts (Dex must be reachable by the browser **and** by the Sealane pod at the same issuer URL), apply the file, then upgrade Sealane with:
 
 ```bash
-helm upgrade sealane oci://ghcr.io/wonjune95/charts/sealane --version 1.15.0 -n sealane --reset-then-reuse-values \
+helm upgrade sealane oci://ghcr.io/wonjune95/charts/sealane --version 1.16.0 -n sealane --reset-then-reuse-values \
   --set oidc.enabled=true --set oidc.displayName=Dex \
   --set oidc.issuerURL=http://dex.example.com/dex --set oidc.clientID=sealane \
   --set oidc.clientSecretRef.name=sealane-dex-client \
@@ -197,7 +197,7 @@ helm upgrade sealane oci://ghcr.io/wonjune95/charts/sealane -n sealane --reset-t
   --set-file 'tlsCerts.corp-ca\.crt=/path/to/ca.crt'
 ```
 
-The browser must trust the same CA, since users are sent to the IdP directly. Discovery happens on the first SSO sign-in, so a missing CA shows up then: the login page reports a provider error and the Sealane log has an `oidc login` warning with `x509: certificate signed by unknown authority`. Before 1.15.0 the way to do this was `SSL_CERT_FILE` plus `extraVolumes`; that still works, because the file is read in addition to the directories.
+The browser must trust the same CA, since users are sent to the IdP directly. Discovery happens on the first SSO sign-in, so a missing CA shows up then: the login page reports a provider error and the Sealane log has an `oidc login` warning with `x509: certificate signed by unknown authority`. Before 1.15 the way to do this was `SSL_CERT_FILE` plus `extraVolumes`; that still works, because the file is read in addition to the directories.
 
 ### Troubleshooting
 

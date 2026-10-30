@@ -158,7 +158,7 @@ kubectl -n sealane rollout restart deploy/sealane
 실제 IdP 없이 SSO를 시험하려면 [`examples/dex-demo.yaml`](https://github.com/wonjune95/sealane/blob/main/examples/dex-demo.yaml)을 배포합니다. 이 파일은 Dex를 **mock connector**로 실행합니다. 모든 로그인이 `authors` 그룹에 속한 `kilgore@kilgore.trout` 사용자로 성공합니다. 절차는 파일 맨 위 주석에 있습니다. 두 `example.com` 호스트를 바꾸고(Dex는 브라우저**와** Sealane 파드 양쪽에서 같은 발급자 URL로 접근할 수 있어야 합니다), 파일을 적용한 다음 Sealane을 다음과 같이 업그레이드합니다.
 
 ```bash
-helm upgrade sealane oci://ghcr.io/wonjune95/charts/sealane --version 1.15.0 -n sealane --reset-then-reuse-values \
+helm upgrade sealane oci://ghcr.io/wonjune95/charts/sealane --version 1.16.0 -n sealane --reset-then-reuse-values \
   --set oidc.enabled=true --set oidc.displayName=Dex \
   --set oidc.issuerURL=http://dex.example.com/dex --set oidc.clientID=sealane \
   --set oidc.clientSecretRef.name=sealane-dex-client \
@@ -199,7 +199,7 @@ helm upgrade sealane oci://ghcr.io/wonjune95/charts/sealane -n sealane --reset-t
   --set-file 'tlsCerts.corp-ca\.crt=/path/to/ca.crt'
 ```
 
-사용자는 IdP로 직접 이동하므로 브라우저도 같은 CA를 신뢰해야 합니다. 디스커버리는 첫 SSO 로그인 때 일어나므로 CA 누락도 그때 드러납니다. 로그인 페이지에는 제공자 오류가 표시되고, Sealane 로그에는 `x509: certificate signed by unknown authority`가 담긴 `oidc login` 경고가 남습니다. 1.15.0 이전에는 `SSL_CERT_FILE`과 `extraVolumes`로 이 작업을 했습니다. 이 방식도 여전히 동작합니다. 해당 파일을 디렉터리와 함께 추가로 읽기 때문입니다.
+사용자는 IdP로 직접 이동하므로 브라우저도 같은 CA를 신뢰해야 합니다. 디스커버리는 첫 SSO 로그인 때 일어나므로 CA 누락도 그때 드러납니다. 로그인 페이지에는 제공자 오류가 표시되고, Sealane 로그에는 `x509: certificate signed by unknown authority`가 담긴 `oidc login` 경고가 남습니다. 1.15 이전에는 `SSL_CERT_FILE`과 `extraVolumes`로 이 작업을 했습니다. 이 방식도 여전히 동작합니다. 해당 파일을 디렉터리와 함께 추가로 읽기 때문입니다.
 
 ### 문제 해결
 

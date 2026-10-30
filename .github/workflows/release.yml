@@ -75,6 +75,14 @@ jobs:
               --set image.tag="$TAG" --set sessionSecret.create=false
           } > install.yaml
           grep -c '^kind:' install.yaml
+          # Impersonation mode RBAC for install.yaml users (the chart renders it with impersonation.enabled=true)
+          {
+            printf '# Sealane %s impersonation mode RBAC for install.yaml (namespace "sealane"). Apply it, then:\n' "$TAG"
+            printf '#   kubectl -n sealane set env deploy/sealane IMPERSONATION=true\n'
+            helm template sealane charts/sealane --namespace sealane --set impersonation.enabled=true \
+              --show-only templates/impersonation.yaml
+          } > impersonation.yaml
+          grep -c '^kind:' impersonation.yaml
       - name: GitHub Release
         uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3.0.3
         with:
@@ -82,5 +90,6 @@ jobs:
           generate_release_notes: true
           files: |
             install.yaml
+            impersonation.yaml
             sbom.spdx.json
             sealane-${{ steps.meta.outputs.tag }}.tgz

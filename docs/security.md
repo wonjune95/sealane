@@ -65,6 +65,13 @@ subjects:
 - **Bounded.** The ServiceAccount may impersonate exactly the users and groups `sealane:admin` and `sealane:editor` (plus the two extras), not arbitrary identities, so a compromised Sealane cannot become `system:masters`.
 - **The editor follows RBAC.** The permission check behind read-only forms asks the API server (`SelfSubjectAccessReview`) as the impersonated identity, so an editor sees a read-only editor where RBAC would refuse the write.
 - **Unchanged:** viewers never write; reads, lists, the change history, account and cluster management and the request tester still use the ServiceAccount.
+- **Without Helm:** each release attaches `impersonation.yaml`, the same RBAC rendered for namespace `sealane`. Apply it next to `install.yaml` and switch the mode on; both survive the next `kubectl apply -f install.yaml`:
+
+```bash
+kubectl apply -f https://github.com/wonjune95/sealane/releases/download/v1.16.0/impersonation.yaml
+kubectl -n sealane set env deploy/sealane IMPERSONATION=true
+```
+
 - **Remote clusters:** the same applies there. The pasted kubeconfig's credentials need `impersonate` on those two users and groups and the two extras, and `sealane:admin` / `sealane:editor` need bindings on that cluster; otherwise writes there fail with 403.
 
 ## The request tester
@@ -77,9 +84,9 @@ Images and charts are signed keyless with cosign (GitHub OIDC identity via Sigst
 
 ```bash
 cosign verify --certificate-identity-regexp 'https://github.com/wonjune95/sealane/' \
-  --certificate-oidc-issuer https://token.actions.githubusercontent.com ghcr.io/wonjune95/sealane:1.15.0
+  --certificate-oidc-issuer https://token.actions.githubusercontent.com ghcr.io/wonjune95/sealane:1.16.0
 cosign verify --certificate-identity-regexp 'https://github.com/wonjune95/sealane/' \
-  --certificate-oidc-issuer https://token.actions.githubusercontent.com ghcr.io/wonjune95/charts/sealane:1.15.0
+  --certificate-oidc-issuer https://token.actions.githubusercontent.com ghcr.io/wonjune95/charts/sealane:1.16.0
 ```
 
 Use cosign 3.x. From 1.0.0 on, signatures are stored as OCI referrers (Sigstore bundles) next to the image and chart rather than as `.sig` tags; cosign 3.x verifies both forms, older cosign only the tags.

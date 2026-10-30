@@ -5,7 +5,7 @@ Sealane fetches nothing from the internet at runtime: the UI is embedded in the 
 ## Outside: collect and verify
 
 ```bash
-V=1.15.0
+V=1.16.0
 # Image with both architectures; an OCI archive keeps the digest when you push it later
 skopeo copy --all --preserve-digests docker://ghcr.io/wonjune95/sealane:$V oci-archive:sealane-$V.oci.tar:$V
 # Manifests (and, for Helm, the chart)
@@ -41,6 +41,7 @@ Pinning the digest makes the cluster pull exactly the image you verified, even i
 | Private CA for the IdP | Add the certificate to the `sealane-tls-certs` ConfigMap and restart (see [Private CA](authentication.md#private-ca)) | Yes |
 | Two replicas | `kubectl -n sealane scale deploy sealane --replicas=2` (the PodDisruptionBudget keeps one up during drains) | No: apply resets it to 1 |
 | Real request tester | Add `pods/exec` `create` to the `sealane` ClusterRole and `kubectl -n sealane set env deploy/sealane REQUEST_TESTER=true` | Env yes, ClusterRole rule no |
+| Impersonation mode | `kubectl apply -f impersonation.yaml` (a release asset, carry it in too) and `kubectl -n sealane set env deploy/sealane IMPERSONATION=true` (see [Impersonation mode](security.md#impersonation-mode)) | Yes |
 | SSO | `kubectl -n sealane edit cm sealane-cm` and put the client secret in the `sealane-secret` Secret (see [Without Helm](authentication.md#without-helm-installyaml)) | Yes |
 
 With Helm, the same settings are values (`imagePullSecrets`, `tlsCerts`, `replicaCount`, `requestTester.enabled`, `oidc.*`), and `helm upgrade` keeps them.

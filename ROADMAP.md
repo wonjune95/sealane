@@ -89,6 +89,10 @@ Sealane is moving from an internal tool to a public project in four releases. Da
 - Change history kept in the cluster with compare and restore.
 - Impersonation mode: writes run as `sealane:admin` / `sealane:editor` so cluster RBAC decides and the Kubernetes audit log names the person.
 
+## 1.17 (shipped)
+- Traffic flow graph in Kiali's look (PatternFly topology shapes, label pills, namespace boxes, control bar).
+- Cluster registration from any kubeconfig with a dedicated account created on the cluster.
+
 ## After 1.0 (candidates, not promised)
 - Recipes and wizards for common routing changes.
 - OIDC refresh and logout at the IdP.

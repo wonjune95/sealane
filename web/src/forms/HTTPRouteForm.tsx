@@ -24,18 +24,18 @@ export function HTTPRouteForm({
     <div className="space-y-6 panel p-5 shadow-sm">
       {/* identity */}
       <div className="grid grid-cols-2 gap-4">
-        <Field label="Name" required>
+        <Field label={t('common.name')} required>
           <input className={input} value={model.name} disabled={lockIdentity}
             onChange={(e) => set({ name: e.target.value })} />
         </Field>
-        <Field label="Namespace" required>
+        <Field label={t('common.namespace')} required>
           <input className={input} value={model.namespace} disabled={lockIdentity}
             onChange={(e) => set({ namespace: e.target.value })} />
         </Field>
       </div>
 
       {/* parentRefs */}
-      <Section title="Parent Gateways" required
+      <Section title={t('form.parentGateways')} required
         onAdd={() => set({ parentRefs: [...model.parentRefs, { name: apiGateways[0]?.name ?? '' }] })}>
         {model.parentRefs.map((p, i) => (
           <Row key={i} onRemove={() => set({ parentRefs: model.parentRefs.filter((_, j) => j !== i) })}>
@@ -49,7 +49,7 @@ export function HTTPRouteForm({
       </Section>
 
       {/* hostnames */}
-      <Section title="Hostnames"
+      <Section title={t('form.hostnames')}
         onAdd={() => set({ hostnames: [...model.hostnames, ''] })}>
         {model.hostnames.map((h, i) => (
           <Row key={i} onRemove={() => set({ hostnames: model.hostnames.filter((_, j) => j !== i) })}>
@@ -60,7 +60,7 @@ export function HTTPRouteForm({
       </Section>
 
       {/* rules */}
-      <Section title="Rules" required
+      <Section title={t('form.rules')} required
         onAdd={() => set({ rules: [...model.rules, { pathType: 'PathPrefix', pathValue: '/', backendRefs: [{ name: '', port: 80 }] }] })}>
         {model.rules.map((rule, ri) => (
           <RuleCard key={ri} rule={rule} services={services}
@@ -84,7 +84,7 @@ function RuleCard({
   return (
     <div className="rounded border border-base p-3">
       <div className="mb-3 flex items-center gap-2">
-        <span className="text-xs text-muted">Path<span className="text-red-500">*</span></span>
+        <span className="text-xs text-muted">{t('form.path')}<span className="text-red-500">*</span></span>
         <select className={input} value={rule.pathType}
           onChange={(e) => onChange({ ...rule, pathType: e.target.value as RuleModel['pathType'] })}>
           <option value="PathPrefix">PathPrefix</option>
@@ -129,7 +129,7 @@ function BackendRow({
   return (
     <div className="flex items-center gap-2">
       <div className="flex-1">
-        <input className={input} list="svc-list" value={b.name} placeholder="service"
+        <input className={input} list="svc-list" value={b.name} placeholder={t('form.ph.service')}
           onChange={(e) => onChange({ ...b, name: e.target.value })} />
         <datalist id="svc-list">
           {services.map((s) => <option key={s.name} value={s.name} />)}
@@ -138,9 +138,9 @@ function BackendRow({
       {b.name !== '' && !known && (
         <span className="rounded bg-amber-100 px-1.5 py-0.5 text-xs text-amber-700 dark:bg-amber-500/15 dark:text-amber-300" title={t('form.serviceNotInNs')}>⚠ {t('form.missing')}</span>
       )}
-      <input className={`${input} w-24`} type="number" value={b.port} placeholder="port"
+      <input className={`${input} w-24`} type="number" value={b.port} placeholder={t('form.ph.port')}
         onChange={(e) => onChange({ ...b, port: Number(e.target.value) })} />
-      <input className={`${input} w-24`} type="number" value={b.weight ?? ''} placeholder="weight"
+      <input className={`${input} w-24`} type="number" value={b.weight ?? ''} placeholder={t('form.ph.weight')}
         onChange={(e) => onChange({ ...b, weight: e.target.value === '' ? undefined : Number(e.target.value) })} />
       <button onClick={onRemove} className="text-sm text-red-600 hover:underline dark:text-red-400">×</button>
     </div>

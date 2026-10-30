@@ -37,18 +37,18 @@ export function VirtualServiceForm({
 
       {/* identity */}
       <div className="grid grid-cols-2 gap-4">
-        <Field label="Name" required>
+        <Field label={t('common.name')} required>
           <input className={input} value={model.name} disabled={lockIdentity}
             onChange={(e) => set({ name: e.target.value })} />
         </Field>
-        <Field label="Namespace" required>
+        <Field label={t('common.namespace')} required>
           <input className={input} value={model.namespace} disabled={lockIdentity}
             onChange={(e) => set({ namespace: e.target.value })} />
         </Field>
       </div>
 
       {/* hosts */}
-      <Section title="Hosts" required onAdd={() => set({ hosts: [...model.hosts, ''] })}>
+      <Section title={t('form.hosts')} required onAdd={() => set({ hosts: [...model.hosts, ''] })}>
         {model.hosts.map((h, i) => (
           <Row key={i} onRemove={() => set({ hosts: model.hosts.filter((_, j) => j !== i) })}>
             <div className="flex items-center gap-2">
@@ -61,7 +61,7 @@ export function VirtualServiceForm({
       </Section>
 
       {/* gateways — empty means mesh only */}
-      <Section title="Gateways"
+      <Section title={t('form.gateways')}
         onAdd={() => set({ gateways: [...model.gateways, gwValues[0] ?? 'mesh'] })}>
         {model.gateways.map((g, i) => (
           <Row key={i} onRemove={() => set({ gateways: model.gateways.filter((_, j) => j !== i) })}>
@@ -76,7 +76,7 @@ export function VirtualServiceForm({
       </Section>
 
       {/* http rules */}
-      <Section title="HTTP rules" required
+      <Section title={t('form.httpRules')} required
         onAdd={() => set({ http: [...model.http, { match: [], route: [{ host: '' }] }] })}>
         {model.http.map((rule, ri) => (
           <RuleCard key={ri} id={`r${ri}`} rule={rule} ns={model.namespace} services={services} subsets={subsets}
@@ -142,19 +142,19 @@ function RuleCard({
       </div>
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <Field label="Timeout">
+        <Field label={t('form.timeout')}>
           <input className={input} value={rule.timeout ?? ''} placeholder="5s"
             onChange={(e) => set({ timeout: e.target.value })} />
         </Field>
-        <Field label="Retries (attempts)">
+        <Field label={t('form.retries')}>
           <input className={input} type="number" min={0} value={rule.retries?.attempts ?? ''} placeholder="3"
             onChange={(e) => setRetries(num(e.target.value), rule.retries?.perTryTimeout)} />
         </Field>
-        <Field label="Per-try timeout">
+        <Field label={t('form.perTryTimeout')}>
           <input className={input} value={rule.retries?.perTryTimeout ?? ''} placeholder="2s"
             onChange={(e) => setRetries(rule.retries?.attempts, e.target.value)} />
         </Field>
-        <Field label="Rewrite URI">
+        <Field label={t('form.rewriteUri')}>
           <input className={input} value={rule.rewriteUri ?? ''} placeholder="/"
             onChange={(e) => set({ rewriteUri: e.target.value })} />
         </Field>
@@ -185,7 +185,7 @@ function MatchBox({ m, onChange, onRemove }: { m: VSMatchModel; onChange: (m: VS
         <div key={hi} className="flex items-center gap-2 pl-6">
           {/* Committed on blur: a half-typed name (x-user on the way to x-user-id)
               must not collide with an existing header key mid-word. */}
-          <input key={`${hi}:${h.name}`} className={input} defaultValue={h.name} placeholder="header"
+          <input key={`${hi}:${h.name}`} className={input} defaultValue={h.name} placeholder={t('form.ph.header')}
             onBlur={(e) => {
               const v = e.target.value
               if (v === h.name) return
@@ -199,7 +199,7 @@ function MatchBox({ m, onChange, onRemove }: { m: VSMatchModel; onChange: (m: VS
             <option value="prefix">prefix</option>
             <option value="regex">regex</option>
           </select>
-          <input className={input} value={h.value} placeholder="value"
+          <input className={input} value={h.value} placeholder={t('form.ph.value')}
             onChange={(e) => set({ headers: replace(m.headers, hi, { ...h, value: e.target.value }) })} />
           <button onClick={() => set({ headers: m.headers.filter((_, j) => j !== hi) })} className={del}>×</button>
         </div>
@@ -235,18 +235,18 @@ function RouteRow({
   const offered = d.host ? subsets.filter((s) => fqdn(s.host, s.namespace) === fqdn(d.host, ns)) : []
   return (
     <div className="flex items-center gap-2">
-      <input className={`${input} flex-1`} list="vs-svc-list" value={d.host} placeholder="host"
+      <input className={`${input} flex-1`} list="vs-svc-list" value={d.host} placeholder={t('form.ph.host')}
         onChange={(e) => onChange({ ...d, host: e.target.value })} />
       <Missing host={d.host} services={services} />
-      <input className={`${input} w-28`} list={listId} value={d.subset ?? ''} placeholder="subset"
+      <input className={`${input} w-28`} list={listId} value={d.subset ?? ''} placeholder={t('form.ph.subset')}
         onChange={(e) => onChange({ ...d, subset: e.target.value })} />
       <datalist id={listId}>
         {offered.map((s) => <option key={`${s.dr}/${s.name}`} value={s.name} />)}
       </datalist>
-      <input className={`${input} w-24`} type="number" value={d.port ?? ''} placeholder="port"
+      <input className={`${input} w-24`} type="number" value={d.port ?? ''} placeholder={t('form.ph.port')}
         onChange={(e) => onChange({ ...d, port: num(e.target.value) })} />
       {showWeight && (
-        <input className={`${input} w-24`} type="number" value={d.weight ?? ''} placeholder="weight"
+        <input className={`${input} w-24`} type="number" value={d.weight ?? ''} placeholder={t('form.ph.weight')}
           onChange={(e) => onChange({ ...d, weight: num(e.target.value) })} />
       )}
       <button onClick={onRemove} className={del}>×</button>

@@ -171,6 +171,30 @@ func TestHistory_ReadsObjectsFromTheOldConfigMap(t *testing.T) {
 	}
 }
 
+// Startup moves the old plaintext objects into the Secret and deletes the ConfigMap.
+func TestHistory_MigratesLegacyObjects(t *testing.T) {
+	mux, s, kube := historyServer(t)
+	ctx := context.Background()
+	old := Revision{ID: "1700000000000000000", AuditEntry: AuditEntry{Verb: "update", TypeID: vsTypeID, Name: "x", OK: true}}
+	_ = updateHistoryCM(ctx, kube, "sealane", "sealane-history", func(d map[string]string) {
+		b, _ := json.Marshal([]Revision{old})
+		d[historyListKey] = string(b)
+	})
+	_ = updateHistoryCM(ctx, kube, "sealane", "sealane-history-objects", func(d map[string]string) {
+		d[old.ID] = `{"before":{"spec":{"hosts":["old.example.com"]}},"after":null}`
+	})
+	s.MigrateLegacyHistoryObjects(ctx)
+	if _, err := kube.CoreV1().ConfigMaps("sealane").Get(ctx, "sealane-history-objects", metav1.GetOptions{}); err == nil {
+		t.Error("the old ConfigMap is still there")
+	}
+	var d RevisionDetail
+	_ = json.Unmarshal(serve(t, mux, "GET", "/api/history/"+old.ID, "", http.StatusOK), &d)
+	if !strings.Contains(string(d.Before), "old.example.com") {
+		t.Errorf("migrated revision = %s", d.Before)
+	}
+	s.MigrateLegacyHistoryObjects(ctx) // nothing left to do
+}
+
 // A client that hangs up right after its change does not lose the record.
 func TestHistory_RecordSurvivesCanceledRequest(t *testing.T) {
 	_, s, _ := historyServer(t)

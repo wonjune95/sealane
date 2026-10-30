@@ -38,11 +38,16 @@ rules:
     resources: ["configmaps"]
     resourceNames: [{{ .Values.accountsConfigMap | quote }}]
     verbs: ["get", "patch"]
-  # Change history: read and rewrite the list ConfigMap; -objects is where 1.15 to 1.18 kept objects (read only)
+  # Change history: read and rewrite the list ConfigMap
   - apiGroups: [""]
     resources: ["configmaps"]
-    resourceNames: [{{ printf "%s-history" (include "sealane.fullname" .) | quote }}, {{ printf "%s-history-objects" (include "sealane.fullname" .) | quote }}]
+    resourceNames: [{{ printf "%s-history" (include "sealane.fullname" .) | quote }}]
     verbs: ["get", "update"]
+  # Where 1.15 to 1.18 kept history objects: read it, move it into the Secret, delete it
+  - apiGroups: [""]
+    resources: ["configmaps"]
+    resourceNames: [{{ printf "%s-history-objects" (include "sealane.fullname" .) | quote }}]
+    verbs: ["get", "delete"]
   # Initial admin account and the history ConfigMap: create when missing (create cannot be limited by resourceNames, so it is namespace-scoped only)
   - apiGroups: [""]
     resources: ["configmaps"]
@@ -76,35 +81,3 @@ subjects:
   - kind: ServiceAccount
     name: {{ include "sealane.fullname" . }}
     namespace: {{ .Release.Namespace }}
-{{- /* Live-detect: skip only on a live install (kube-system visible) whose Istio namespace is missing; helm template / GitOps renders keep it. */}}
-{{- if and .Values.istioNamespace (or (not (lookup "v1" "Namespace" "" "kube-system")) (lookup "v1" "Namespace" "" .Values.istioNamespace)) }}
----
-# Read istiod's Deployment (image tag → control-plane version on the home page). Scoped to the istiod namespace; failure just hides the version.
-apiVersion: rbac.authorization.k8s.io/v1
-kind: Role
-metadata:
-  name: {{ include "sealane.fullname" . }}-istiod-reader
-  namespace: {{ .Values.istioNamespace }}
-  labels:
-    {{- include "sealane.labels" . | nindent 4 }}
-rules:
-  - apiGroups: ["apps"]
-    resources: ["deployments"]
-    verbs: ["get", "list"]
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: RoleBinding
-metadata:
-  name: {{ include "sealane.fullname" . }}-istiod-reader
-  namespace: {{ .Values.istioNamespace }}
-  labels:
-    {{- include "sealane.labels" . | nindent 4 }}
-roleRef:
-  apiGroup: rbac.authorization.k8s.io
-  kind: Role
-  name: {{ include "sealane.fullname" . }}-istiod-reader
-subjects:
-  - kind: ServiceAccount
-    name: {{ include "sealane.fullname" . }}
-    namespace: {{ .Release.Namespace }}
-{{- end }}

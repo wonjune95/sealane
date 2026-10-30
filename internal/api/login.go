@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/wonjune95/sealane/internal/auth"
+	"github.com/wonjune95/sealane/internal/observability"
 )
 
 const (
@@ -44,6 +45,7 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 	keys := []string{"u:" + in.Username, "ip:" + clientIP(r)}
 	for _, k := range keys {
 		if d := s.loginThrottle.blocked(k); d > 0 {
+			observability.LoginFailures.WithLabelValues("too-many-attempts").Inc()
 			w.Header().Set("Retry-After", strconv.Itoa(int(d.Seconds())+1))
 			writeCoded(w, http.StatusTooManyRequests, "TooManyAttempts", "too-many-attempts", "too many failed sign-in attempts; try again later")
 			return
@@ -52,6 +54,7 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 	role, pv, err := s.accounts.Authenticate(in.Username, in.Password)
 	if err != nil {
 		slog.Warn("login failed", "user", in.Username)
+		observability.LoginFailures.WithLabelValues("invalid-credentials").Inc()
 		status, code := http.StatusUnauthorized, "invalid-credentials"
 		if !errors.Is(err, auth.ErrBadCredentials) {
 			status, code = http.StatusInternalServerError, "" // misconfigured account entry

@@ -106,6 +106,48 @@ func historyFailed(msg, id string, err error) {
 	slog.Warn(msg, "id", id, "err", err)
 }
 
+// MigrateLegacyHistoryObjects moves the objects that 1.15–1.18 kept in ConfigMap <name>-objects
+// into the Secret of that name and deletes the ConfigMap, so no plaintext copy stays behind.
+// Failures are logged; the ConfigMap then stays and is still read for those revisions.
+func (s *Server) MigrateLegacyHistoryObjects(ctx context.Context) {
+	if s.history.Name == "" {
+		return
+	}
+	c, err := s.factory.Base()
+	if err != nil {
+		return
+	}
+	ns, name := s.history.Namespace, s.history.Name+"-objects"
+	cms := c.Kube.CoreV1().ConfigMaps(ns)
+	cm, err := cms.Get(ctx, name, metav1.GetOptions{})
+	if apierrors.IsNotFound(err) {
+		return
+	}
+	if err != nil {
+		slog.Warn("change history: cannot read the old objects ConfigMap", "configmap", name, "err", err)
+		return
+	}
+	if len(cm.Data) > 0 {
+		err = updateHistorySecret(ctx, c.Kube, ns, name, func(data map[string][]byte) {
+			for id, v := range cm.Data {
+				if _, ok := data[id]; !ok {
+					data[id] = []byte(v)
+				}
+			}
+			pruneHistoryObjects(data)
+		})
+		if err != nil {
+			slog.Warn("change history: cannot move old objects into the Secret", "secret", name, "err", err)
+			return
+		}
+	}
+	if err := cms.Delete(ctx, name, metav1.DeleteOptions{}); err != nil && !apierrors.IsNotFound(err) {
+		slog.Warn("change history: moved old objects but cannot delete their ConfigMap", "configmap", name, "err", err)
+		return
+	}
+	slog.Info("change history: moved objects of earlier revisions into the Secret", "secret", name, "revisions", len(cm.Data))
+}
+
 // historyObject drops what the server sets on every write, so a stored version can be loaded
 // back into the editor and applied. Annotations stay, kubectl's last-applied included.
 func historyObject(raw json.RawMessage) json.RawMessage {

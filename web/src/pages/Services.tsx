@@ -9,6 +9,7 @@ import { Icon } from '../components/icons'
 import { SortHeader } from '../components/SortHeader'
 import { PAGE, sortBy, toggleSort, type SortState } from '../lib/sort'
 import { t, type Key } from '../i18n'
+import { errorText } from '../api/client'
 
 type Count = 'routes' | 'destinationRules' | 'policies' | 'findings'
 const COUNTS: [Count, Key][] = [
@@ -92,7 +93,7 @@ export function Services() {
       {error && (
         <div className="flex items-center gap-3 rounded-lg border border-red-500/20 bg-red-500/5 p-4 text-sm text-red-600 dark:text-red-400" role="alert">
           <Icon name="warning" />
-          {t('services.loadFailed', { message: error.message })}
+          {t('services.loadFailed', { message: errorText(error) })}
         </div>
       )}
       {isLoading ? (

@@ -52,7 +52,7 @@ rules:
       - security.istio.io
       - telemetry.istio.io
       - gateway.networking.k8s.io
-    resources: ["*"]
+    resources: {{ include "sealane.managedResources" . }}
     verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
 ---
 apiVersion: rbac.authorization.k8s.io/v1

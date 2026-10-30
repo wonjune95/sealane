@@ -41,7 +41,7 @@ async function scenario({ registered = false, authenticated = true, failCapabili
       return route.fulfill({ json: { ok: true } })
     }
     if (!authenticated) {
-      return route.fulfill({ status: 401, json: { error: { reason: 'Unauthorized', message: 'login required' } } })
+      return route.fulfill({ status: 401, json: { error: { reason: 'Unauthorized', message: 'login required', code: 'session-required' } } })
     }
     if (url.pathname === '/api/clusters') {
       if (failList) return route.fulfill({ status: 500, json: { error: { reason: 'Internal', message: 'list failed' } } })

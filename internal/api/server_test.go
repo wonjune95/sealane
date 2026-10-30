@@ -165,8 +165,8 @@ func TestWithAuth_MissingSessionIs401(t *testing.T) {
 
 	rec := httptest.NewRecorder()
 	mux.ServeHTTP(rec, httptest.NewRequest("GET", "/api/resourceTypes", nil))
-	if rec.Code != http.StatusUnauthorized {
-		t.Fatalf("status = %d, want 401", rec.Code)
+	if rec.Code != http.StatusUnauthorized || errCode(t, rec) != "session-required" {
+		t.Fatalf("status = %d, want 401 session-required", rec.Code)
 	}
 }
 
@@ -341,9 +341,10 @@ func TestCreateResource_FailureAuditKeepsTarget(t *testing.T) {
 	}
 }
 
-// If the SA itself is rejected by the API server, capabilities surfaces the 401
-// instead of half-working.
-func TestCapabilities_SAUnauthorizedIs401(t *testing.T) {
+// If the SA itself is rejected by the API server, capabilities surfaces it as a cluster error
+// (502 cluster-auth-failed) instead of half-working, and not as a 401 that would look like a
+// signed-out user.
+func TestCapabilities_SAUnauthorizedIs502(t *testing.T) {
 	kube := kubefake.NewClientset()
 	kube.PrependReactor("create", "selfsubjectaccessreviews", func(ktesting.Action) (bool, runtime.Object, error) {
 		return true, nil, apierrors.NewUnauthorized("token rejected")
@@ -352,8 +353,8 @@ func TestCapabilities_SAUnauthorizedIs401(t *testing.T) {
 
 	rec := httptest.NewRecorder()
 	mux.ServeHTTP(rec, authedReq("GET", "/api/capabilities", nil))
-	if rec.Code != http.StatusUnauthorized {
-		t.Fatalf("status = %d, want 401: %s", rec.Code, rec.Body.String())
+	if rec.Code != http.StatusBadGateway || errCode(t, rec) != "cluster-auth-failed" {
+		t.Fatalf("status = %d, want 502 cluster-auth-failed: %s", rec.Code, rec.Body.String())
 	}
 }
 
@@ -1277,5 +1278,60 @@ func TestEnsureInitialAdmin_SecondReplicaUsesTheStoredPassword(t *testing.T) {
 	_, hash, _ := strings.Cut(cm.Data["admin"], ":")
 	if bcrypt.CompareHashAndPassword([]byte(hash), []byte("from-the-other-replica")) != nil {
 		t.Errorf("admin entry %q does not verify the stored password", cm.Data["admin"])
+	}
+}
+
+// A transient API error at first start is retried until the admin exists.
+func TestKeepEnsuringInitialAdmin_RetriesTransientErrors(t *testing.T) {
+	kube := kubefake.NewClientset()
+	failures := 2
+	kube.PrependReactor("create", "secrets", func(ktesting.Action) (bool, runtime.Object, error) {
+		if failures > 0 {
+			failures--
+			return true, nil, apierrors.NewServiceUnavailable("etcd leader change")
+		}
+		return false, nil, nil
+	})
+	s := NewServer(false, &stubSource{clients: &k8s.Clients{Kube: kube}},
+		auth.NewStore(t.TempDir()), testSessions, AccountsCMRef{Namespace: "ns1", Name: "accounts"}, ClustersSecretRef{})
+	s.SetInitialAdminSecret("sealane-initial-admin")
+	if s.EnsureInitialAdmin(context.Background()) {
+		t.Fatal("a failed Secret write must not count as settled")
+	}
+	s.KeepEnsuringInitialAdmin(context.Background(), time.Millisecond)
+	cm, err := kube.CoreV1().ConfigMaps("ns1").Get(context.Background(), "accounts", metav1.GetOptions{})
+	if err != nil || !strings.HasPrefix(cm.Data["admin"], "admin:") {
+		t.Fatalf("admin not created after retries: %v %v", err, cm)
+	}
+}
+
+// Deleting with cleanup when the cluster already refuses the stored token (an earlier cleanup
+// removed the account, then the local delete failed): the registration is removed.
+func TestClusterDelete_CleanupAfterTokenRevoked(t *testing.T) {
+	srv := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusUnauthorized)
+		_, _ = w.Write([]byte(`{"kind":"Status","apiVersion":"v1","status":"Failure","reason":"Unauthorized","code":401}`))
+	}))
+	defer srv.Close()
+	kc := "apiVersion: v1\nkind: Config\nclusters:\n- name: c\n  cluster: {server: \"" + srv.URL + "\", insecure-skip-tls-verify: true}\n" +
+		"users:\n- name: sealane\n  user: {token: gone}\ncontexts:\n- name: x\n  context: {cluster: c, user: sealane, namespace: sealane-remote}\ncurrent-context: x\n"
+	kube := kubefake.NewClientset(&corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{Name: "clusters", Namespace: "ns1"},
+		Data:       map[string][]byte{"old": []byte(kc)},
+	})
+	mux := http.NewServeMux()
+	NewServer(false, &stubSource{clients: &k8s.Clients{Kube: kube}},
+		testStore(t), testSessions, AccountsCMRef{}, ClustersSecretRef{Namespace: "ns1", Name: "clusters"}).Routes(mux)
+	req := httptest.NewRequest("DELETE", "/api/clusters/old?cleanup=true", nil)
+	req.AddCookie(&http.Cookie{Name: "sealane_session", Value: testCookie("admin", "admin")})
+	rec := httptest.NewRecorder()
+	mux.ServeHTTP(rec, req)
+	if rec.Code != http.StatusNoContent {
+		t.Fatalf("status = %d, want 204: %s", rec.Code, rec.Body.String())
+	}
+	sec, _ := kube.CoreV1().Secrets("ns1").Get(context.Background(), "clusters", metav1.GetOptions{})
+	if _, ok := sec.Data["old"]; ok {
+		t.Error("registration still there")
 	}
 }

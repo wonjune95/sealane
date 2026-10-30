@@ -149,7 +149,8 @@ func (s *Server) Routes(mux *http.ServeMux) {
 func (s *Server) session(w http.ResponseWriter, r *http.Request, passwordChange bool) (auth.Identity, bool) {
 	id, err := s.sessionIdentity(r)
 	if err != nil {
-		writeError(w, http.StatusUnauthorized, "Unauthorized", err.Error())
+		// Only Sealane's own session errors are 401 (with a code); the UI shows the sign-in page for them.
+		writeCoded(w, http.StatusUnauthorized, "Unauthorized", "session-required", err.Error())
 		return id, false
 	}
 	if s.dev || id.Provider != auth.ProviderLocal {

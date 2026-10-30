@@ -43,13 +43,13 @@ rules:
   - apiGroups: ["apiextensions.k8s.io"]
     resources: ["customresourcedefinitions"]
     verbs: ["get", "list"]
-  # Managed resources (same groups as internal/k8s/registry.go)
+  # Managed resources: exactly the kinds in internal/k8s/registry.go (a Go test keeps them in step)
   - apiGroups:
       - networking.istio.io
       - security.istio.io
       - telemetry.istio.io
       - gateway.networking.k8s.io
-    resources: ["*"]
+    resources: {{ include "sealane.managedResources" . }}
     {{- if (default dict .Values.impersonation).enabled }}
     verbs: ["get", "list", "watch"]   # impersonation mode: writes run as sealane:admin / sealane:editor
     {{- else }}
@@ -66,4 +66,13 @@ rules:
     resources: ["pods/exec"]
     verbs: ["create"]
   {{- end }}
+{{- end }}
+
+{{/*
+The Istio and Gateway API kinds Sealane manages (plural resource names), the same list as
+internal/k8s/registry.go. A rule grants them in all four groups; names a group does not have
+grant nothing there.
+*/}}
+{{- define "sealane.managedResources" -}}
+["authorizationpolicies", "destinationrules", "envoyfilters", "gatewayclasses", "gateways", "grpcroutes", "httproutes", "peerauthentications", "referencegrants", "requestauthentications", "serviceentries", "sidecars", "tcproutes", "telemetries", "tlsroutes", "virtualservices", "workloadentries", "workloadgroups"]
 {{- end }}

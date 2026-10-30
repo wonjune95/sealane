@@ -15,7 +15,7 @@ kubectl -n sealane get secret sealane-initial-admin -o jsonpath='{.data.password
 ```
 
 !!! note "Istio가 없는 클러스터"
-    `install.yaml`은 istiod 버전을 읽기 위해 `istio-system` 네임스페이스가 있다고 가정합니다. Istio가 없으면 `kubectl apply`에서 `namespaces "istio-system" not found` 오류가 두 번 나오지만 무시해도 됩니다. Helm 설치는 Istio 없이도 동작합니다. `istioNamespace` 네임스페이스(기본값 `istio-system`)가 없으면 차트가 istiod-reader Role을 만들지 않고, 홈 화면에 컨트롤 플레인 버전이 나오지 않습니다. GitOps 도구(Argo CD, Flux)는 `helm template`으로 렌더링하므로 네임스페이스가 없는지 알 수 없습니다. 이때는 `istioNamespace: ""`로 설정하세요.
+    `install.yaml`과 차트는 Istio가 있든 없든 동작합니다. Sealane은 클러스터에 CRD가 있는 리소스만 보여 주고, `istioNamespace`(기본값 `istio-system`)에 istiod 파드가 있으면 그 이미지에서 Istio 컨트롤 플레인 버전을 읽습니다. 1.19 이전의 `install.yaml`은 `istio-system`에 Role도 만들었고 Istio가 없으면 그 적용이 실패했습니다. 업그레이드한 설치라면 남은 Role을 `kubectl -n istio-system delete role,rolebinding sealane-istiod-reader --ignore-not-found`로 지울 수 있습니다.
 
 아래 단계는 저장소를 클론해서 직접 빌드하고 설치하는 방법입니다. Docker와 Helm만 있으면 됩니다. 이미지 빌드가 멀티 스테이지라서 로컬에 Go나 Node가 없어도 됩니다.
 
@@ -60,7 +60,13 @@ kubectl apply -f examples/httproute.yaml
 
 ## 4) 로그인
 
-처음 기동하면 초기 계정(**`admin` / `admin`**)이 만들어집니다. 로그인하면 곧바로 비밀번호 변경 화면이 나옵니다. 비밀번호를 바꾸기 전에는 다른 화면으로 넘어갈 수 없습니다.
+처음 기동하면 Sealane이 `admin` 계정을 임의 비밀번호로 만들고, 그 비밀번호를 Secret `sealane-initial-admin`(Helm이면 `<release>-initial-admin`)에 넣습니다.
+
+```bash
+kubectl -n sealane get secret sealane-initial-admin -o jsonpath='{.data.password}' | base64 -d; echo
+```
+
+이 비밀번호로 로그인한 뒤 **설정**에서 비밀번호를 바꾸세요. 1.19 이전에서 업그레이드한 설치에서 `admin` 비밀번호가 아직 `admin`이면, 로그인하자마자 비밀번호 변경 화면이 나오고 바꾸기 전에는 다른 화면으로 넘어갈 수 없습니다.
 
 ![로그인](../img/screenshot-login.png)
 

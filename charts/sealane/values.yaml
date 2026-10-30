@@ -13,8 +13,8 @@ replicaCount: 1
 podDisruptionBudget:
   enabled: true
 
-# Namespace where istiod runs — used to show the control-plane version on the home page.
-# "" skips the istiod-reader Role (no version shown); a live helm install also skips it when this namespace is absent.
+# Namespace where istiod runs: Sealane reads its pods' image tag to show the control-plane version on the home page
+# (through its cluster-wide pod read, so nothing is created in that namespace).
 istioNamespace: istio-system
 
 service:

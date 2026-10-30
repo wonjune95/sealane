@@ -276,7 +276,14 @@ func (s *Server) cleanupCluster(ctx context.Context, name string) error {
 	}
 	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
-	return k8s.CleanupRemoteAccount(ctx, kube)
+	err = k8s.CleanupRemoteAccount(ctx, kube)
+	if apierrors.IsUnauthorized(err) {
+		// The token is no longer accepted: an earlier cleanup removed the account but the local
+		// delete then failed. Nothing is left to revoke, so let the registration go.
+		slog.Info("cluster account already gone (token refused)", "cluster", name)
+		return nil
+	}
+	return err
 }
 
 // patchClusterSecret merge-patches one Secret key; kubeconfig nil deletes it.

@@ -10,7 +10,7 @@ await page.route('**/*', (route) => {
   if (!url.pathname.startsWith('/api/')) return route.continue()
   if (url.pathname === '/api/auth/methods')
     return route.fulfill({ status: 200, json: ssoEnabled ? { local: true, oidc: { enabled: true, displayName: 'Keycloak' } } : { local: true } })
-  return route.fulfill({ status: 401, json: { error: { reason: 'Unauthorized', message: 'login required' } } })
+  return route.fulfill({ status: 401, json: { error: { reason: 'Unauthorized', message: 'login required', code: 'session-required' } } })
 })
 let failures = 0
 const check = async (name, fn) => {

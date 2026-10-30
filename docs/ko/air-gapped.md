@@ -28,7 +28,12 @@ sha256sum -c SHA256SUMS                                   # and the files match 
 cosign verify --certificate-identity-regexp "$ID" --certificate-oidc-issuer "$ISSUER" ghcr.io/wonjune95/sealane:$V
 ```
 
-`image-digest.txt`도 `SHA256SUMS`에 들어 있으므로, 서명된 체크섬이 복사한 이미지까지 고정합니다. 내부망에서는 `sha256sum -c SHA256SUMS`로 반입 중에 바뀐 것이 없는지 확인합니다. 내부에서도 서명을 확인하려면 검증한 PC의 Sigstore 신뢰 루트(cosign이 `~/.sigstore/root/` 아래에 보관)를 함께 반입하고, 같은 신원 옵션에 `--offline --trusted-root trusted_root.json`을 붙여 `cosign verify-blob`을 실행하세요. [릴리스 서명 검증](../security.md#verifying-release-signatures)을 참고하세요. skopeo가 없으면 `docker pull`과 `docker save`로도 됩니다. 다만 내부에서 이미지를 다시 푸시할 때 다이제스트가 바뀝니다.
+`image-digest.txt`도 `SHA256SUMS`에 들어 있으므로, 서명된 체크섬이 복사한 이미지까지 고정합니다. 내부망에서는 `sha256sum -c SHA256SUMS`로 반입 중에 바뀐 것이 없는지 확인합니다. 내부에서도 서명을 확인하려면 cosign 3.x 실행 파일과, 검증한 PC의 Sigstore 신뢰 루트(cosign이 `~/.sigstore/root/tuf-repo-cdn.sigstore.dev/targets/trusted_root.json`에 보관)를 함께 반입해 실행하세요.
+
+```bash
+cosign verify-blob --trusted-root trusted_root.json --bundle SHA256SUMS.sigstore.json \
+  --certificate-identity-regexp "$ID" --certificate-oidc-issuer "$ISSUER" SHA256SUMS
+``` [릴리스 서명 검증](../security.md#verifying-release-signatures)을 참고하세요. skopeo가 없으면 `docker pull`과 `docker save`로도 됩니다. 다만 내부에서 이미지를 다시 푸시할 때 다이제스트가 바뀝니다.
 
 이 문서를 오프라인으로 보려면 저장소에서 `use_directory_urls: false`와 `theme.font: false`를 지정해 빌드하세요. 그러면 파일 시스템에서 바로 페이지를 열 수 있고 웹 폰트도 요청하지 않습니다. 검색은 페이지를 HTTP로 서빙해야 동작합니다(`python3 -m http.server`).
 

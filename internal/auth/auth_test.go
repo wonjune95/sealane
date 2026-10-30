@@ -1,6 +1,9 @@
 package auth
 
 import (
+	"errors"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -70,5 +73,37 @@ func TestMapRolePrecedenceAndDefault(t *testing.T) {
 		if got != c.want || ok != c.ok {
 			t.Errorf("MapRole(%v, def=%q) = %q,%v want %q,%v", c.groups, c.def, got, ok, c.want, c.ok)
 		}
+	}
+}
+
+// A failing account source keeps the last read for a short while, then falls back to the mounted
+// directory, so an API outage never keeps a deleted or demoted account alive for long.
+func TestStore_SourceFailureFallsBackToDirectory(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "alice"), []byte("viewer:h1"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	s := NewStore(dir)
+	failing, errs := false, 0
+	s.SourceErrors = func() { errs++ }
+	s.SetSource(func() (map[string]string, error) {
+		if failing {
+			return nil, errors.New("api down")
+		}
+		return map[string]string{"alice": "admin:h2"}, nil
+	})
+	if role, _, _ := s.Lookup("alice"); role != "admin" {
+		t.Fatalf("source read: role %q, want admin", role)
+	}
+	failing = true
+	s.Invalidate()
+	if role, _, _ := s.Lookup("alice"); role != "admin" || errs != 1 {
+		t.Fatalf("fresh cache after one failure: role %q errs %d, want admin 1", role, errs)
+	}
+	s.srcMu.Lock()
+	s.srcAt = time.Now().Add(-sourceMaxStale - time.Second)
+	s.srcMu.Unlock()
+	if role, _, _ := s.Lookup("alice"); role != "viewer" {
+		t.Fatalf("stale cache: role %q, want the mounted directory's viewer", role)
 	}
 }

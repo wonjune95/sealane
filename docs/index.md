@@ -28,7 +28,7 @@ Next: [Getting started](getting-started.md) walks through the install, exposing 
 - **Generic resource engine** — dynamic-client based; 12 Istio kinds and 7 Gateway API kinds share one CRUD pipeline, and only CRDs present in the cluster are shown.
 - **Traffic flow map** — draws ingress/egress paths from routing config alone; broken paths (missing service, zero endpoints) show as red edges.
 - **Request console** — *Check route* computes which rule a request would hit without sending traffic; *Send* (opt-in, admin only) runs the request from inside a pod you pick so you see the real sidecar behavior.
-- **Multi-cluster** — paste a kubeconfig to register a remote cluster; credentials stay in the host cluster's Secret and nothing is installed on targets.
+- **Multi-cluster** — paste a kubeconfig to register a remote cluster; credentials stay in the host cluster's Secret. No Sealane workload runs on targets; by default Sealane creates a limited account there (RBAC and a token) and can remove it when you delete the cluster.
 - **English UI with a Korean locale** — switch from the header.
 
 ## Why this exists

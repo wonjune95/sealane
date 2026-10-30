@@ -11,6 +11,7 @@ import (
 	"golang.org/x/oauth2"
 
 	"github.com/wonjune95/sealane/internal/auth"
+	"github.com/wonjune95/sealane/internal/observability"
 )
 
 const (
@@ -72,6 +73,7 @@ func (s *Server) handleOIDCLogin(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleOIDCCallback(w http.ResponseWriter, r *http.Request) {
 	fail := func(code string, err error) {
 		slog.Warn("oidc callback failed", "reason", code, "err", err)
+		observability.LoginFailures.WithLabelValues("oidc-" + code).Inc()
 		clearCookie(w, r, oidcStateCookie, oidcStatePath)
 		http.Redirect(w, r, "/?oidc_error="+code, http.StatusFound)
 	}
@@ -89,6 +91,7 @@ func (s *Server) handleOIDCCallback(w http.ResponseWriter, r *http.Request) {
 	state, nonce, verifier, err := s.sessions.ParseState(c.Value)
 	if err != nil || state != q.Get("state") {
 		slog.Warn("oidc callback failed", "reason", "state", "err", err)
+		observability.LoginFailures.WithLabelValues("oidc-state").Inc()
 		http.Redirect(w, r, "/?oidc_error=state", http.StatusFound)
 		return
 	}

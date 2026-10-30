@@ -1,6 +1,7 @@
 package k8s
 
 import (
+	"os"
 	"strings"
 	"testing"
 
@@ -110,5 +111,19 @@ func TestCatalogCached_SingleConsistentSnapshot(t *testing.T) {
 	}
 	if *calls != 1 {
 		t.Errorf("discovery constructed %d times, want 1 (cached)", *calls)
+	}
+}
+
+// The chart grants exactly the kinds of the registry, no wildcard.
+func TestChartGrantsTheRegistryKinds(t *testing.T) {
+	b, err := os.ReadFile("../../charts/sealane/templates/_helpers.tpl")
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, after, _ := strings.Cut(string(b), `define "sealane.managedResources" -}}`)
+	list, _, _ := strings.Cut(after, "{{")
+	want := `["` + strings.Join(ManagedResources(), `", "`) + `"]`
+	if strings.TrimSpace(list) != want {
+		t.Errorf("chart list = %s\nwant          %s", strings.TrimSpace(list), want)
 	}
 }

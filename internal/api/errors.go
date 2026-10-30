@@ -42,7 +42,9 @@ func writeK8sError(w http.ResponseWriter, err error) {
 	case apierrors.IsForbidden(err):
 		writeError(w, http.StatusForbidden, "Forbidden", err.Error())
 	case apierrors.IsUnauthorized(err):
-		writeError(w, http.StatusUnauthorized, "Unauthorized", err.Error())
+		// The cluster refused Sealane's own credentials (an expired remote token, say). That is not the
+		// user's session, so it must not send them to the sign-in page.
+		writeCoded(w, http.StatusBadGateway, "ClusterAuthFailed", "cluster-auth-failed", "the cluster rejected Sealane's credentials: "+err.Error())
 	case apierrors.IsNotFound(err):
 		writeError(w, http.StatusNotFound, "NotFound", err.Error())
 	case apierrors.IsInvalid(err):

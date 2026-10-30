@@ -28,17 +28,17 @@ export function DestinationRuleForm({
 
       {/* identity */}
       <div className="grid grid-cols-2 gap-4">
-        <Field label="Name" required>
+        <Field label={t('common.name')} required>
           <input className={input} value={model.name} disabled={lockIdentity}
             onChange={(e) => set({ name: e.target.value })} />
         </Field>
-        <Field label="Namespace" required>
+        <Field label={t('common.namespace')} required>
           <input className={input} value={model.namespace} disabled={lockIdentity}
             onChange={(e) => set({ namespace: e.target.value })} />
         </Field>
       </div>
 
-      <Field label="Host" required>
+      <Field label={t('form.host')} required>
         <div className="flex items-center gap-2">
           <input className={input} list="dr-svc-list" value={model.host} placeholder="reviews / reviews.shop.svc.cluster.local"
             onChange={(e) => set({ host: e.target.value })} />
@@ -46,7 +46,7 @@ export function DestinationRuleForm({
         </div>
       </Field>
 
-      <Section title="Subsets" onAdd={() => set({ subsets: [...model.subsets, { name: '', labels: [] }] })}>
+      <Section title={t('form.subsets')} onAdd={() => set({ subsets: [...model.subsets, { name: '', labels: [] }] })}>
         {model.subsets.map((s, si) => (
           <SubsetCard key={si} s={s}
             onChange={(ns) => set({ subsets: replace(model.subsets, si, ns) })}
@@ -54,16 +54,16 @@ export function DestinationRuleForm({
         ))}
       </Section>
 
-      <Section title="Traffic policy">
+      <Section title={t('form.trafficPolicy')}>
         <div className="grid grid-cols-2 gap-4">
-          <Field label="TLS mode">
+          <Field label={t('form.tlsMode')}>
             <select className={input} value={model.tlsMode ?? ''}
               onChange={(e) => set({ tlsMode: (e.target.value || undefined) as DestinationRuleFormModel['tlsMode'] })}>
               <option value="">{t('form.unset')}</option>
               {TLS_MODES.map((v) => <option key={v} value={v}>{v}</option>)}
             </select>
           </Field>
-          <Field label="Load balancer">
+          <Field label={t('form.loadBalancer')}>
             <select className={input} value={model.lbSimple ?? ''}
               onChange={(e) => set({ lbSimple: (e.target.value || undefined) as DestinationRuleFormModel['lbSimple'] })}>
               <option value="">{t('form.unset')}</option>
@@ -90,7 +90,7 @@ function SubsetCard({ s, onChange, onRemove }: { s: DRSubsetModel; onChange: (s:
         <div key={li} className="flex items-center gap-2 pl-6">
           {/* Committed on blur: a half-typed key (app on the way to app-tier) must not
               collide with an existing label key mid-word. */}
-          <input key={`${li}:${l.key}`} className={input} defaultValue={l.key} placeholder="label"
+          <input key={`${li}:${l.key}`} className={input} defaultValue={l.key} placeholder={t('form.ph.label')}
             onBlur={(e) => {
               const v = e.target.value
               if (v === l.key) return
@@ -99,7 +99,7 @@ function SubsetCard({ s, onChange, onRemove }: { s: DRSubsetModel; onChange: (s:
               else set({ labels: replace(s.labels, li, { ...l, key: v }) })
             }} />
           <span className="text-faint">=</span>
-          <input className={input} value={l.value} placeholder="value"
+          <input className={input} value={l.value} placeholder={t('form.ph.value')}
             onChange={(e) => set({ labels: replace(s.labels, li, { ...l, value: e.target.value }) })} />
           <button onClick={() => set({ labels: s.labels.filter((_, j) => j !== li) })} className={del}>×</button>
         </div>

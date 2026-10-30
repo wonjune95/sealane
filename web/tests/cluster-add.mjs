@@ -21,6 +21,8 @@ current-context: cicd
 `
 const puts = []
 const deletes = []
+let listFails = 2 // the first list and react-query's one retry fail, to check the error and retry
+let cleanupFails = true // the first account removal fails, to check the dialog stays
 const context = await browser.newContext({ viewport: { width: 1280, height: 1000 }, locale: 'en-US' })
 await context.route('**/api/**', async (route) => {
   const url = new URL(route.request().url())
@@ -33,8 +35,16 @@ await context.route('**/api/**', async (route) => {
     return route.fulfill({ json: { connected: true, version: 'v1.34.3', ...(setup ? { account: 'sealane-remote/sealane' } : {}) } })
   }
   if (url.pathname.startsWith('/api/clusters/') && route.request().method() === 'DELETE') {
+    if (url.search === '?cleanup=true' && cleanupFails) {
+      cleanupFails = false
+      return route.fulfill({ status: 502, json: { error: { reason: 'CleanupFailed', message: 'cluster unreachable' } } })
+    }
     deletes.push(url.pathname + url.search)
     return route.fulfill({ status: 204 })
+  }
+  if (url.pathname === '/api/clusters' && url.search === '?status=true' && listFails > 0) {
+    listFails--
+    return route.fulfill({ status: 500, json: { error: { reason: 'Internal', message: 'secret unreadable' } } })
   }
   if (url.pathname === '/api/clusters')
     return route.fulfill({
@@ -49,6 +59,11 @@ try {
   await page.goto(`${base}/settings`)
   const box = page.getByRole('textbox', { name: 'kubeconfig' })
   await box.waitFor()
+  // A failed list says so, with a retry, instead of looking empty.
+  const alert = page.getByRole('alert').filter({ hasText: 'Could not load the list: secret unreadable' })
+  await alert.waitFor()
+  await alert.getByRole('button', { name: 'Retry' }).click()
+  await alert.waitFor({ state: 'detached' })
   const name = page.getByRole('textbox', { name: 'Name', exact: true })
   const contextSelect = page.getByRole('combobox', { name: 'Context' })
   const setup = page.getByRole('checkbox', { name: /Create a dedicated Sealane account/ })
@@ -90,6 +105,10 @@ try {
   const dialog = page.getByRole('dialog', { name: 'Delete cluster own?' })
   const cleanup = dialog.getByRole('checkbox', { name: /Also remove Sealane's account/ })
   assert.ok(await cleanup.isChecked())
+  // The cluster could not be reached: the dialog stays open with the reason, nothing is deleted.
+  await dialog.getByRole('button', { name: 'Delete' }).click()
+  await dialog.getByText('cluster unreachable').waitFor()
+  assert.equal(deletes.length, 0)
   await dialog.getByRole('button', { name: 'Delete' }).click()
   await page.getByRole('status').filter({ hasText: 'Deleted cluster own.' }).waitFor()
   assert.equal(deletes[0], '/api/clusters/own?cleanup=true')

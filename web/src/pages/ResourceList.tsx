@@ -212,7 +212,7 @@ export function ResourceList() {
           </thead>
           <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
             {isLoading && <Msg>{t('common.loading')}</Msg>}
-            {isError && <Msg>{t('list.loadFailed', { message: (error as Error).message })}</Msg>}
+            {isError && <Msg>{t('list.loadFailed', { message: errorText(error) })}</Msg>}
             {!isLoading && !isError && rows.length === 0 && (
               <tr>
                 <td colSpan={7}>

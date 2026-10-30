@@ -58,35 +58,42 @@ func ValidRole(r string) bool { return validRoles[r] }
 
 // Store reads accounts ("role:bcryptHash" per user). With a source (the accounts ConfigMap read
 // through the API, see SetSource) changes are seen within sourceTTL on every replica, which is what
-// revoking a deleted or demoted account's sessions relies on; otherwise, or when the source fails,
-// it reads the mounted ConfigMap directory, which kubelet refreshes about once a minute.
+// revoking a deleted or demoted account's sessions relies on. Without a source, or when the last
+// successful read is older than sourceMaxStale, it reads the mounted ConfigMap directory, which
+// kubelet refreshes about once a minute; so a failing API never keeps an old account alive for long.
 type Store struct {
 	dir string
 
-	srcMu   sync.Mutex
-	source  func() (map[string]string, error)
-	srcData map[string]string
-	srcAt   time.Time
+	srcMu    sync.Mutex
+	source   func() (map[string]string, error)
+	srcData  map[string]string
+	srcAt    time.Time // last successful read
+	srcTried time.Time // last attempt; one refresh at a time, the others use what is cached
+	// SourceErrors, when set, is called on each failed read (a metric).
+	SourceErrors func()
 
 	pwMu    sync.Mutex
 	pwCache map[string]bool // "user:hash:plain" → match result (for the initial-password check in capabilities)
 }
 
-const sourceTTL = 3 * time.Second
+const (
+	sourceTTL      = 3 * time.Second
+	sourceMaxStale = 30 * time.Second
+)
 
 func NewStore(dir string) *Store { return &Store{dir: dir, pwCache: map[string]bool{}} }
 
 // SetSource reads accounts from fn (cached for sourceTTL) instead of the mounted directory.
 func (s *Store) SetSource(fn func() (map[string]string, error)) {
 	s.srcMu.Lock()
-	s.source, s.srcData = fn, nil
+	s.source, s.srcData, s.srcTried = fn, nil, time.Time{}
 	s.srcMu.Unlock()
 }
 
 // Invalidate drops the cached accounts, so this replica sees a change it just made at once.
 func (s *Store) Invalidate() {
 	s.srcMu.Lock()
-	s.srcData = nil
+	s.srcTried = time.Time{}
 	s.srcMu.Unlock()
 }
 
@@ -99,14 +106,7 @@ func (s *Store) raw(username string) (string, bool) {
 	if !validUsername(username) { // usernames are file names; reject path tricks before touching the fs
 		return "", false
 	}
-	s.srcMu.Lock()
-	if s.source != nil && (s.srcData == nil || time.Since(s.srcAt) > sourceTTL) {
-		if data, err := s.source(); err == nil {
-			s.srcData, s.srcAt = data, time.Now()
-		}
-	}
-	data := s.srcData
-	s.srcMu.Unlock()
+	data := s.accounts()
 	if data != nil {
 		v, ok := data[username]
 		return strings.TrimSpace(v), ok
@@ -116,6 +116,35 @@ func (s *Store) raw(username string) (string, bool) {
 		return "", false
 	}
 	return strings.TrimSpace(string(b)), true
+}
+
+// accounts returns the source's accounts, refreshing them when older than sourceTTL, or nil when
+// there is no source or no read in sourceMaxStale (the caller then reads the mounted directory).
+// The API call runs outside the lock, so a slow API never queues every request behind it.
+func (s *Store) accounts() map[string]string {
+	s.srcMu.Lock()
+	src := s.source
+	refresh := src != nil && time.Since(s.srcTried) > sourceTTL
+	if refresh {
+		s.srcTried = time.Now()
+	}
+	s.srcMu.Unlock()
+	if refresh {
+		data, err := src()
+		s.srcMu.Lock()
+		if err == nil {
+			s.srcData, s.srcAt = data, time.Now()
+		} else if s.SourceErrors != nil {
+			s.SourceErrors()
+		}
+		s.srcMu.Unlock()
+	}
+	s.srcMu.Lock()
+	defer s.srcMu.Unlock()
+	if s.srcData == nil || time.Since(s.srcAt) > sourceMaxStale {
+		return nil
+	}
+	return s.srcData
 }
 
 // Lookup returns an account's role and password version (ok=false: no such account or a broken entry).

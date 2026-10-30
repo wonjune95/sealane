@@ -17,7 +17,7 @@ kubectl -n sealane get secret sealane-initial-admin -o jsonpath='{.data.password
 | `image.pullPolicy` | `IfNotPresent` | |
 | `imagePullSecrets` | `[]` | For private registries |
 | `replicaCount` | `1` | Stateless — raise for HA |
-| `istioNamespace` | `istio-system` | Where istiod runs (home-page control-plane version); `""` skips the istiod-reader Role (no version shown) |
+| `istioNamespace` | `istio-system` | Where istiod runs: its pods' image tag gives the home-page control-plane version (read with the cluster-wide pod read; nothing is created there) |
 | `service.type` / `service.port` | `ClusterIP` / `8080` | |
 | `accountsConfigMap` | `sealane-accounts` | Local accounts ConfigMap; rendered empty, kept on uninstall, filled by Sealane and the UI |
 | `accounts` | `{}` | Seed local accounts (`user: "role:bcryptHash"`); Helm manages exactly these keys, UI-added ones are kept |

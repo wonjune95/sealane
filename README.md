@@ -26,7 +26,7 @@ kubectl -n sealane port-forward svc/sealane 8080:8080   # → http://localhost:8
 kubectl -n sealane get secret sealane-initial-admin -o jsonpath='{.data.password}' | base64 -d; echo
 ```
 
-`install.yaml` expects the `istio-system` namespace for the istiod version reader; without Istio, the two `namespaces "istio-system" not found` errors from `kubectl apply` are harmless. A Helm install works without Istio: when the `istioNamespace` namespace is absent, the chart skips its istiod-reader Role (GitOps tools render with `helm template` and cannot detect this — set `istioNamespace: ""` there) — see [Getting started](https://wonjune95.github.io/sealane/getting-started/).
+`install.yaml` and the chart work with or without Istio: Sealane shows the kinds whose CRDs the cluster has, and reads the Istio control-plane version from the istiod pods when there are any.
 
 ![Sealane home](docs/img/screenshot.png)
 
@@ -43,7 +43,7 @@ kubectl -n sealane get secret sealane-initial-admin -o jsonpath='{.data.password
 - **Generic resource engine** — dynamic-client based; 12 Istio kinds and 7 Gateway API kinds share one CRUD pipeline, and only CRDs present in the cluster are shown.
 - **Traffic flow map** — draws ingress/egress paths from routing config alone; broken paths (missing service, zero endpoints) show as red edges.
 - **Request console** — *Check route* computes which rule a request would hit without sending traffic; *Send* (opt-in, admin only) runs the request from inside a pod you pick so you see the real sidecar behavior.
-- **Multi-cluster** — paste a kubeconfig to register a remote cluster; credentials stay in the host cluster's Secret and nothing is installed on targets.
+- **Multi-cluster** — paste a kubeconfig to register a remote cluster; credentials stay in the host cluster's Secret. No Sealane workload runs on targets; by default Sealane creates a limited account there (RBAC and a token) and can remove it when you delete the cluster.
 - **English UI with a Korean locale** — switch from the header.
 
 ---

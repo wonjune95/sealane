@@ -33,6 +33,20 @@ var HistoryWriteFailures = promauto.NewCounter(prometheus.CounterOpts{
 	Help: "Change-history records that could not be saved.",
 })
 
+// LoginFailures counts failed sign-ins by reason: invalid-credentials, too-many-attempts, or the
+// single sign-on failure (oidc-state, oidc-access_denied, oidc-idp).
+var LoginFailures = promauto.NewCounterVec(prometheus.CounterOpts{
+	Name: "sealane_login_failures_total",
+	Help: "Failed sign-ins by reason.",
+}, []string{"reason"})
+
+// AccountReadErrors counts failed reads of the accounts ConfigMap; while they last, account changes
+// reach Sealane only through the mounted copy (about a minute late).
+var AccountReadErrors = promauto.NewCounter(prometheus.CounterOpts{
+	Name: "sealane_account_read_errors_total",
+	Help: "Failed reads of the accounts ConfigMap through the API.",
+})
+
 // SetBuildInfo publishes sealane_build_info{version} = 1.
 func SetBuildInfo(version string) {
 	promauto.NewGaugeVec(prometheus.GaugeOpts{

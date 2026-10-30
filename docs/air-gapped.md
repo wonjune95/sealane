@@ -26,7 +26,12 @@ sha256sum -c SHA256SUMS                                   # and the files match 
 cosign verify --certificate-identity-regexp "$ID" --certificate-oidc-issuer "$ISSUER" ghcr.io/wonjune95/sealane:$V
 ```
 
-`image-digest.txt` is in `SHA256SUMS`, so the signed checksums also pin the image you copied. Inside, `sha256sum -c SHA256SUMS` shows nothing changed on the way. To check the signature inside as well, carry Sigstore's trust root from the machine that verified (cosign keeps it under `~/.sigstore/root/`) and run `cosign verify-blob` with `--offline --trusted-root trusted_root.json` and the same identity flags. See [Verifying release signatures](security.md#verifying-release-signatures). Without skopeo, `docker pull` and `docker save` work too, but the digest changes when you push the image again inside.
+`image-digest.txt` is in `SHA256SUMS`, so the signed checksums also pin the image you copied. Inside, `sha256sum -c SHA256SUMS` shows nothing changed on the way. To check the signature inside as well, carry a cosign 3.x binary and Sigstore's trust root from the machine that verified (cosign keeps it at `~/.sigstore/root/tuf-repo-cdn.sigstore.dev/targets/trusted_root.json`), and run:
+
+```bash
+cosign verify-blob --trusted-root trusted_root.json --bundle SHA256SUMS.sigstore.json \
+  --certificate-identity-regexp "$ID" --certificate-oidc-issuer "$ISSUER" SHA256SUMS
+``` See [Verifying release signatures](security.md#verifying-release-signatures). Without skopeo, `docker pull` and `docker save` work too, but the digest changes when you push the image again inside.
 
 To read these docs offline, build them from the repository with `use_directory_urls: false` and `theme.font: false`, so pages open from the file system and no web font is requested. Search needs the pages served over HTTP (`python3 -m http.server`).
 

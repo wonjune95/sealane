@@ -6,6 +6,7 @@ import { PageHeader } from '../components/PageHeader'
 import { FindingList } from '../components/FindingList'
 import { Icon } from '../components/icons'
 import { t } from '../i18n'
+import { errorText } from '../api/client'
 
 type Filter = 'all' | 'error' | 'warning'
 
@@ -92,7 +93,7 @@ export function Analysis() {
           role="alert"
         >
           <Icon name="warning" />
-          {t('analysis.loadFailed', { message: error.message })}
+          {t('analysis.loadFailed', { message: errorText(error) })}
           <button className="btn-ghost" onClick={() => void refetch()}>
             {t('common.retry')}
           </button>

@@ -135,3 +135,51 @@ jobs:
           kubectl -n sealane logs deploy/sealane --tail=100 || true
           kubectl -n sealane get cm,secret,deploy,svc || true
           cat /tmp/pf1.log /tmp/pf2.log 2>/dev/null || true
+
+  # The previous release to this commit and back: accounts, passwords and the viewer role survive both ways.
+  upgrade-from-previous:
+    name: upgrade-from-previous
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      PREVIOUS: "1.18.3"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Build image
+        run: docker build -t sealane:ci .
+      - uses: helm/kind-action@1544676c07bb3570fcb70166beaa07c4528fd4aa # v1.15.1
+        with:
+          cluster_name: sealane-previous
+          node_image: kindest/node:v1.35.0@sha256:452d707d4862f52530247495d180205e029056831160e22870e37e3f6c1ac31f
+      - name: Install the previous release from GHCR
+        run: helm install sealane oci://ghcr.io/wonjune95/charts/sealane --version "$PREVIOUS" -n sealane --create-namespace --wait --timeout 180s
+      - name: Seed accounts on the previous release
+        run: |
+          kubectl -n sealane port-forward svc/sealane 8080:8080 >/tmp/pf1.log 2>&1 &
+          for i in $(seq 1 30); do curl -sf http://localhost:8080/healthz >/dev/null && break; sleep 1; done
+          ./hack/upgrade-check.sh pre http://localhost:8080 /tmp/state
+          kill %1
+      - name: Upgrade to this commit
+        run: |
+          kind load docker-image sealane:ci --name sealane-previous
+          helm upgrade sealane charts/sealane -n sealane --reset-then-reuse-values \
+            --set image.repository=sealane --set image.tag=ci --set image.pullPolicy=Never --wait --timeout 180s
+      - name: Verify after upgrade
+        run: |
+          kubectl -n sealane port-forward svc/sealane 8080:8080 >/tmp/pf2.log 2>&1 &
+          for i in $(seq 1 30); do curl -sf http://localhost:8080/healthz >/dev/null && break; sleep 1; done
+          ./hack/upgrade-check.sh post http://localhost:8080 /tmp/state
+          kill %1
+      - name: Roll back and verify
+        run: |
+          helm rollback sealane 1 -n sealane --wait --timeout 180s
+          kubectl -n sealane rollout status deploy/sealane --timeout=180s
+          kubectl -n sealane port-forward svc/sealane 8080:8080 >/tmp/pf3.log 2>&1 &
+          for i in $(seq 1 30); do curl -sf http://localhost:8080/healthz >/dev/null && break; sleep 1; done
+          ./hack/upgrade-check.sh rollback http://localhost:8080 /tmp/state
+      - name: Logs on failure
+        if: failure()
+        run: |
+          kubectl -n sealane logs deploy/sealane --tail=100 || true
+          kubectl -n sealane get cm,secret,deploy,svc || true
+          cat /tmp/pf1.log /tmp/pf2.log /tmp/pf3.log 2>/dev/null || true

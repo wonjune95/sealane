@@ -22,7 +22,7 @@ func TestWriteK8sError_StatusMapping(t *testing.T) {
 		{"notfound", apierrors.NewNotFound(gr, "app"), 404},
 		{"invalid", apierrors.NewInvalid(schema.GroupKind{Kind: "HTTPRoute"}, "app", nil), 422},
 		{"other", errors.New("boom"), 500},
-		{"unauthorized", apierrors.NewUnauthorized("no token"), 401},
+		{"unauthorized", apierrors.NewUnauthorized("no token"), 502}, // the cluster refused Sealane, not the user's session
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
@@ -31,9 +31,12 @@ func TestWriteK8sError_StatusMapping(t *testing.T) {
 			if rec.Code != c.want {
 				t.Fatalf("status = %d, want %d", rec.Code, c.want)
 			}
-			want := "" // only the Conflict message is Sealane's own
-			if c.want == 409 {
+			want := "" // only the Conflict and cluster-auth messages are Sealane's own
+			switch c.want {
+			case 409:
 				want = "conflict"
+			case 502:
+				want = "cluster-auth-failed"
 			}
 			if got := errCode(t, rec); got != want {
 				t.Fatalf("code = %q, want %q", got, want)

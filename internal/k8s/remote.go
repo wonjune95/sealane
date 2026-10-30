@@ -94,7 +94,7 @@ func managedRules(write bool) []rbacv1.PolicyRule {
 	}
 	return []rbacv1.PolicyRule{
 		{APIGroups: []string{"apiextensions.k8s.io"}, Resources: []string{"customresourcedefinitions"}, Verbs: []string{"get", "list"}},
-		{APIGroups: managedGroups, Resources: []string{"*"}, Verbs: verbs},
+		{APIGroups: managedGroups, Resources: ManagedResources(), Verbs: verbs},
 		{APIGroups: []string{""}, Resources: []string{"namespaces", "services", "endpoints", "pods"}, Verbs: []string{"get", "list"}},
 	}
 }

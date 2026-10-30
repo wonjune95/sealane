@@ -7,7 +7,9 @@ Before the first release: enable GitHub Pages once: Settings → Pages → Build
 3. Tag and push: `git tag vX.Y.Z && git push origin vX.Y.Z`.
 4. The `release` workflow first re-runs the checks on the tagged commit (Go tests, web build and lint, i18n, Helm lint) and confirms its e2e run. It then builds the image for amd64 and scans it with Trivy: a HIGH or CRITICAL vulnerability that has a fix fails the release before anything is pushed. After that it pushes and signs the multi-arch image (version tag only), attaches an SBOM, extracts `THIRD_PARTY_NOTICES` from the image build, pushes and signs the chart, renders `install.yaml` and `impersonation.yaml`, writes `image-digest.txt` and `SHA256SUMS` over all assets and signs it (`SHA256SUMS.sigstore.json`), moves `latest` to the new digest, and creates the GitHub Release with the notes file followed by auto-generated PR/contributor lines (categories come from `.github/release.yml` labels).
 
-   To accept a finding that has no impact, add it to `.trivyignore` with a reason and an expiry (`CVE-2026-12345 exp:2027-01-31`), so it comes back for review.
+   Both platforms are built and scanned (base images are pinned by digest, so the pushed image has the scanned layers). Findings without a fix do not block; a separate step lists them in the log. To accept a finding that has no impact, add it to `.trivyignore` with a reason and an expiry (`CVE-2026-12345 exp:2027-01-31`), so it comes back for review.
+
+   If the workflow fails after the image was pushed, do not move the tag or reuse the version: fix the cause and release the next patch, as 1.18.2 did for 1.18.1. `latest` only moves after the GitHub Release exists, so a failed release never becomes `latest`.
 5. Verify:
    ```bash
    cosign verify --certificate-identity-regexp 'https://github.com/wonjune95/sealane/' \

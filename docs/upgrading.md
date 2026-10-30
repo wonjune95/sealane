@@ -7,11 +7,21 @@ From any 1.x release you can go straight to the latest; there is no need to step
 1. **Coming from 1.10 or earlier with Helm:** adopt the accounts ConfigMap once, as described in [From 1.10.x to 1.11.x](#from-110x-to-111x). Without it the upgrade stops with `invalid ownership metadata` and changes nothing.
 2. **Upgrade:**
 
+   With Helm (`--reset-then-reuse-values` needs Helm 3.14 or later; with an older Helm pass your values again with `-f values.yaml` instead):
+
    ```bash
-   # Helm
    helm upgrade sealane oci://ghcr.io/wonjune95/charts/sealane --version 1.19.0 -n <namespace> --reset-then-reuse-values
-   # install.yaml (and, with impersonation mode, impersonation.yaml after it)
+   ```
+
+   With `install.yaml`:
+
+   ```bash
    kubectl apply -f https://github.com/wonjune95/sealane/releases/download/v1.19.0/install.yaml
+   ```
+
+   **Only if you use impersonation mode** (`IMPERSONATION=true` on the Deployment), apply its RBAC after `install.yaml`. Without the mode, skip it: it makes Sealane's own role read-only, and writes would then fail.
+
+   ```bash
    kubectl apply -f https://github.com/wonjune95/sealane/releases/download/v1.19.0/impersonation.yaml
    ```
 
@@ -122,11 +132,14 @@ Without the two commands the upgrade stops with `invalid ownership metadata` and
 - **No more default password.** A fresh install creates `admin` with a random password in Secret `<release>-initial-admin` (`sealane-initial-admin` for `install.yaml`). Existing accounts are untouched; an `admin` still on `admin` / `admin` can sign in, but every other request is refused until the password is changed.
 - **Account changes apply within seconds.** Sealane reads the accounts ConfigMap through the API. Deleting an account, changing its role or its password ends its sessions; changing your own password keeps the current session and ends the others.
 - **Cookies and cross-site requests.** Session cookies become `Secure` when the request came over TLS or with `X-Forwarded-Proto: https`; set `secureCookies: true` if your TLS proxy sends no such header. Browsers' cross-site `POST`/`PUT`/`DELETE` are refused. If saving anything fails with HTTP 403 behind a proxy that rewrites the `Host` header, set `TRUSTED_ORIGINS` to the public URL (for example `extraEnv: [{name: TRUSTED_ORIGINS, value: "https://sealane.example.com"}]`).
-- **Change history.** New revisions keep their objects in Secret `<release>-history-objects`. Revisions recorded by 1.15–1.18 still open from the old ConfigMap of that name; delete it once you no longer need them. Viewers now see the list of changes but not the stored versions.
+- **Change history.** Revisions keep their objects in Secret `<release>-history-objects`. At startup 1.19 moves the objects that 1.15–1.18 kept in the ConfigMap of that name into the Secret and deletes the ConfigMap. Viewers now see the list of changes but not the stored versions.
+- **No Role in `istio-system`.** The Istio version now comes from the istiod pods, so the chart and `install.yaml` no longer create `sealane-istiod-reader` there, and `install.yaml` applies cleanly on clusters without Istio. Helm removes the old Role; after `install.yaml` remove it yourself: `kubectl -n istio-system delete role,rolebinding sealane-istiod-reader --ignore-not-found`.
 - **Remote clusters.** Registered clusters keep working. New registrations refuse kubeconfigs that point to files or use `http://`. To use **Also remove Sealane's account** when deleting a cluster registered before 1.19, register it again first: that adds the `sealane-remote-cleanup` role the removal needs. Until then the removal fails with 403; delete without the option and run the `kubectl delete` shown in [Multi-cluster](multi-cluster.md#deleting-a-cluster).
-- **Impersonation mode.** Sealane's own ClusterRole becomes read-only on the managed kinds. With `install.yaml`, apply `impersonation.yaml` after `install.yaml` (it now carries that role) every time you upgrade. On remote clusters, register again to drop the dedicated account's write rights.
-- **RBAC.** The namespace Role adds `update` on Sealane's own Secrets (session key, initial admin password, history objects); the chart and `install.yaml` bring it. A hand-maintained Role without it makes Sealane fall back to a per-boot session key and log `change history not saved`.
-- **Metrics.** `sealane_build_info` and `sealane_history_write_failures_total` are new; see [Operations](operations.md#metrics).
+- **Impersonation mode.** Sealane's own ClusterRole becomes read-only on the managed kinds. With `install.yaml`, apply `impersonation.yaml` after `install.yaml` (it now carries that role) every time you upgrade. On remote clusters, register again to drop the dedicated account's write rights, and again whenever you turn the mode on or off.
+- **Explicit kinds.** Sealane's ClusterRole (and a remote dedicated account, once registered again) lists the managed kinds by name instead of every resource in the four API groups.
+- **RBAC.** The namespace Role adds `update` on Sealane's own Secrets (session key, initial admin password, history objects) and `delete` on the old history-objects ConfigMap; the chart and `install.yaml` bring them. With a hand-maintained Role that lacks them, Sealane stops at startup when it cannot read or store its session key (the log says why), instead of running with a key the other replicas do not share.
+- **Upstream errors.** When a cluster refuses Sealane's own credentials (an expired remote token), the API answers 502 `cluster-auth-failed` instead of 401, so the UI shows an error instead of the sign-in page.
+- **Metrics.** `sealane_build_info`, `sealane_history_write_failures_total`, `sealane_login_failures_total` and `sealane_account_read_errors_total` are new; see [Operations](operations.md#metrics).
 
 ## Rolling back
 
@@ -143,7 +156,8 @@ kubectl apply -f https://github.com/wonjune95/sealane/releases/download/v<previo
 The accounts ConfigMap and clusters Secret have kept their format since 1.0, so any 1.x reads what a later 1.x wrote. Going back from 1.19 to 1.18 or earlier:
 
 - Everyone signs in again once (the older session format).
-- Revisions recorded by 1.19 show in the list but cannot be compared or restored, because older versions read objects only from the ConfigMap.
+- Revisions show in the list but cannot be compared or restored, because older versions read objects only from the ConfigMap and 1.19 moved them into the Secret. Going forward again brings them back.
+- With impersonation mode on, register remote clusters again after the rollback: 1.19 made their dedicated accounts read-only, and older versions write as that account.
 - Secret `<release>-initial-admin` is ignored; the account it seeded keeps its password.
 - Remote dedicated accounts keep the cleanup role, which older versions do not use.
 

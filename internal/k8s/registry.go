@@ -2,6 +2,7 @@ package k8s
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -164,4 +165,19 @@ func (f *ClientFactory) Catalog() ([]ResolvedType, error) {
 		})
 	}
 	return out, nil
+}
+
+// ManagedResources returns the plural resource names of Registry, sorted and without duplicates:
+// what Sealane's RBAC grants (the chart's sealane.managedResources lists the same names).
+func ManagedResources() []string {
+	seen := map[string]bool{}
+	var out []string
+	for _, rt := range Registry {
+		if !seen[rt.Resource] {
+			seen[rt.Resource] = true
+			out = append(out, rt.Resource)
+		}
+	}
+	sort.Strings(out)
+	return out
 }

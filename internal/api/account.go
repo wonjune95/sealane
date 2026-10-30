@@ -11,6 +11,7 @@ import (
 	"regexp"
 	"sort"
 	"strings"
+	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -29,44 +30,45 @@ import (
 //
 //	kubectl -n <ns> get secret <release>-initial-admin -o jsonpath='{.data.password}' | base64 -d
 //
-// Failure does not block startup; it is logged and nobody can sign in locally until it succeeds.
-func (s *Server) EnsureInitialAdmin(ctx context.Context) {
+// It reports whether it settled (an admin exists or was made, or there is nothing it may do);
+// a transient failure returns false, and KeepEnsuringInitialAdmin retries.
+func (s *Server) EnsureInitialAdmin(ctx context.Context) (settled bool) {
 	if s.dev || s.accountsCM.Name == "" {
-		return
+		return true
 	}
 	client, err := s.factory.Base()
 	if err != nil {
 		slog.Warn("initial admin: k8s client unavailable", "err", err)
-		return
+		return false
 	}
 	cms := client.Kube.CoreV1().ConfigMaps(s.accountsCM.Namespace)
 	cm, err := cms.Get(ctx, s.accountsCM.Name, metav1.GetOptions{})
 	cmMissing := apierrors.IsNotFound(err)
 	switch {
 	case err == nil && auth.HasAdmin(cm.Data):
-		return // an admin exists — nothing to do
+		return true // an admin exists — nothing to do
 	case err == nil && cm.Data["admin"] != "":
 		slog.Warn("initial admin: the accounts ConfigMap has an \"admin\" key without the admin role; not touching it")
-		return
+		return true
 	case err != nil && !cmMissing:
 		slog.Warn("initial admin: read accounts configmap failed", "err", err)
-		return
+		return false
 	}
 	if s.initialAdminSecret == "" {
 		slog.Warn("initial admin: INITIAL_ADMIN_SECRET is not set, so there is nowhere to put a password; add an admin to the accounts ConfigMap by hand")
-		return
+		return true
 	}
 	// Secret first: an account whose password is stored nowhere would lock everyone out. Replicas
 	// starting together all end up with the one password that won the Secret write.
 	password, err := loadOrCreateSecretKey(ctx, client.Kube, s.accountsCM.Namespace, s.initialAdminSecret, "password", randomPassword)
 	if err != nil {
 		slog.Warn("initial admin: write the initial-admin Secret failed", "secret", s.initialAdminSecret, "err", err)
-		return
+		return false
 	}
 	hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 	if err != nil {
 		slog.Warn("initial admin: hash failed", "err", err)
-		return
+		return false
 	}
 	entry := "admin:" + string(hash)
 	if cmMissing {
@@ -81,10 +83,23 @@ func (s *Server) EnsureInitialAdmin(ctx context.Context) {
 	s.accounts.Invalidate()
 	if err != nil {
 		slog.Warn("initial admin: write accounts configmap failed", "err", err)
-		return
+		return false
 	}
 	slog.Info("initial admin account created; its password is in the initial-admin Secret",
 		"secret", s.accountsCM.Namespace+"/"+s.initialAdminSecret, "key", "password")
+	return true
+}
+
+// KeepEnsuringInitialAdmin runs EnsureInitialAdmin until it settles: a transient API error at
+// startup must not leave a fresh install without any account until someone restarts the pod.
+func (s *Server) KeepEnsuringInitialAdmin(ctx context.Context, every time.Duration) {
+	for !s.EnsureInitialAdmin(ctx) {
+		select {
+		case <-ctx.Done():
+			return
+		case <-time.After(every):
+		}
+	}
 }
 
 // SetInitialAdminSecret names the Secret that receives a generated initial admin password.

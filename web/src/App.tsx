@@ -1,7 +1,7 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import { useCapabilities } from './api/capabilities'
-import { ApiError, apiPost, errorText, getCluster, setCluster } from './api/client'
+import { apiPost, errorText, getCluster, setCluster, signedOut } from './api/client'
 import { useClusters } from './api/clusters'
 import { Layout } from './components/Layout'
 import { Guard } from './pages/Guard'
@@ -37,12 +37,8 @@ export function App() {
     if (missingCluster) setCluster('', '/')
   }, [missingCluster])
 
-  // 401 → no session (or it expired) — show the local-account login.
-  if (
-    (isError && error instanceof ApiError && error.status === 401) ||
-    (remoteSelected && clusters.error instanceof ApiError && clusters.error.status === 401)
-  )
-    return <Login />
+  // No session (or it expired or was revoked) — show the local-account login.
+  if ((isError && signedOut(error)) || (remoteSelected && signedOut(clusters.error))) return <Login />
   if (missingCluster || (remoteSelected && clusters.isPending))
     return <Centered>{t('app.checkingCluster')}</Centered>
   if (remoteSelected && clusters.isError) {

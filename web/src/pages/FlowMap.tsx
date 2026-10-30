@@ -1,6 +1,7 @@
 import { useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useFlowMap } from '../api/flowmap'
+import { errorText } from '../api/client'
 import { PageHeader } from '../components/PageHeader'
 import { EmptyState } from '../components/EmptyState'
 import { Icon } from '../components/icons'
@@ -158,7 +159,7 @@ export function FlowMap() {
             role="alert"
           >
             <Icon name="warning" />
-            {t('flow.loadFailed', { message: error.message })}
+            {t('flow.loadFailed', { message: errorText(error) })}
             <button className="btn-ghost" onClick={() => void refetch()}>
               {t('common.retry')}
             </button>

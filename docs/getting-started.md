@@ -13,7 +13,7 @@ kubectl -n sealane get secret sealane-initial-admin -o jsonpath='{.data.password
 ```
 
 !!! note "Clusters without Istio"
-    `install.yaml` expects the `istio-system` namespace for the istiod version reader; without Istio, the two `namespaces "istio-system" not found` errors from `kubectl apply` are harmless. A Helm install works without Istio: when the `istioNamespace` namespace (default `istio-system`) is absent, the chart skips its istiod-reader Role and the home page shows no control-plane version. GitOps tools (Argo CD, Flux) render with `helm template` and cannot detect the missing namespace — set `istioNamespace: ""` there.
+    `install.yaml` and the chart work with or without Istio: Sealane shows the kinds whose CRDs the cluster has, and reads the Istio control-plane version from the istiod pods in `istioNamespace` (default `istio-system`) when there are any. Before 1.19, `install.yaml` also created a Role in `istio-system` and failed to apply it without Istio; an upgraded install can delete the leftover with `kubectl -n istio-system delete role,rolebinding sealane-istiod-reader --ignore-not-found`.
 
 The steps below are for building and installing from a clone. You only need Docker and Helm (the image build is multi-stage — no local Go/Node required).
 
@@ -58,7 +58,13 @@ The chart can also create either one for you: `httpRoute.enabled=true` (with `ht
 
 ## 4) Log in
 
-On first boot the initial account **`admin` / `admin`** is created. Logging in takes you straight to a password-change screen — you must change it before going any further.
+On first boot Sealane creates the account `admin` with a random password and stores it in Secret `sealane-initial-admin` (`<release>-initial-admin` with Helm):
+
+```bash
+kubectl -n sealane get secret sealane-initial-admin -o jsonpath='{.data.password}' | base64 -d; echo
+```
+
+Sign in with it and change the password in **Settings**. An install upgraded from before 1.19 whose `admin` still has the password `admin` goes straight to a password-change screen instead.
 
 ![Login](img/screenshot-login.png)
 

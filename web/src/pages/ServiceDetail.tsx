@@ -7,6 +7,7 @@ import { FindingList } from '../components/FindingList'
 import { KindBadge } from '../components/KindBadge'
 import { Icon } from '../components/icons'
 import { t } from '../i18n'
+import { errorText } from '../api/client'
 
 const SCOPE = {
   workload: t('services.scope.workload'),
@@ -81,7 +82,7 @@ export function ServiceDetail() {
       {error && (
         <div className="flex items-center gap-3 rounded-lg border border-red-500/20 bg-red-500/5 p-4 text-sm text-red-600 dark:text-red-400" role="alert">
           <Icon name="warning" />
-          {t('services.loadFailed', { message: error.message })}
+          {t('services.loadFailed', { message: errorText(error) })}
         </div>
       )}
       {isLoading && (

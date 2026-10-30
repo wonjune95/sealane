@@ -68,13 +68,29 @@ func main() {
 	// SESSION_SECRET_NAME Secret so restarts and replicas share it.
 	sessionSecret := os.Getenv("SESSION_SECRET")
 	if name := os.Getenv("SESSION_SECRET_NAME"); sessionSecret == "" && name != "" && !*dev {
-		if c, err := factory.Base(); err != nil {
-			slog.Warn("session secret: k8s client unavailable, using a per-boot key", "err", err)
-		} else if sessionSecret, err = api.LoadSessionSecret(context.Background(), c.Kube, os.Getenv("POD_NAMESPACE"), name); err != nil {
-			slog.Warn("session secret: using a per-boot key (restart = re-login)", "secret", name, "err", err)
+		// A per-boot key here would differ between replicas (random sign-outs, failed SSO sign-ins), so
+		// keep trying for a while and then stop: the restart and this log make the problem visible.
+		var err error
+		for attempt := 1; ; attempt++ {
+			var c *k8s.Clients
+			if c, err = factory.Base(); err == nil {
+				sessionSecret, err = api.LoadSessionSecret(context.Background(), c.Kube, os.Getenv("POD_NAMESPACE"), name)
+			}
+			if err == nil || attempt == 6 {
+				break
+			}
+			slog.Warn("session secret: retrying", "secret", name, "attempt", attempt, "err", err)
+			time.Sleep(5 * time.Second)
+		}
+		if err != nil {
+			slog.Error("session secret: cannot read or store the session key; check the Role allows get/update/create on this Secret",
+				"secret", name, "err", err)
+			os.Exit(1)
 		}
 	}
-	srv := api.NewServer(*dev, factory, auth.NewStore(accountsDir), auth.NewSessions(sessionSecret),
+	store := auth.NewStore(accountsDir)
+	store.SourceErrors = observability.AccountReadErrors.Inc
+	srv := api.NewServer(*dev, factory, store, auth.NewSessions(sessionSecret),
 		api.AccountsCMRef{Namespace: os.Getenv("POD_NAMESPACE"), Name: os.Getenv("ACCOUNTS_CONFIGMAP")},
 		// Multi-cluster: Secret holding remote-cluster kubeconfigs (unset = local only)
 		api.ClustersSecretRef{Namespace: os.Getenv("POD_NAMESPACE"), Name: os.Getenv("CLUSTERS_SECRET")})
@@ -104,10 +120,15 @@ func main() {
 	// Change history in ConfigMaps next to Sealane (shared by replicas); unset = in memory only.
 	if name, ns := os.Getenv("HISTORY_CONFIGMAP"), os.Getenv("POD_NAMESPACE"); name != "" && ns != "" && !*dev {
 		srv.SetHistory(api.HistoryRef{Namespace: ns, Name: name})
+		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		srv.MigrateLegacyHistoryObjects(ctx)
+		cancel()
 	}
 	// No admin account yet: create "admin" with a random password kept in the INITIAL_ADMIN_SECRET Secret.
 	srv.SetInitialAdminSecret(os.Getenv("INITIAL_ADMIN_SECRET"))
-	srv.EnsureInitialAdmin(context.Background())
+	if !srv.EnsureInitialAdmin(context.Background()) {
+		go srv.KeepEnsuringInitialAdmin(context.Background(), 10*time.Second) // retried in the background
+	}
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, _ *http.Request) {
@@ -189,7 +210,7 @@ func securityHeaders(next http.Handler) http.Handler {
 		h.Set("Referrer-Policy", "no-referrer")
 		h.Set("Content-Security-Policy",
 			"default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; frame-ancestors 'none'; base-uri 'self'; form-action 'self'")
-		if r.TLS != nil || strings.EqualFold(r.Header.Get("X-Forwarded-Proto"), "https") {
+		if api.SecureCookies || r.TLS != nil || strings.EqualFold(r.Header.Get("X-Forwarded-Proto"), "https") {
 			h.Set("Strict-Transport-Security", "max-age=31536000")
 		}
 		next.ServeHTTP(w, r)

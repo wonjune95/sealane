@@ -27,7 +27,7 @@ kubectl -n sealane port-forward svc/sealane 8080:8080   # → http://localhost:8
 kubectl -n sealane get secret sealane-initial-admin -o jsonpath='{.data.password}' | base64 -d; echo
 ```
 
-`install.yaml`은 istiod 버전 조회용으로 `istio-system` 네임스페이스를 전제한다. Istio가 없는 클러스터에서 `kubectl apply`가 내는 `namespaces "istio-system" not found` 오류 두 건은 무시해도 된다. Helm 설치는 Istio 없이도 된다. `istioNamespace` 네임스페이스가 없으면 차트가 istiod-reader Role을 건너뛴다(Argo CD·Flux 같은 GitOps 도구는 `helm template`으로 렌더링해 이를 감지하지 못하므로 `istioNamespace: ""`로 설정) — [Getting started](https://wonjune95.github.io/sealane/getting-started/) 참고.
+`install.yaml`과 차트는 Istio가 있든 없든 동작한다. Sealane은 클러스터에 CRD가 있는 리소스만 보여 주고, istiod 파드가 있으면 그 이미지에서 Istio 컨트롤 플레인 버전을 읽는다.
 
 ![Sealane 홈 화면](docs/img/screenshot.png)
 
@@ -44,7 +44,7 @@ kubectl -n sealane get secret sealane-initial-admin -o jsonpath='{.data.password
 - **제네릭 리소스 엔진** — 특정 CRD에 종속되지 않는 dynamic client 기반. Istio 12종 + Gateway API 7종을 하나의 CRUD 파이프라인으로 다룬다.
 - **트래픽 흐름도** — 라우팅 설정만으로 인그레스/이그레스 경로를 그래프로 그린다. 노드를 클릭하면 그 경로만 부각되고, 끊긴 경로(서비스 없음·엔드포인트 0)는 빨간 엣지로 드러난다.
 - **요청 콘솔** — 요청 하나를 작성해 두 가지로 검증한다: **경로 확인**은 트래픽 없이 어느 룰에 매치되는지 계산하고(불매치 사유까지), **보내기**는 고른 파드 안에서 실제 요청을 보내 사이드카를 통과한 응답을 보여준다(opt-in, admin 전용).
-- **멀티클러스터** — kubeconfig를 붙여넣는 것만으로 원격 클러스터를 등록하고(설정 페이지, admin), 헤더 드롭다운으로 전환한다. 자격증명은 대시보드가 있는 클러스터의 Secret에만 저장되고, 대상 클러스터에는 아무것도 설치하지 않는다.
+- **멀티클러스터** — kubeconfig를 붙여넣는 것만으로 원격 클러스터를 등록하고(설정 페이지, admin), 헤더 드롭다운으로 전환한다. 자격증명은 Sealane이 있는 클러스터의 Secret에만 저장된다. 대상 클러스터에서 Sealane 워크로드는 돌지 않지만, 기본으로 권한을 제한한 계정(RBAC와 토큰)을 만들고 클러스터를 삭제할 때 함께 지울 수 있다.
 - **영어 UI + 한국어 로케일** — 헤더에서 언어를 전환한다.
 
 ---

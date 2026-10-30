@@ -1,8 +1,10 @@
 #!/usr/bin/env bash
-# Upgrade check: run "pre" against a fresh 0.8.0 install, upgrade the chart, then run "post".
-# Usage: hack/upgrade-check.sh pre|post http://localhost:8080 [state-file]
-# pre : logs in as admin/admin, sets a new password, creates a viewer account, writes the state file.
-# post: logs in with the state file's passwords (admin and viewer), checks appVersion changed and the viewer is still read-only.
+# Upgrade check: run "pre" against a fresh install of an older release (0.8.0 … 1.18.x, which start
+# with admin/admin), upgrade the chart, run "post"; after a rollback, run "rollback".
+# Usage: hack/upgrade-check.sh pre|post|rollback http://localhost:8080 [state-file]
+# pre     : logs in as admin/admin, sets a new password, creates a viewer account, writes the state file.
+# post    : logs in with the state file's passwords (admin and viewer), checks appVersion changed and the viewer is still read-only.
+# rollback: the same accounts work on the old version again and appVersion is the old one.
 set -euo pipefail
 PHASE=${1:?pre|post}; BASE=${2:?base url}; STATE=${3:-/tmp/sealane-upgrade-state}
 JAR=$(mktemp); BODY=$(mktemp); trap 'rm -f "$JAR" "$BODY"' EXIT
@@ -11,7 +13,9 @@ api() { local m=$1 p=$2 b=${3:-}; : >"$BODY"
   if [ -n "$b" ]; then curl -s --max-time 20 -o "$BODY" -w '%{http_code}' -b "$JAR" -c "$JAR" -X "$m" -H 'Content-Type: application/json' -d "$b" "$BASE$p" || true
   else curl -s --max-time 20 -o "$BODY" -w '%{http_code}' -b "$JAR" -c "$JAR" -X "$m" "$BASE$p" || true; fi; }
 expect() { [ "$2" = "$1" ] || fail "$3: expected HTTP $1, got $2: $(head -c 300 "$BODY")"; echo "ok  $3 ($2)"; }
-login_retry() { local code; for _ in $(seq 1 24); do code=$(api POST /api/login "{\"username\":\"$1\",\"password\":\"$2\"}"); [ "$code" = 200 ] && break; sleep 5; done; echo "$code"; }
+# Releases before 1.19 see a password change only when the mounted ConfigMap refreshes (about a
+# minute), and failed tries count against the sign-in throttle (429 for a minute): wait it out.
+login_retry() { local code; for _ in $(seq 1 24); do code=$(api POST /api/login "{\"username\":\"$1\",\"password\":\"$2\"}"); [ "$code" = 200 ] && break; if [ "$code" = 429 ]; then sleep 61; else sleep 10; fi; done; echo "$code"; }
 
 case "$PHASE" in
 pre)
@@ -35,5 +39,14 @@ post)
   expect 200 "$(login_retry upgrade-viewer "$VIEWER_PASS")" "viewer account survived the upgrade"
   expect 403 "$(api POST '/api/resources/virtualservices.networking.istio.io?dryRun=true' '{"apiVersion":"networking.istio.io/v1","kind":"VirtualService","metadata":{"name":"x","namespace":"default"},"spec":{"hosts":["x"]}}')" "viewer still read-only"
   echo "post OK (appVersion: $OLD_VERSION -> $NEW)" ;;
-*) fail "phase must be pre or post" ;;
+rollback)
+  # shellcheck disable=SC1090
+  . "$STATE"
+  expect 200 "$(login_retry admin "$ADMIN_PASS")" "admin password survived the rollback"
+  expect 200 "$(api GET /api/capabilities)" "capabilities after rollback"
+  NEW=$(jq -r '.appVersion // ""' "$BODY"); [ "$NEW" = "$OLD_VERSION" ] || fail "appVersion after rollback: '$NEW', want '$OLD_VERSION'"
+  expect 200 "$(login_retry upgrade-viewer "$VIEWER_PASS")" "viewer account survived the rollback"
+  expect 403 "$(api POST '/api/resources/virtualservices.networking.istio.io?dryRun=true' '{"apiVersion":"networking.istio.io/v1","kind":"VirtualService","metadata":{"name":"x","namespace":"default"},"spec":{"hosts":["x"]}}')" "viewer still read-only"
+  echo "rollback OK (appVersion: $NEW)" ;;
+*) fail "phase must be pre, post or rollback" ;;
 esac

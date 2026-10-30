@@ -13,7 +13,7 @@ Sealane is configured with a few flags and environment variables. When you insta
 | `ACCOUNTS_DIR` | `/etc/sealane/accounts` | accounts ConfigMap mount path |
 | `ACCOUNTS_CONFIGMAP` / `POD_NAMESPACE` | (set by Helm) | accounts ConfigMap: Sealane reads it through the API (so account changes end sessions within seconds) and patches it on password changes and account edits |
 | `INITIAL_ADMIN_SECRET` | `sealane-initial-admin` (set by the chart) | when no account has the admin role, Sealane creates `admin` with a random password stored in this Secret (key `password`); unset = no account is created, add one to the ConfigMap yourself |
-| `SECURE_COOKIES` | unset (chart: `secureCookies`) | `true` marks session cookies `Secure` on every response; otherwise they are `Secure` when the request came over TLS or with `X-Forwarded-Proto: https` |
+| `SECURE_COOKIES` | unset (chart: `secureCookies`) | `true` marks session cookies `Secure` on every response, so browsers send them back only over HTTPS (a plain-http `port-forward` then cannot stay signed in); otherwise they are `Secure` when the request came over TLS or with `X-Forwarded-Proto: https` |
 | `TRUSTED_ORIGINS` | unset | comma-separated origins (`https://sealane.example.com`) allowed to send `POST`/`PUT`/`DELETE` besides the request's own host; needed only behind a proxy that rewrites the `Host` header |
 | `ISTIO_NAMESPACE` | `istio-system` (set by the chart from `istioNamespace`) | namespace where istiod runs; used to show the control-plane version on the home page |
 | `SESSION_SECRET` | (set by Helm from `<release>-session`) | session cookie signing key; empty = read or generate one in the `SESSION_SECRET_NAME` Secret |

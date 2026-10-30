@@ -35,7 +35,7 @@ What you should do:
 
 - **Install it in its own namespace** — Sealane may create ConfigMaps and Secrets anywhere in its namespace (see [Accepted risks](#accepted-risks)), so do not share that namespace with other workloads.
 - **Change the initial password** — sign in with the generated password, change it in Settings, and delete Secret `sealane-initial-admin` if you do not want it lying around. Sealane reads it again only when no account has the admin role.
-- **Serve it over HTTPS** — terminate TLS at your Ingress or Gateway. Most ingress controllers send `X-Forwarded-Proto: https`, which marks the cookies `Secure`. If yours does not, set `secureCookies: true` (`SECURE_COOKIES=true` without Helm).
+- **Serve it over HTTPS** — terminate TLS at your Ingress or Gateway. Most ingress controllers send `X-Forwarded-Proto: https`, which marks the cookies `Secure`. If yours does not, set `secureCookies: true` (`SECURE_COOKIES=true` without Helm); after that, sign-in works only over HTTPS, not through a plain-http `port-forward`.
 - **Keep a stable session key** — see [Operations](operations.md#high-availability).
 - **Restrict who reaches it** — for SSO, map only the groups that need access and consider `defaultRole: ""`. `/metrics`, `/healthz` and `/readyz` are unauthenticated; if that matters, keep them off your public route.
 - **Mind the clusters Secret** — it holds credentials for every registered cluster; on a remote cluster Sealane can do whatever that kubeconfig allows.

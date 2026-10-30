@@ -61,6 +61,7 @@ nav:
       - Upgrading: upgrading.md
       - FAQ: faq.md
   - Release notes:
+      - "1.19.0": releases/v1.19.0.md
       - "1.18.3": releases/v1.18.3.md
       - "1.18.2": releases/v1.18.2.md
       - "1.18.1": releases/v1.18.1.md

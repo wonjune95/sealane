@@ -66,10 +66,11 @@ try {
   // Editor: History tab lists the resource's changes; failed ones have no Compare.
   const { page, errors } = await open('editor')
   await page.goto(`${base}/resources/${TYPE}/shop/reviews`)
-  await page.getByRole('button', { name: 'History', exact: true }).click()
+  await page.getByRole('tab', { name: 'History', exact: true }).click()
   const rows = page.locator('li', { has: page.locator('time') })
   await rows.first().waitFor()
   assert.equal(await rows.count(), 3)
+  assert.equal(await page.getByRole('button', { name: 'Apply changes', exact: true }).count(), 0, 'no apply bar on the history tab')
   assert.match(await rows.nth(1).innerText(), /Created[\s\S]*bob/)
   assert.equal(await rows.nth(2).getByRole('button', { name: 'Compare with current' }).count(), 0)
 
@@ -85,7 +86,7 @@ try {
   assert.equal(loaded.metadata.resourceVersion, '9', 'carries the current resourceVersion so Apply is a normal update')
 
   // A revision whose objects were pruned says so.
-  await page.getByRole('button', { name: 'History', exact: true }).click()
+  await page.getByRole('tab', { name: 'History', exact: true }).click()
   await rows.first().getByRole('button', { name: 'Compare with current' }).click()
   await page.getByRole('alert').filter({ hasText: 'no longer kept' }).waitFor()
 
@@ -97,22 +98,20 @@ try {
   await restore.click()
   await page.waitForURL(/\/new\?restore=5$/)
   await page.getByRole('status').filter({ hasText: 'Loaded the resource deleted at' }).waitFor()
-  await page.getByRole('button', { name: 'YAML', exact: true }).click()
+  await page.getByRole('tab', { name: 'YAML', exact: true }).click()
   const restored = await editorYaml(page)
   assert.equal(restored.metadata.name, 'gone')
   assert.deepEqual(restored.spec.hosts, ['gone.example.com'])
   assert.equal(restored.metadata.resourceVersion, undefined)
   assert.deepEqual(errors, [])
 
-  // Viewers compare but cannot load, and get no Restore on the home page.
+  // Viewers see who changed what, but not the stored versions, and get no Restore on the home page.
   const viewer = await open('viewer')
   await viewer.page.goto(`${base}/resources/${TYPE}/shop/reviews`)
-  await viewer.page.getByRole('button', { name: 'History', exact: true }).click()
-  await viewer.page.getByRole('button', { name: 'Compare with current' }).nth(1).click()
-  const vDialog = viewer.page.getByRole('dialog', { name: /Version from/ })
-  await vDialog.waitFor()
-  assert.equal(await vDialog.getByRole('button', { name: 'Load into editor' }).count(), 0)
-  await vDialog.getByRole('button', { name: 'Close preview' }).first().click()
+  await viewer.page.getByRole('tab', { name: 'History', exact: true }).click()
+  await viewer.page.locator('li', { has: viewer.page.locator('time') }).first().waitFor()
+  assert.equal(await viewer.page.getByRole('button', { name: 'Compare with current' }).count(), 0)
+  assert.equal(await viewer.page.getByRole('button', { name: 'Apply changes', exact: true }).count(), 0, 'no apply bar on the history tab')
   await viewer.page.goto(`${base}/`)
   await viewer.page.getByText('shop/gone', { exact: true }).waitFor()
   assert.equal(await viewer.page.getByRole('link', { name: 'Restore' }).count(), 0)

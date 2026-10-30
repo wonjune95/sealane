@@ -5,6 +5,10 @@ import (
 	"encoding/json"
 	"net/http"
 	"sync"
+	"time"
+
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"k8s.io/client-go/rest"
 
@@ -43,12 +47,7 @@ type Server struct {
 	auditLog []AuditEntry // newest first, capped at auditKeep
 	history  HistoryRef   // in-cluster change history (empty Name = memory only)
 
-	// Users who changed their password since this boot — releases the forced change
-	// screen without waiting for the mounted CM sync (~1 min). ponytail: per-pod state, so
-	// with multiple replicas other pods release it up to 1 min later; move it into the
-	// session if replicaCount>1 becomes the default.
-	pwChangedMu sync.Mutex
-	pwChanged   map[string]bool
+	initialAdminSecret string // Secret that receives a generated initial admin password
 
 	requestTester bool // live request tester (Helm opt-in) — needs pods/exec
 	impersonate   bool // writes run as the user's role identity (impersonation.go)
@@ -61,7 +60,32 @@ type Server struct {
 }
 
 func NewServer(dev bool, factory ClientSource, accounts *auth.Store, sessions *auth.Sessions, accountsCM AccountsCMRef, clustersSecret ClustersSecretRef) *Server {
-	return &Server{dev: dev, factory: factory, accounts: accounts, sessions: sessions, accountsCM: accountsCM, clustersSecret: clustersSecret, loginThrottle: newThrottle()}
+	s := &Server{dev: dev, factory: factory, accounts: accounts, sessions: sessions, accountsCM: accountsCM, clustersSecret: clustersSecret, loginThrottle: newThrottle()}
+	if accountsCM.Name != "" && !dev {
+		// Read accounts through the API (cached briefly) rather than the mounted directory, which
+		// kubelet refreshes only about once a minute: a deleted, demoted or re-passworded account's
+		// sessions then end within seconds on every replica.
+		accounts.SetSource(func() (map[string]string, error) {
+			client, err := factory.Base()
+			if err != nil {
+				return nil, err
+			}
+			ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+			defer cancel()
+			cm, err := client.Kube.CoreV1().ConfigMaps(accountsCM.Namespace).Get(ctx, accountsCM.Name, metav1.GetOptions{})
+			if apierrors.IsNotFound(err) {
+				return map[string]string{}, nil
+			}
+			if err != nil {
+				return nil, err
+			}
+			if cm.Data == nil {
+				return map[string]string{}, nil
+			}
+			return cm.Data, nil
+		})
+	}
+	return s
 }
 
 // EnableRequestTester turns on the in-pod request tester (admin only, Helm opt-in).
@@ -118,6 +142,32 @@ func (s *Server) Routes(mux *http.ServeMux) {
 	mux.Handle("DELETE /api/resources/{type}/{ns}/{name}", s.withAuth(http.HandlerFunc(s.handleDeleteResource)))
 }
 
+// session authenticates a request and writes the error response when it fails. A local session is
+// only as good as the account behind it: deleted, demoted, or signed in before the latest password
+// change → signed out. An account still on the old fixed "admin" password may do nothing but change
+// it (passwordChange=true marks the requests that stay allowed).
+func (s *Server) session(w http.ResponseWriter, r *http.Request, passwordChange bool) (auth.Identity, bool) {
+	id, err := s.sessionIdentity(r)
+	if err != nil {
+		writeError(w, http.StatusUnauthorized, "Unauthorized", err.Error())
+		return id, false
+	}
+	if s.dev || id.Provider != auth.ProviderLocal {
+		return id, true
+	}
+	role, pv, ok := s.accounts.Lookup(id.Name)
+	if !ok || role != id.Role || pv != id.PV {
+		clearCookie(w, r, sessionCookie, "/")
+		writeCoded(w, http.StatusUnauthorized, "Unauthorized", "session-revoked", "your session ended because the account changed; sign in again")
+		return id, false
+	}
+	if !passwordChange && s.mustChangePassword(id.Name) {
+		writeCoded(w, http.StatusForbidden, "Forbidden", "password-change-required", "change the initial password first")
+		return id, false
+	}
+	return id, true
+}
+
 // sessionIdentity resolves the request's identity: fixed dev identity in dev
 // mode, otherwise the parsed session cookie.
 func (s *Server) sessionIdentity(r *http.Request) (auth.Identity, error) {
@@ -136,9 +186,8 @@ func (s *Server) sessionIdentity(r *http.Request) (auth.Identity, error) {
 // user's identity into the context. Dev mode skips the session entirely.
 func (s *Server) withAuth(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		id, err := s.sessionIdentity(r)
-		if err != nil {
-			writeError(w, http.StatusUnauthorized, "Unauthorized", err.Error())
+		id, ok := s.session(w, r, r.URL.Path == "/api/capabilities")
+		if !ok {
 			return
 		}
 		if r.Method != http.MethodGet && !id.CanWrite() {

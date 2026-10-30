@@ -9,7 +9,7 @@ Post from your own account. Each section links the docs site and the repository;
 > New in 1.0: a written stability policy (Helm values, env vars and account formats stay compatible across 1.x). Since the first public release it has also gained OIDC single sign-on, multi-arch images (amd64/arm64) and signed images and charts.
 > Docs: https://wonjune95.github.io/sealane/ · Repo: https://github.com/wonjune95/sealane
 > `helm install sealane oci://ghcr.io/wonjune95/charts/sealane --version 1.0.0 -n sealane --create-namespace`
-> `kubectl -n sealane port-forward svc/sealane 8080:8080` (log in as admin / admin, you are asked to change it)
+> `kubectl -n sealane port-forward svc/sealane 8080:8080` (user admin; the password is in Secret `sealane-initial-admin`)
 > Third-party tool, not affiliated with or endorsed by Istio or the CNCF. Feedback and issues welcome.
 
 ## 2. r/kubernetes

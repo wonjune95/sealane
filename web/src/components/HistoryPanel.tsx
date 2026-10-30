@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { dump as yamlDump } from 'js-yaml'
 import { useHistory, getRevision, revisionObject } from '../api/history'
+import { useCapabilities } from '../api/capabilities'
 import type { AuditEntry } from '../api/audit'
 import { ApiError, errorText } from '../api/client'
 import { cleanManifest } from '../lib/download'
@@ -27,6 +28,9 @@ export function HistoryPanel({
   onLoad?: (obj: unknown, at: string) => void // absent for users who cannot update
 }) {
   const history = useHistory(type, ns, name)
+  // Stored versions go to editors and admins only (an old version can hold what was since removed).
+  const role = useCapabilities().data?.role
+  const canCompare = role === 'admin' || role === 'editor'
   const toast = useToast()
   const [opening, setOpening] = useState('')
   const [compare, setCompare] = useState<{ at: string; obj: unknown } | null>(null)
@@ -69,7 +73,7 @@ export function HistoryPanel({
                 {rev.user && rev.provider === 'oidc' && ` ${t('home.auditViaSso')}`}
                 {!rev.ok && <span className="ml-2 text-red-500">{t('home.failed')}</span>}
               </span>
-              {rev.ok && rev.id && (
+              {rev.ok && rev.id && canCompare && (
                 <button
                   onClick={() => void open(rev)}
                   disabled={opening !== ''}

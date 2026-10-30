@@ -1,13 +1,17 @@
 #!/usr/bin/env bash
-# End-to-end smoke test against a freshly installed Sealane (initial admin/admin account).
-# Usage: hack/e2e.sh http://localhost:8080 [namespace-for-the-test-VirtualService]
+# End-to-end smoke test against a freshly installed Sealane.
+# Usage: INITIAL_PASS=... hack/e2e.sh http://localhost:8080 [namespace-for-the-test-VirtualService]
+# INITIAL_PASS is the generated admin password:
+#   kubectl -n sealane get secret sealane-initial-admin -o jsonpath='{.data.password}' | base64 -d
 # Needs: curl, jq. Exits non-zero on the first failed check.
 set -euo pipefail
 BASE=${1:?base url, e.g. http://localhost:8080}
 NS=${2:-default}
+INITIAL_PASS=${INITIAL_PASS:?set INITIAL_PASS to the password in the sealane-initial-admin Secret}
 TYPE=virtualservices.networking.istio.io
 NAME=sealane-e2e
 JAR=$(mktemp)
+JAR2=$(mktemp) # a second browser, signed in before the password change
 BODY=$(mktemp)
 NEWPASS="E2e-Pass-$(date +%s)!"
 CREATED_VS=
@@ -44,7 +48,7 @@ cleanup() {
     [ -z "$CREATED_VS" ] || api DELETE "/api/resources/$TYPE/$NS/$NAME" >/dev/null 2>&1 || true
     [ -z "$CREATED_VIEWER" ] || api DELETE /api/accounts/e2e-viewer >/dev/null 2>&1 || true
   fi
-  rm -f "$JAR" "$BODY"
+  rm -f "$JAR" "$JAR2" "$BODY"
 }
 trap cleanup EXIT
 
@@ -52,14 +56,25 @@ echo "== probes"
 expect 200 "$(curl -s --max-time 20 -o "$BODY" -w '%{http_code}' "$BASE/healthz")" "healthz"
 expect 200 "$(curl -s --max-time 20 -o "$BODY" -w '%{http_code}' "$BASE/readyz")" "readyz"
 
-echo "== initial login and forced password change"
-# the app creates the accounts ConfigMap at startup; its optional mount may not be synced yet
-expect 200 "$(login_retry admin admin)" "login admin/admin"
+echo "== initial login, password change, session revocation"
+expect 401 "$(api POST /api/login '{"username":"admin","password":"admin"}')" "no admin/admin on a fresh install"
+expect 200 "$(login_retry admin "$INITIAL_PASS")" "login with the generated password"
 expect 200 "$(api GET /api/capabilities)" "capabilities"
-[ "$(jq -r '.mustChangePassword' "$BODY")" = "true" ] || fail "mustChangePassword should be true on first login"
-expect 204 "$(api POST /api/account/password "{\"currentPassword\":\"admin\",\"newPassword\":\"$NEWPASS\"}")" "change password"
+[ "$(jq -r '.mustChangePassword // false' "$BODY")" = "false" ] || fail "a generated password should not force a change"
+code=$(curl -s --max-time 20 -o /dev/null -w '%{http_code}' -c "$JAR2" -X POST -H 'Content-Type: application/json' \
+  -d "{\"username\":\"admin\",\"password\":\"$INITIAL_PASS\"}" "$BASE/api/login")
+[ "$code" = 200 ] || fail "second sign-in: got $code"
+code=$(curl -s --max-time 20 -o /dev/null -w '%{http_code}' -b "$JAR" -c "$JAR" -X POST -H 'Content-Type: application/json' \
+  -H 'Sec-Fetch-Site: cross-site' -d '{}' "$BASE/api/logout")
+[ "$code" = 403 ] || fail "a cross-site POST should be refused (CSRF), got $code"
+echo "ok  cross-site POST refused (403)"
+expect 204 "$(api POST /api/account/password "{\"currentPassword\":\"$INITIAL_PASS\",\"newPassword\":\"$NEWPASS\"}")" "change password"
 [ -z "${E2E_PASS_FILE:-}" ] || printf '%s' "$NEWPASS" > "$E2E_PASS_FILE" # for follow-up checks (hack/e2e-impersonation.sh)
-expect 200 "$(login_retry admin "$NEWPASS")" "login with new password"
+expect 200 "$(api GET /api/capabilities)" "this session continues after the change"
+code=$(curl -s --max-time 20 -o "$BODY" -w '%{http_code}' -b "$JAR2" "$BASE/api/capabilities")
+[ "$code" = 401 ] && jq -e '.error.code == "session-revoked"' "$BODY" >/dev/null || fail "the other session should end: got $code $(head -c 200 "$BODY")"
+echo "ok  other session ended ($code)"
+expect 200 "$(api POST /api/login "{\"username\":\"admin\",\"password\":\"$NEWPASS\"}")" "login with new password (no wait)"
 expect 200 "$(api GET /api/capabilities)" "capabilities after change"
 [ "$(jq -r '.mustChangePassword // false' "$BODY")" = "false" ] || fail "mustChangePassword should be false now"
 [ "$(jq -r '.virtualServiceInstalled' "$BODY")" = "true" ] || fail "Istio CRDs not detected"

@@ -19,17 +19,23 @@ Do not open a public issue. Use GitHub's private vulnerability reporting on this
 What Sealane does out of the box:
 
 - **Security headers** — a Content Security Policy (`default-src 'self'`, `frame-ancestors 'none'`, `form-action 'self'`) and related headers on every response.
-- **Cookies** — the session cookie is HMAC-signed, `HttpOnly` and `SameSite=Lax`, and expires after 12 hours. The role is inside the signed value, so it cannot be edited client-side.
+- **Initial password** — a fresh install has no default password. At first start Sealane creates the `admin` account with a random password and stores it in Secret `sealane-initial-admin`. An install upgraded from before 1.19 whose admin still has the old `admin` / `admin` password can sign in, but the server refuses every other request until the password is changed.
+- **Cookies** — the session cookie is HMAC-signed, `HttpOnly` and `SameSite=Lax`, and expires after 12 hours. The role is inside the signed value, so it cannot be edited client-side. It is `Secure` when the request came over TLS or through a proxy that sends `X-Forwarded-Proto: https`, and always with `secureCookies: true`. Such responses also carry `Strict-Transport-Security`.
+- **Sessions end when the account changes** — a local session carries a fingerprint of the account's password hash. Sealane reads the accounts ConfigMap through the API (cached for 3 seconds), so a session ends within seconds on every replica when its account is deleted, its role changes or its password changes. Changing your password signs out your other sessions and keeps the current one.
+- **Cross-site request protection** — browsers' cross-site `POST`, `PUT` and `DELETE` requests are refused (Go's `CrossOriginProtection`, based on `Sec-Fetch-Site` or `Origin` against `Host`). Behind a proxy that rewrites the `Host` header, list the public origin in `TRUSTED_ORIGINS` (see [Configuration](configuration.md)).
 - **Server-side role checks** — every mutating request is checked against the role (403); the UI only mirrors that.
 - **Image and pod** — distroless, non-root (uid 65532), `readOnlyRootFilesystem`. No runtime downloads; the frontend is embedded in the binary.
-- **Narrow RBAC** — the ServiceAccount can change only the managed Istio and Gateway API kinds and patch only its own accounts ConfigMap and clusters Secret. It reads Namespaces, Services, Endpoints and Pods cluster-wide (pods only for their labels, for mesh analysis: the Analysis page and the Service view); `requestTester.enabled` adds only `pods/exec`.
+- **Narrow RBAC** — the ServiceAccount can change only the managed Istio and Gateway API kinds (none in impersonation mode) and, in its own namespace, only its accounts ConfigMap, history ConfigMap and its own Secrets (clusters, session key, initial admin password, history objects). It reads Namespaces, Services, Endpoints and Pods cluster-wide (pods only for their labels, for mesh analysis: the Analysis page and the Service view); `requestTester.enabled` adds only `pods/exec`.
+- **Pasted kubeconfigs stay in their lane** — a kubeconfig registered for another cluster may not point to files (`certificate-authority`, `client-certificate`, `client-key`, `tokenFile`) or run a credential plugin, and its server must be `https://`. Otherwise it could make Sealane read its own token or other mounted files and send them to that server.
+- **Change history** — the objects before and after each change are kept in a Secret, and only editors and admins can open them. Viewers see who changed what and when.
 - **Login throttle** — five failed local sign-ins inside ten minutes, counted per user name and per client address as reported by your proxy (the last `X-Forwarded-For` entry, else the connection address), block that key for a minute (429 with `Retry-After`). The per-user limit holds even if a client forges the header, which also means anyone can lock a named account for a minute at a time with five wrong passwords. Without a proxy header the connection address is shared by everyone behind a port-forward or a LoadBalancer without proxy protocol, so five failures by anyone block that address for a minute; and one wrong password per minute keeps a named account blocked, because the block restarts while the five failures stay inside the window. Counters are in memory, per pod.
 - **SSO** — authorization code flow with PKCE; the ID token's signature, audience, expiry and nonce are verified; IdP error details stay in the server log. See [Authentication](authentication.md#single-sign-on-oidc).
 
 What you should do:
 
-- **Change the initial password** — the UI forces it on first login with `admin` / `admin`; do it before exposing the service.
-- **Serve it over HTTPS** — terminate TLS at your Ingress or Gateway. The cookies do not set `Secure` themselves, so plain HTTP sends them in the clear.
+- **Install it in its own namespace** — Sealane may create ConfigMaps and Secrets anywhere in its namespace (see [Accepted risks](#accepted-risks)), so do not share that namespace with other workloads.
+- **Change the initial password** — sign in with the generated password, change it in Settings, and delete Secret `sealane-initial-admin` if you do not want it lying around. Sealane reads it again only when no account has the admin role.
+- **Serve it over HTTPS** — terminate TLS at your Ingress or Gateway. Most ingress controllers send `X-Forwarded-Proto: https`, which marks the cookies `Secure`. If yours does not, set `secureCookies: true` (`SECURE_COOKIES=true` without Helm).
 - **Keep a stable session key** — see [Operations](operations.md#high-availability).
 - **Restrict who reaches it** — for SSO, map only the groups that need access and consider `defaultRole: ""`. `/metrics`, `/healthz` and `/readyz` are unauthenticated; if that matters, keep them off your public route.
 - **Mind the clusters Secret** — it holds credentials for every registered cluster; on a remote cluster Sealane can do whatever that kubeconfig allows.
@@ -64,15 +70,25 @@ subjects:
 - **The API server's audit log names the person.** Requests carry the impersonated user `sealane:<role>` and the user extras above, so Kubernetes audit events show who made a change made through Sealane, not only the ServiceAccount.
 - **Bounded.** The ServiceAccount may impersonate exactly the users and groups `sealane:admin` and `sealane:editor` (plus the two extras), not arbitrary identities, so a compromised Sealane cannot become `system:masters`.
 - **The editor follows RBAC.** The permission check behind read-only forms asks the API server (`SelfSubjectAccessReview`) as the impersonated identity, so an editor sees a read-only editor where RBAC would refuse the write.
+- **The ServiceAccount cannot write.** In this mode Sealane's own ClusterRole only reads the managed kinds, so a stolen ServiceAccount token cannot change routing.
 - **Unchanged:** viewers never write; reads, lists, the change history, account and cluster management and the request tester still use the ServiceAccount.
-- **Without Helm:** each release attaches `impersonation.yaml`, the same RBAC rendered for namespace `sealane`. Apply it next to `install.yaml` and switch the mode on; both survive the next `kubectl apply -f install.yaml`:
+- **Without Helm:** each release attaches `impersonation.yaml`, the same RBAC rendered for namespace `sealane`, including Sealane's read-only ClusterRole. Apply it after `install.yaml` and switch the mode on. Applying `install.yaml` again (an upgrade) restores the ClusterRole that can write, so apply `impersonation.yaml` after it every time:
 
 ```bash
-kubectl apply -f https://github.com/wonjune95/sealane/releases/download/v1.18.3/impersonation.yaml
+kubectl apply -f https://github.com/wonjune95/sealane/releases/download/v1.19.0/impersonation.yaml
 kubectl -n sealane set env deploy/sealane IMPERSONATION=true
 ```
 
 - **Remote clusters:** the same applies there. The stored credentials need `impersonate` on those two users and groups and the two extras, and `sealane:admin` / `sealane:editor` need bindings on that cluster; otherwise writes there fail with 403. Registering a cluster with the dedicated account option while the mode is on creates both (see [Multi-cluster](multi-cluster.md#registering-a-cluster)).
+
+## Accepted risks
+
+These are known and left as they are, with the reason and what limits them:
+
+- **Namespace-wide create.** Kubernetes RBAC cannot limit `create` to object names, so Sealane's Role allows creating any ConfigMap or Secret in its own namespace (it creates its accounts, history and Secrets on first use). A compromised Sealane could create a token Secret for another ServiceAccount in that namespace. Install Sealane in a namespace of its own.
+- **Password hashes in a ConfigMap.** Local accounts are bcrypt hashes in the accounts ConfigMap, readable by anyone who can read ConfigMaps in Sealane's namespace. Limit that access, or use single sign-on and keep only a break-glass local admin.
+- **Account lockout.** The sign-in throttle lets anyone lock a named local account for a minute at a time (see above).
+- **Credentials of other clusters.** The clusters Secret holds a token or certificate for every registered cluster. Prefer the dedicated account option, which stores a token limited to the managed kinds and can be removed from the cluster when you delete the registration.
 
 ## The request tester
 
@@ -84,9 +100,9 @@ Images and charts are signed keyless with cosign (GitHub OIDC identity via Sigst
 
 ```bash
 cosign verify --certificate-identity-regexp 'https://github.com/wonjune95/sealane/' \
-  --certificate-oidc-issuer https://token.actions.githubusercontent.com ghcr.io/wonjune95/sealane:1.18.3
+  --certificate-oidc-issuer https://token.actions.githubusercontent.com ghcr.io/wonjune95/sealane:1.19.0
 cosign verify --certificate-identity-regexp 'https://github.com/wonjune95/sealane/' \
-  --certificate-oidc-issuer https://token.actions.githubusercontent.com ghcr.io/wonjune95/charts/sealane:1.18.3
+  --certificate-oidc-issuer https://token.actions.githubusercontent.com ghcr.io/wonjune95/charts/sealane:1.19.0
 ```
 
 Use cosign 3.x. From 1.0.0 on, signatures are stored as OCI referrers (Sigstore bundles) next to the image and chart rather than as `.sig` tags; cosign 3.x verifies both forms, older cosign only the tags.

@@ -161,7 +161,7 @@ export function buildTopology(
       ),
     )
     for (const entry of data?.serviceEntries ?? []) {
-      if (referenced.has(entry.name)) continue
+      if (referenced.has(`${entry.namespace}/${entry.name}`)) continue
       const id = `se:${entry.namespace}/${entry.name}`
       nodes.set(id, {
         id,

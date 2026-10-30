@@ -9,10 +9,12 @@
 
 ```bash
 # Helm (OCI)
-helm install sealane oci://ghcr.io/wonjune95/charts/sealane --version 1.18.3 -n sealane --create-namespace
+helm install sealane oci://ghcr.io/wonjune95/charts/sealane --version 1.19.0 -n sealane --create-namespace
 # or plain manifests
 kubectl apply -f https://github.com/wonjune95/sealane/releases/latest/download/install.yaml
-kubectl -n sealane port-forward svc/sealane 8080:8080   # → http://localhost:8080, log in as admin / admin
+kubectl -n sealane port-forward svc/sealane 8080:8080   # → http://localhost:8080, 사용자 admin
+# 처음 시작할 때 만들어진 admin 비밀번호:
+kubectl -n sealane get secret sealane-initial-admin -o jsonpath='{.data.password}' | base64 -d; echo
 ```
 
 다음 단계: [시작하기](getting-started.md)에서 설치, UI 노출, 첫 로그인, 계정 추가를 차례로 안내합니다.

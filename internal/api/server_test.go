@@ -94,10 +94,31 @@ func (s *stubSource) ExecInPod(_ context.Context, _, _, _ string, argv []string,
 
 var testSessions = auth.NewSessions("test-secret")
 
+// testHash is the stored hash of every fixture account (not a usable password; tests that log
+// in write their own). testCookie sessions carry its password version, so they stay valid.
+const testHash = "$2a$04$fixture.fixture.fixture.fixture.fixture.fixture.fixtu"
+
+// testStore holds the fixture accounts the tests sign sessions for.
+func testStore(t *testing.T) *auth.Store {
+	t.Helper()
+	dir := t.TempDir()
+	for name, role := range map[string]string{"tester": "editor", "ro": "viewer", "admin": "admin", "root": "admin", "bob": "editor", "alice": "viewer"} {
+		if err := os.WriteFile(filepath.Join(dir, name), []byte(role+":"+testHash), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	return auth.NewStore(dir)
+}
+
+// testCookie is a session cookie value for a fixture account.
+func testCookie(name, role string) string {
+	return testSessions.Sign(auth.Identity{Name: name, Role: role, PV: auth.PasswordVersion(testHash)}, time.Hour)
+}
+
 func newTestMux(t *testing.T, source ClientSource) *http.ServeMux {
 	t.Helper()
 	mux := http.NewServeMux()
-	NewServer(false, source, auth.NewStore(t.TempDir()), testSessions, AccountsCMRef{}, ClustersSecretRef{}).Routes(mux)
+	NewServer(false, source, testStore(t), testSessions, AccountsCMRef{}, ClustersSecretRef{}).Routes(mux)
 	return mux
 }
 
@@ -111,7 +132,7 @@ func authedReq(method, path string, body *strings.Reader) *http.Request {
 	}
 	r.AddCookie(&http.Cookie{
 		Name:  "sealane_session",
-		Value: testSessions.Sign(auth.Identity{Name: "tester", Role: "editor"}, time.Hour),
+		Value: testCookie("tester", "editor"),
 	})
 	return r
 }
@@ -170,7 +191,7 @@ func TestWithAuth_ViewerWriteIs403(t *testing.T) {
 	req := httptest.NewRequest("POST", "/api/resources/"+vsTypeID, strings.NewReader(vsBody))
 	req.AddCookie(&http.Cookie{
 		Name:  "sealane_session",
-		Value: testSessions.Sign(auth.Identity{Name: "ro", Role: "viewer"}, time.Hour),
+		Value: testCookie("ro", "viewer"),
 	})
 	mux.ServeHTTP(rec, req)
 	if rec.Code != http.StatusForbidden {
@@ -383,7 +404,7 @@ func TestPasswordChange_RoundTrip(t *testing.T) {
 		auth.NewStore(dir), testSessions, AccountsCMRef{Namespace: "ns1", Name: "accounts"}, ClustersSecretRef{Namespace: "ns1", Name: "clusters"}).Routes(mux)
 	cookie := &http.Cookie{
 		Name:  "sealane_session",
-		Value: testSessions.Sign(auth.Identity{Name: "alice", Role: "viewer"}, time.Hour),
+		Value: testSessions.Sign(auth.Identity{Name: "alice", Role: "viewer", PV: auth.PasswordVersion(string(hash))}, time.Hour),
 	}
 
 	rec := httptest.NewRecorder()
@@ -423,14 +444,14 @@ func TestPasswordChange_RoundTrip(t *testing.T) {
 func TestAccountsAPI_RoundTrip(t *testing.T) {
 	kube := kubefake.NewClientset(&corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{Name: "accounts", Namespace: "ns1"},
-		Data:       map[string]string{"admin": "admin:x"},
+		Data:       map[string]string{"admin": "admin:" + testHash, "root": "admin:" + testHash, "tester": "editor:" + testHash},
 	})
 	mux := http.NewServeMux()
 	NewServer(false, &stubSource{clients: &k8s.Clients{Kube: kube}},
 		auth.NewStore(t.TempDir()), testSessions, AccountsCMRef{Namespace: "ns1", Name: "accounts"}, ClustersSecretRef{Namespace: "ns1", Name: "clusters"}).Routes(mux)
 	adminCookie := &http.Cookie{
 		Name:  "sealane_session",
-		Value: testSessions.Sign(auth.Identity{Name: "admin", Role: "admin"}, time.Hour),
+		Value: testCookie("admin", "admin"),
 	}
 	do := func(method, path, body string, cookie *http.Cookie) *httptest.ResponseRecorder {
 		rec := httptest.NewRecorder()
@@ -443,7 +464,7 @@ func TestAccountsAPI_RoundTrip(t *testing.T) {
 	// editor may not manage accounts
 	editorCookie := &http.Cookie{
 		Name:  "sealane_session",
-		Value: testSessions.Sign(auth.Identity{Name: "tester", Role: "editor"}, time.Hour),
+		Value: testCookie("tester", "editor"),
 	}
 	if rec := do("GET", "/api/accounts", "", editorCookie); rec.Code != http.StatusForbidden {
 		t.Fatalf("editor list: status = %d, want 403", rec.Code)
@@ -459,6 +480,12 @@ func TestAccountsAPI_RoundTrip(t *testing.T) {
 		t.Fatalf("created entry %q: role/hash mismatch", cm.Data["bob"])
 	}
 
+	bobCookie := &http.Cookie{Name: "sealane_session",
+		Value: testSessions.Sign(auth.Identity{Name: "bob", Role: "editor", PV: auth.PasswordVersion(hash)}, time.Hour)}
+	if rec := do("GET", "/api/namespaces", "", bobCookie); rec.Code == http.StatusUnauthorized {
+		t.Fatalf("bob's session: status = %d: %s", rec.Code, rec.Body.String())
+	}
+
 	// role change without password keeps the hash
 	if rec := do("PUT", "/api/accounts/bob", `{"role":"viewer","password":""}`, adminCookie); rec.Code != http.StatusNoContent {
 		t.Fatalf("role change: status = %d, want 204: %s", rec.Code, rec.Body.String())
@@ -466,6 +493,10 @@ func TestAccountsAPI_RoundTrip(t *testing.T) {
 	cm, _ = kube.CoreV1().ConfigMaps("ns1").Get(context.Background(), "accounts", metav1.GetOptions{})
 	if cm.Data["bob"] != "viewer:"+hash {
 		t.Fatalf("role change: entry = %q, want viewer with same hash", cm.Data["bob"])
+	}
+	// A session issued for the old role ends at once.
+	if rec := do("GET", "/api/namespaces", "", bobCookie); rec.Code != http.StatusUnauthorized || errCode(t, rec) != "session-revoked" {
+		t.Fatalf("demoted session: status = %d, want 401 session-revoked: %s", rec.Code, rec.Body.String())
 	}
 
 	// list shows both accounts
@@ -480,7 +511,7 @@ func TestAccountsAPI_RoundTrip(t *testing.T) {
 	}
 	rootCookie := &http.Cookie{
 		Name:  "sealane_session",
-		Value: testSessions.Sign(auth.Identity{Name: "root", Role: "admin"}, time.Hour),
+		Value: testCookie("root", "admin"),
 	}
 	if rec := do("DELETE", "/api/accounts/admin", "", rootCookie); rec.Code != http.StatusBadRequest {
 		t.Fatalf("nobody should be able to delete the admin account: %d", rec.Code)
@@ -494,32 +525,65 @@ func TestAccountsAPI_RoundTrip(t *testing.T) {
 	}
 }
 
-// Fresh install: no accounts CM → EnsureInitialAdmin creates it with an
-// admin entry whose password is "admin".
+// Fresh install: no accounts CM → EnsureInitialAdmin stores a random password in the initial-admin
+// Secret and creates the CM with an admin entry that verifies it. Without a Secret name it does nothing.
 func TestEnsureInitialAdmin_FreshInstall(t *testing.T) {
 	kube := kubefake.NewClientset()
 	s := NewServer(false, &stubSource{clients: &k8s.Clients{Kube: kube}},
 		auth.NewStore(t.TempDir()), testSessions, AccountsCMRef{Namespace: "ns1", Name: "accounts"}, ClustersSecretRef{})
 
 	s.EnsureInitialAdmin(context.Background())
+	if _, err := kube.CoreV1().ConfigMaps("ns1").Get(context.Background(), "accounts", metav1.GetOptions{}); !apierrors.IsNotFound(err) {
+		t.Fatalf("no Secret to hold a password, yet an account was made: %v", err)
+	}
 
+	s.SetInitialAdminSecret("sealane-initial-admin")
+	s.EnsureInitialAdmin(context.Background())
 	cm, err := kube.CoreV1().ConfigMaps("ns1").Get(context.Background(), "accounts", metav1.GetOptions{})
 	if err != nil {
 		t.Fatalf("accounts CM not created: %v", err)
 	}
-	role, hash, _ := strings.Cut(cm.Data["admin"], ":")
-	if role != "admin" {
-		t.Fatalf("admin entry = %q, want admin role", cm.Data["admin"])
+	sec, err := kube.CoreV1().Secrets("ns1").Get(context.Background(), "sealane-initial-admin", metav1.GetOptions{})
+	if err != nil {
+		t.Fatalf("initial-admin Secret not created: %v", err)
 	}
-	if bcrypt.CompareHashAndPassword([]byte(hash), []byte("admin")) != nil {
-		t.Error("initial admin hash does not verify password \"admin\"")
+	pw := string(sec.Data["password"])
+	role, hash, _ := strings.Cut(cm.Data["admin"], ":")
+	if role != "admin" || len(pw) < 20 || pw == "admin" {
+		t.Fatalf("admin entry = %q, password length %d", cm.Data["admin"], len(pw))
+	}
+	if bcrypt.CompareHashAndPassword([]byte(hash), []byte(pw)) != nil {
+		t.Error("admin hash does not verify the password in the Secret")
+	}
+	if s.mustChangePassword("admin") {
+		t.Error("a random initial password must not force a change")
 	}
 
-	// If admin already exists, nothing changes.
+	// If an admin already exists, nothing changes.
 	s.EnsureInitialAdmin(context.Background())
 	cm2, _ := kube.CoreV1().ConfigMaps("ns1").Get(context.Background(), "accounts", metav1.GetOptions{})
-	if cm2.Data["admin"] != cm.Data["admin"] {
+	sec2, _ := kube.CoreV1().Secrets("ns1").Get(context.Background(), "sealane-initial-admin", metav1.GetOptions{})
+	if cm2.Data["admin"] != cm.Data["admin"] || string(sec2.Data["password"]) != pw {
 		t.Error("second run must not rotate the admin password")
+	}
+}
+
+// An existing install whose admin still has the old default password keeps it but must change it.
+func TestEnsureInitialAdmin_LegacyDefaultIsKept(t *testing.T) {
+	legacy, _ := bcrypt.GenerateFromPassword([]byte("admin"), bcrypt.MinCost)
+	kube := kubefake.NewClientset(&corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{Name: "accounts", Namespace: "ns1"},
+		Data:       map[string]string{"admin": "admin:" + string(legacy)},
+	})
+	s := NewServer(false, &stubSource{clients: &k8s.Clients{Kube: kube}},
+		auth.NewStore(t.TempDir()), testSessions, AccountsCMRef{Namespace: "ns1", Name: "accounts"}, ClustersSecretRef{})
+	s.SetInitialAdminSecret("sealane-initial-admin")
+	s.EnsureInitialAdmin(context.Background())
+	if _, err := kube.CoreV1().Secrets("ns1").Get(context.Background(), "sealane-initial-admin", metav1.GetOptions{}); !apierrors.IsNotFound(err) {
+		t.Fatalf("an admin exists, so no initial password should be made: %v", err)
+	}
+	if !s.mustChangePassword("admin") {
+		t.Error("admin/admin must be forced to change")
 	}
 }
 
@@ -529,10 +593,10 @@ func TestClustersAPI_RoundTrip(t *testing.T) {
 	kube := kubefake.NewClientset()
 	mux := http.NewServeMux()
 	NewServer(false, &stubSource{clients: &k8s.Clients{Kube: kube}},
-		auth.NewStore(t.TempDir()), testSessions, AccountsCMRef{}, ClustersSecretRef{Namespace: "ns1", Name: "clusters"}).Routes(mux)
+		testStore(t), testSessions, AccountsCMRef{}, ClustersSecretRef{Namespace: "ns1", Name: "clusters"}).Routes(mux)
 	adminCookie := &http.Cookie{
 		Name:  "sealane_session",
-		Value: testSessions.Sign(auth.Identity{Name: "admin", Role: "admin"}, time.Hour),
+		Value: testCookie("admin", "admin"),
 	}
 	do := func(method, path, body string, cookie *http.Cookie) *httptest.ResponseRecorder {
 		var rd *strings.Reader
@@ -549,7 +613,7 @@ func TestClustersAPI_RoundTrip(t *testing.T) {
 	}
 	editorCookie := &http.Cookie{
 		Name:  "sealane_session",
-		Value: testSessions.Sign(auth.Identity{Name: "bob", Role: "editor"}, time.Hour),
+		Value: testCookie("bob", "editor"),
 	}
 	// A whole ~/.kube/config: only the chosen context may be stored.
 	kubeconfig := `apiVersion: v1
@@ -741,7 +805,7 @@ func TestFlowMap(t *testing.T) {
 			}
 		case "to-ext":
 			b := rt.Backends[0]
-			if !b.External || b.ServiceEntry != "ext-se" {
+			if !b.External || b.ServiceEntry != "dev/ext-se" {
 				t.Fatalf("to-ext backend = %+v (wildcard SE match failed)", b)
 			}
 		}
@@ -766,7 +830,7 @@ func TestMustChangePassword_RoundTrip(t *testing.T) {
 		auth.NewStore(dir), testSessions, AccountsCMRef{Namespace: "ns1", Name: "accounts"}, ClustersSecretRef{}).Routes(mux)
 	cookie := &http.Cookie{
 		Name:  "sealane_session",
-		Value: testSessions.Sign(auth.Identity{Name: "admin", Role: "admin"}, time.Hour),
+		Value: testSessions.Sign(auth.Identity{Name: "admin", Role: "admin", PV: auth.PasswordVersion(string(hash))}, time.Hour),
 	}
 	caps := func() string {
 		req := httptest.NewRequest("GET", "/api/capabilities", nil)
@@ -778,17 +842,39 @@ func TestMustChangePassword_RoundTrip(t *testing.T) {
 	if !strings.Contains(caps(), `"mustChangePassword":true`) {
 		t.Fatalf("initial password but flag missing: %s", caps())
 	}
-	req := httptest.NewRequest("POST", "/api/account/password",
-		strings.NewReader(`{"currentPassword":"admin","newPassword":"newpass123"}`))
+	// Until the password is changed, everything but capabilities and the change itself is refused.
+	req := httptest.NewRequest("GET", "/api/namespaces", nil)
 	req.AddCookie(cookie)
 	rec := httptest.NewRecorder()
+	mux.ServeHTTP(rec, req)
+	if rec.Code != http.StatusForbidden || errCode(t, rec) != "password-change-required" {
+		t.Fatalf("API before the change: %d %s, want 403 password-change-required", rec.Code, rec.Body.String())
+	}
+	req = httptest.NewRequest("POST", "/api/account/password",
+		strings.NewReader(`{"currentPassword":"admin","newPassword":"newpass123"}`))
+	req.AddCookie(cookie)
+	rec = httptest.NewRecorder()
 	mux.ServeHTTP(rec, req)
 	if rec.Code != http.StatusNoContent {
 		t.Fatalf("password change: %d %s", rec.Code, rec.Body.String())
 	}
-	// The mounted directory still has the old hash (simulating the 1-minute delay), but the flag must clear immediately
-	if strings.Contains(caps(), `"mustChangePassword":true`) {
-		t.Fatal("flag still set right after the change")
+	// The old session predates the new password, so it ends; the response carries a fresh one.
+	if body := caps(); !strings.Contains(body, "session-revoked") {
+		t.Fatalf("old session still valid after the password change: %s", body)
+	}
+	var fresh *http.Cookie
+	for _, c := range rec.Result().Cookies() {
+		if c.Name == "sealane_session" {
+			fresh = c
+		}
+	}
+	if fresh == nil {
+		t.Fatal("password change did not re-issue the session cookie")
+	}
+	// The mounted directory still has the old hash, but the store reads the ConfigMap: the flag clears at once.
+	cookie = fresh
+	if body := caps(); strings.Contains(body, `"mustChangePassword":true`) || !strings.Contains(body, `"role":"admin"`) {
+		t.Fatalf("new session: %s", body)
 	}
 }
 
@@ -802,26 +888,32 @@ func TestClustersList_Status(t *testing.T) {
 	})
 	mux := http.NewServeMux()
 	NewServer(false, &stubSource{clients: &k8s.Clients{Kube: kube}},
-		auth.NewStore(t.TempDir()), testSessions, AccountsCMRef{}, ClustersSecretRef{Namespace: "ns1", Name: "clusters"}).Routes(mux)
-	req := httptest.NewRequest("GET", "/api/clusters?status=true", nil)
-	req.AddCookie(&http.Cookie{
-		Name:  "sealane_session",
-		Value: testSessions.Sign(auth.Identity{Name: "bob", Role: "viewer"}, time.Hour),
-	})
-	rec := httptest.NewRecorder()
-	mux.ServeHTTP(rec, req)
-	var out []struct {
+		testStore(t), testSessions, AccountsCMRef{}, ClustersSecretRef{Namespace: "ns1", Name: "clusters"}).Routes(mux)
+	type entry struct {
 		Name      string
 		Connected *bool
 	}
-	if err := json.Unmarshal(rec.Body.Bytes(), &out); err != nil {
-		t.Fatal(err)
+	list := func(name, role string) ([]entry, string) {
+		req := httptest.NewRequest("GET", "/api/clusters?status=true", nil)
+		req.AddCookie(&http.Cookie{Name: "sealane_session", Value: testCookie(name, role)})
+		rec := httptest.NewRecorder()
+		mux.ServeHTTP(rec, req)
+		var out []entry
+		if err := json.Unmarshal(rec.Body.Bytes(), &out); err != nil {
+			t.Fatalf("%s: %v: %s", name, err, rec.Body.String())
+		}
+		return out, rec.Body.String()
 	}
+	// Only admins get status: it makes Sealane contact every registered cluster.
+	if out, body := list("ro", "viewer"); len(out) != 2 || out[0].Connected != nil || out[1].Connected != nil {
+		t.Fatalf("viewer got cluster status: %s", body)
+	}
+	out, body := list("admin", "admin")
 	if len(out) != 2 || out[0].Name != "local" || out[0].Connected == nil || !*out[0].Connected {
-		t.Fatalf("local status wrong: %s", rec.Body.String())
+		t.Fatalf("local status wrong: %s", body)
 	}
 	if out[1].Connected == nil || *out[1].Connected {
-		t.Fatalf("unreachable prod should be connected=false: %s", rec.Body.String())
+		t.Fatalf("unreachable prod should be connected=false: %s", body)
 	}
 }
 
@@ -1011,7 +1103,7 @@ func TestRequestTester(t *testing.T) {
 	}
 	adminCookie := &http.Cookie{
 		Name:  "sealane_session",
-		Value: testSessions.Sign(auth.Identity{Name: "admin", Role: "admin"}, time.Hour),
+		Value: testCookie("admin", "admin"),
 	}
 	body := `{"namespace":"dev","pod":"p1","method":"GET","url":"http://shop.dev:8080/api","headers":{"x-user":"beta"}}`
 	send := func(mux *http.ServeMux, cookie *http.Cookie, payload string) *httptest.ResponseRecorder {
@@ -1030,12 +1122,12 @@ func TestRequestTester(t *testing.T) {
 
 	// enabled, but editor is rejected
 	on := http.NewServeMux()
-	srv := NewServer(false, src, auth.NewStore(t.TempDir()), testSessions, AccountsCMRef{}, ClustersSecretRef{})
+	srv := NewServer(false, src, testStore(t), testSessions, AccountsCMRef{}, ClustersSecretRef{})
 	srv.EnableRequestTester()
 	srv.Routes(on)
 	editorCookie := &http.Cookie{
 		Name:  "sealane_session",
-		Value: testSessions.Sign(auth.Identity{Name: "bob", Role: "editor"}, time.Hour),
+		Value: testCookie("bob", "editor"),
 	}
 	if rec := send(on, editorCookie, body); rec.Code != http.StatusForbidden {
 		t.Fatalf("editor should get 403: %d", rec.Code)
@@ -1111,13 +1203,13 @@ func TestPodList_NativeSidecar(t *testing.T) {
 	)
 	mux := http.NewServeMux()
 	srv := NewServer(false, &stubSource{clients: &k8s.Clients{Kube: kube}},
-		auth.NewStore(t.TempDir()), testSessions, AccountsCMRef{}, ClustersSecretRef{})
+		testStore(t), testSessions, AccountsCMRef{}, ClustersSecretRef{})
 	srv.EnableRequestTester()
 	srv.Routes(mux)
 	req := httptest.NewRequest("GET", "/api/pods?ns=demo", nil)
 	req.AddCookie(&http.Cookie{
 		Name:  "sealane_session",
-		Value: testSessions.Sign(auth.Identity{Name: "admin", Role: "admin"}, time.Hour),
+		Value: testCookie("admin", "admin"),
 	})
 	rec := httptest.NewRecorder()
 	mux.ServeHTTP(rec, req)
@@ -1136,5 +1228,54 @@ func TestPodList_NativeSidecar(t *testing.T) {
 	}
 	if pods[1].Mesh {
 		t.Fatalf("pod without a sidecar should not count as mesh: %+v", pods[1])
+	}
+}
+
+// ServiceEntries of the same name in several namespaces: the route's own namespace wins.
+func TestServiceEntryFor_PrefersRouteNamespace(t *testing.T) {
+	ses := []flowServiceEntry{
+		{Namespace: "a", Name: "pay", Hosts: []string{"*.example.com"}},
+		{Namespace: "b", Name: "pay", Hosts: []string{"pay.example.com"}},
+	}
+	for ns, want := range map[string]string{"b": "b/pay", "a": "a/pay", "c": "a/pay"} {
+		if got := serviceEntryFor(ses, "pay.example.com", ns); got != want {
+			t.Errorf("route in %s: got %q, want %q", ns, got, want)
+		}
+	}
+	if got := serviceEntryFor(ses, "other.org", "a"); got != "" {
+		t.Errorf("uncovered host matched %q", got)
+	}
+}
+
+// Two replicas on a fresh install: the one that loses the Secret write uses the winner's password,
+// and its ConfigMap create that finds the ConfigMap already made patches it instead.
+func TestEnsureInitialAdmin_SecondReplicaUsesTheStoredPassword(t *testing.T) {
+	kube := kubefake.NewClientset(&corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{Name: "sealane-initial-admin", Namespace: "ns1"},
+		Data:       map[string][]byte{"password": []byte("from-the-other-replica")},
+	})
+	created := false
+	kube.PrependReactor("create", "configmaps", func(a ktesting.Action) (bool, runtime.Object, error) {
+		if created {
+			return false, nil, nil
+		}
+		created = true // the other replica creates the ConfigMap between our read and our create
+		cm := &corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: "accounts", Namespace: "ns1"}, Data: map[string]string{"admin": "admin:other-hash"}}
+		if err := kube.Tracker().Add(cm); err != nil {
+			t.Fatal(err)
+		}
+		return true, nil, apierrors.NewAlreadyExists(corev1.Resource("configmaps"), "accounts")
+	})
+	s := NewServer(false, &stubSource{clients: &k8s.Clients{Kube: kube}},
+		auth.NewStore(t.TempDir()), testSessions, AccountsCMRef{Namespace: "ns1", Name: "accounts"}, ClustersSecretRef{})
+	s.SetInitialAdminSecret("sealane-initial-admin")
+	s.EnsureInitialAdmin(context.Background())
+	cm, err := kube.CoreV1().ConfigMaps("ns1").Get(context.Background(), "accounts", metav1.GetOptions{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, hash, _ := strings.Cut(cm.Data["admin"], ":")
+	if bcrypt.CompareHashAndPassword([]byte(hash), []byte("from-the-other-replica")) != nil {
+		t.Errorf("admin entry %q does not verify the stored password", cm.Data["admin"])
 	}
 }

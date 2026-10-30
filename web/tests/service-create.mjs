@@ -59,8 +59,8 @@ try {
   }
 
   const { page, errors } = await open('editor')
-  const formTab = page.getByRole('button', { name: 'Form', exact: true })
-  const yamlTab = page.getByRole('button', { name: 'YAML', exact: true })
+  const formTab = page.getByRole('tab', { name: 'Form', exact: true })
+  const yamlTab = page.getByRole('tab', { name: 'YAML', exact: true })
   const isActive = async (tab) => (await tab.getAttribute('class')).includes('border-accent')
   const field = (label) => page.locator(`label:has-text("${label}") input`).first()
   const editorYaml = async () => {

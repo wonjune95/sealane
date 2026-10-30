@@ -8,7 +8,7 @@ export type FlowBackend = {
   external?: boolean
   exists: boolean
   endpoints: number
-  serviceEntry?: string
+  serviceEntry?: string // "namespace/name"
 }
 export type FlowRoute = {
   kind: 'VirtualService' | 'HTTPRoute'

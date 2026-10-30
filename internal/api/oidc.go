@@ -62,7 +62,7 @@ func (s *Server) handleOIDCLogin(w http.ResponseWriter, r *http.Request) {
 	http.SetCookie(w, &http.Cookie{
 		Name: oidcStateCookie, Value: s.sessions.SignState(state, nonce, verifier, oidcStateTTL),
 		Path: oidcStatePath, HttpOnly: true, SameSite: http.SameSiteLaxMode, MaxAge: int(oidcStateTTL.Seconds()),
-		Secure: SecureCookies,
+		Secure: secureRequest(r),
 	})
 	http.Redirect(w, r, target, http.StatusFound)
 }
@@ -72,7 +72,7 @@ func (s *Server) handleOIDCLogin(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleOIDCCallback(w http.ResponseWriter, r *http.Request) {
 	fail := func(code string, err error) {
 		slog.Warn("oidc callback failed", "reason", code, "err", err)
-		clearCookie(w, oidcStateCookie, oidcStatePath)
+		clearCookie(w, r, oidcStateCookie, oidcStatePath)
 		http.Redirect(w, r, "/?oidc_error="+code, http.StatusFound)
 	}
 	if s.oidc == nil {
@@ -106,8 +106,8 @@ func (s *Server) handleOIDCCallback(w http.ResponseWriter, r *http.Request) {
 		fail("idp", err)
 		return
 	}
-	clearCookie(w, oidcStateCookie, oidcStatePath)
-	setSessionCookie(w, s.sessions.Sign(id, sessionTTL))
+	clearCookie(w, r, oidcStateCookie, oidcStatePath)
+	setSessionCookie(w, r, s.sessions.Sign(id, sessionTTL))
 	slog.Info("login", "user", id.Name, "role", id.Role, "provider", id.Provider, "groups", id.Groups)
 	http.Redirect(w, r, "/", http.StatusFound)
 }

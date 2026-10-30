@@ -11,12 +11,15 @@ Sealane is configured with a few flags and environment variables. When you insta
 | `--dev` | `false` | skip login + use local kubeconfig (**refuses to boot in-cluster**) |
 | `--kubeconfig` | (default loading rules) | dev-only kubeconfig path |
 | `ACCOUNTS_DIR` | `/etc/sealane/accounts` | accounts ConfigMap mount path |
-| `ACCOUNTS_CONFIGMAP` / `POD_NAMESPACE` | (set by Helm) | CM that password changes / initial-admin creation patch |
+| `ACCOUNTS_CONFIGMAP` / `POD_NAMESPACE` | (set by Helm) | accounts ConfigMap: Sealane reads it through the API (so account changes end sessions within seconds) and patches it on password changes and account edits |
+| `INITIAL_ADMIN_SECRET` | `sealane-initial-admin` (set by the chart) | when no account has the admin role, Sealane creates `admin` with a random password stored in this Secret (key `password`); unset = no account is created, add one to the ConfigMap yourself |
+| `SECURE_COOKIES` | unset (chart: `secureCookies`) | `true` marks session cookies `Secure` on every response; otherwise they are `Secure` when the request came over TLS or with `X-Forwarded-Proto: https` |
+| `TRUSTED_ORIGINS` | unset | comma-separated origins (`https://sealane.example.com`) allowed to send `POST`/`PUT`/`DELETE` besides the request's own host; needed only behind a proxy that rewrites the `Host` header |
 | `ISTIO_NAMESPACE` | `istio-system` (set by the chart from `istioNamespace`) | namespace where istiod runs; used to show the control-plane version on the home page |
 | `SESSION_SECRET` | (set by Helm from `<release>-session`) | session cookie signing key; empty = read or generate one in the `SESSION_SECRET_NAME` Secret |
 | `SESSION_SECRET_NAME` | `sealane-secret` (set by the chart) | Secret where Sealane stores a generated key (key `SESSION_SECRET`) when `SESSION_SECRET` is empty, so restarts and replicas share it; unset = random per boot (restart = re-login) |
 | `SSL_CERT_DIR` | `/etc/ssl/certs:/etc/sealane/tls-certs` (set by the chart) | Go reads every certificate in these directories as trust roots; the second is the `<release>-tls-certs` ConfigMap mount (see [Private CA](authentication.md#private-ca)) |
-| `HISTORY_CONFIGMAP` | `sealane-history` (set by the chart) | ConfigMap that lists the last 200 changes made through Sealane; the objects go to `<name>-objects`. Both are created on the first change. Unset = history in memory only (dev mode) |
+| `HISTORY_CONFIGMAP` | `sealane-history` (set by the chart) | ConfigMap that lists the last 200 changes made through Sealane; the objects before and after each change go to Secret `<name>-objects`. Both are created on the first change. Unset = history in memory only (dev mode) |
 | `IMPERSONATION` | unset (chart: `impersonation.enabled`) | `true` = resource writes run as `sealane:admin` / `sealane:editor` through Kubernetes impersonation (see [Impersonation mode](security.md#impersonation-mode)) |
 | `REQUEST_TESTER` | (set by Helm) | `true` enables the in-pod request tester (needs pods/exec, admin only) |
 | `CLUSTERS_SECRET` / `POD_NAMESPACE` | (set by Helm) | multi-cluster: Secret holding remote kubeconfigs (empty = local only) |
@@ -54,6 +57,7 @@ The same table is in the [chart README](https://github.com/wonjune95/sealane/blo
 | `accounts` | `{}` | Seed local accounts from values (`user: "role:bcryptHash"`). Helm manages exactly these keys (changing or removing one here changes it in the cluster); keys added in the UI are kept. |
 | `clustersSecret` | `sealane-clusters` | Remote kubeconfigs Secret (not managed by the chart) |
 | `requestTester.enabled` | `false` | Grants `pods/exec` cluster-wide; admin-only UI feature |
+| `secureCookies` | `false` | Mark session cookies `Secure` on every response, for a TLS proxy that does not send `X-Forwarded-Proto` |
 | `sessionSecret.create` | `true` | Generate and keep a session-signing key with Helm `lookup`. With `false` and no `existingSecret` (install.yaml, GitOps, `helm template`) Sealane generates one itself into Secret `<release>-secret`, key `SESSION_SECRET`. |
 | `sessionSecret.existingSecret` | `""` | Use your own Secret (key `session-secret`) |
 | `ingress.enabled` / `className` / `hosts` / `tls` / `annotations` | `false` … | Standard Ingress |
@@ -79,6 +83,6 @@ The same table is in the [chart README](https://github.com/wonjune95/sealane/blo
 |---|---|
 | `/healthz` | liveness — returns `ok` while the process runs |
 | `/readyz` | readiness — pings the Kubernetes API server (2 s timeout) and returns 503 `not ready` on failure |
-| `/metrics` | Prometheus metrics: `http_requests_total` (by `method`, `status`) and `http_request_duration_seconds` (by `method`), plus the standard Go and process collectors |
+| `/metrics` | Prometheus metrics: `http_requests_total` (by `method`, `status`), `http_request_duration_seconds` (by `method`), `sealane_build_info` (by `version`, always 1) and `sealane_history_write_failures_total`, plus the standard Go and process collectors |
 
 Logs are structured `slog` JSON (request log + write audit log). The running version is shown at the bottom of the Settings page. See [Operations](operations.md) for scraping and log fields.

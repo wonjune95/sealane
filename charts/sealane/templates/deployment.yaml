@@ -69,10 +69,18 @@ spec:
             # Trust roots: the system bundle plus every certificate in the -tls-certs ConfigMap.
             - name: SSL_CERT_DIR
               value: /etc/ssl/certs:/etc/sealane/tls-certs
-            # Change history: <name> lists the last 200 changes made through Sealane, <name>-objects keeps the
-            # objects before and after them (size-bounded). Sealane creates both on the first change.
+            # Change history: ConfigMap <name> lists the last 200 changes made through Sealane, Secret <name>-objects
+            # keeps the objects before and after them (size-bounded). Sealane creates both on the first change.
             - name: HISTORY_CONFIGMAP
               value: {{ include "sealane.fullname" . }}-history
+            # With no admin account yet, Sealane creates "admin" with a random password stored in this Secret (key "password").
+            - name: INITIAL_ADMIN_SECRET
+              value: {{ include "sealane.fullname" . }}-initial-admin
+            {{- if .Values.secureCookies }}
+            # Session cookies are always Secure (behind a TLS proxy that does not send X-Forwarded-Proto)
+            - name: SECURE_COOKIES
+              value: "true"
+            {{- end }}
             # Without SESSION_SECRET (install.yaml, GitOps) Sealane generates a key once into this Secret, so restarts and replicas share it.
             - name: SESSION_SECRET_NAME
               value: {{ include "sealane.fullname" . }}-secret

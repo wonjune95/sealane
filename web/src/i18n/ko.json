@@ -446,7 +446,7 @@
   "settings.description": "내 계정과 워크스페이스의 사용자, 연결된 클러스터를 관리하세요.",
   "settings.myAccount": "내 계정",
   "settings.role": "역할",
-  "settings.passwordChanged": "비밀번호가 변경되었습니다. (반영까지 최대 1분, 현재 세션은 유지됩니다)",
+  "settings.passwordChanged": "비밀번호가 변경되었습니다. 다른 곳의 세션은 로그아웃되었습니다.",
   "settings.askAdmin": "계정 추가, 삭제 및 역할 변경은 워크스페이스 관리자에게 문의하세요.",
   "settings.cluster.title": "클러스터 관리",
   "settings.cluster.intro": "kubeconfig로 원격 클러스터를 등록합니다. 평소 쓰는 ~/.kube/config를 그대로 넣어도 됩니다. 고른 컨텍스트만 쓰고, 자격 증명은 이 클러스터의 Secret에만 저장됩니다.",
@@ -604,5 +604,18 @@
   "err.tester-disabled": "요청 테스터가 꺼져 있습니다 (Helm 값 requestTester.enabled=true로 켜세요)",
   "err.tester-admin-only": "요청 테스터는 admin만 쓸 수 있습니다",
   "err.host-required": "호스트를 입력하세요 (예: shop.example.com)",
-  "err.viewer-readonly": "viewer 역할은 읽기 전용이라 변경할 수 없습니다"
+  "err.viewer-readonly": "viewer 역할은 읽기 전용이라 변경할 수 없습니다",
+  "settings.loadFailed": "목록을 불러오지 못했습니다: {message}",
+  "settings.cluster.cleanup": "클러스터에서 Sealane 계정도 삭제",
+  "settings.cluster.cleanupHelp": "그 클러스터의 sealane-remote 네임스페이스와 Sealane 클러스터 역할을 지워, 저장된 토큰이 더는 동작하지 않게 합니다.",
+  "settings.cluster.deleteKeepsAccess": "Sealane에서 이 클러스터의 kubeconfig만 지웁니다. 그 안의 자격 증명은 클러스터에서 계속 유효하니, 더 쓰지 않으려면 클러스터에서 직접 회수하세요.",
+  "settings.cluster.deleteKeepsAccount": "계정은 클러스터에 남습니다. 나중에 지우려면: kubectl delete namespace sealane-remote; kubectl delete clusterrole,clusterrolebinding -l app.kubernetes.io/managed-by=sealane",
+  "err.session-revoked": "계정이나 비밀번호가 바뀌어 세션이 종료되었습니다. 다시 로그인하세요.",
+  "err.password-change-required": "먼저 초기 비밀번호를 변경하세요.",
+  "err.kubeconfig-file": "이 kubeconfig는 디스크의 파일(인증서, 키, 토큰 파일)을 가리킵니다. 내용이 들어 있는 형식(certificate-authority-data, client-certificate-data, client-key-data, token)으로 넣으세요.",
+  "edit.tabsLabel": "편집 보기",
+  "vs.uriMatchType": "URI 매치 방식",
+  "vs.uri": "URI",
+  "editor.yamlLabel": "YAML 편집기",
+  "editor.yamlLabelReadOnly": "YAML (읽기 전용)"
 }

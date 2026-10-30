@@ -58,7 +58,7 @@ const fixture = {
           name: 'payments.example.com',
           port: 443,
           external: true,
-          serviceEntry: 'payments',
+          serviceEntry: 'apps/payments',
           exists: false,
           endpoints: 0,
         },
@@ -71,6 +71,13 @@ const fixture = {
       namespace: 'apps',
       typeId: 'serviceentries.networking.istio.io',
       hosts: ['payments.example.com'],
+    },
+    {
+      // Same name in another namespace: not the one the route uses, so it is its own direct node.
+      name: 'payments',
+      namespace: 'legacy',
+      typeId: 'serviceentries.networking.istio.io',
+      hosts: ['payments.legacy.example.com'],
     },
     {
       name: 'public-api',
@@ -131,6 +138,7 @@ try {
   await page.getByRole('button', { name: 'Egress', exact: false }).click()
   await cards.filter({ hasText: 'dual-direction' }).waitFor()
   await cards.filter({ hasText: 'public-api' }).waitFor()
+  assert.equal(await cards.filter({ hasText: 'legacy' }).count(), 1)
   assert.equal(await cards.filter({ hasText: 'public-gateway' }).count(), 0)
   assert.equal(
     await cards.filter({ hasText: 'payments.example.com' }).count(),

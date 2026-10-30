@@ -274,6 +274,7 @@ export function ResourceEdit() {
 
   // A read-only resource forces the YAML tab (editor locked) — no point showing a form.
   const shownTab: Tab = readOnly && tab === 'form' ? 'yaml' : tab
+  const tabTitle = shownTab === 'form' ? t('edit.tabForm') : shownTab === 'history' ? t('history.tab') : 'YAML'
 
   function switchTab(next: Tab) {
     if (next === 'form' && !formAvailable) {
@@ -499,7 +500,7 @@ export function ResourceEdit() {
         </div>
       )}
 
-      <div className="flex items-center gap-1 border-b border-base">
+      <div role="tablist" aria-label={t('edit.tabsLabel')} onKeyDown={moveBetweenTabs} className="flex items-center gap-1 border-b border-base">
         <TabButton
           active={shownTab === 'form'}
           disabled={!formAvailable || readOnly}
@@ -529,6 +530,7 @@ export function ResourceEdit() {
         )}
       </div>
 
+      <div role="tabpanel" id="edit-tabpanel" aria-label={tabTitle}>
       {shownTab === 'history' ? (
         <HistoryPanel
           type={type}
@@ -556,7 +558,7 @@ export function ResourceEdit() {
             <div className="mb-5 grid grid-cols-1 sm:grid-cols-2 gap-4 border-b border-base pb-5">
               <label className="block">
                 <span className="mb-1 block text-xs font-medium text-muted">
-                  Name<span className="text-red-500">*</span>
+                  {t('common.name')}<span className="text-red-500">*</span>
                 </span>
                 <input
                   className="input-base disabled:bg-gray-100 dark:disabled:bg-slate-800"
@@ -570,7 +572,7 @@ export function ResourceEdit() {
               {rt.namespaced && (
                 <label className="block">
                   <span className="mb-1 block text-xs font-medium text-muted">
-                    Namespace<span className="text-red-500">*</span>
+                    {t('common.namespace')}<span className="text-red-500">*</span>
                   </span>
                   <input
                     className="input-base disabled:bg-gray-100 dark:disabled:bg-slate-800"
@@ -607,7 +609,10 @@ export function ResourceEdit() {
           <YamlEditor value={text} onChange={setText} readOnly={readOnly} focusLine={focus?.line ?? undefined} />
         </>
       )}
+      </div>
 
+      {/* Hidden on the history tab: the edit it would apply is not on screen there. */}
+      {shownTab !== 'history' && (
       <div className="panel sticky bottom-0 z-10 mt-4 flex flex-wrap items-center gap-2 px-4 py-3 shadow-lg">
         <button
           onClick={() => apply(true)}
@@ -636,6 +641,7 @@ export function ResourceEdit() {
           </button>
         )}
       </div>
+      )}
 
       {pending && (
         <DangerConfirm
@@ -688,6 +694,18 @@ export function ResourceEdit() {
   )
 }
 
+// WAI-ARIA tabs: arrow keys, Home and End move between the enabled tabs and select them.
+function moveBetweenTabs(e: React.KeyboardEvent<HTMLDivElement>) {
+  const tabs = [...e.currentTarget.querySelectorAll<HTMLButtonElement>('[role="tab"]:not(:disabled)')]
+  const at = tabs.indexOf(document.activeElement as HTMLButtonElement)
+  const next = { ArrowRight: at + 1, ArrowLeft: at - 1, Home: 0, End: tabs.length - 1 }[e.key]
+  if (next === undefined || at < 0) return
+  e.preventDefault()
+  const tab = tabs[(next + tabs.length) % tabs.length]
+  tab.focus()
+  tab.click()
+}
+
 function TabButton({
   active,
   disabled,
@@ -701,6 +719,10 @@ function TabButton({
 }) {
   return (
     <button
+      role="tab"
+      aria-selected={active}
+      aria-controls="edit-tabpanel"
+      tabIndex={active ? 0 : -1}
       onClick={onClick}
       disabled={disabled}
       className={`-mb-px border-b-2 px-4 py-2 text-sm ${active ? 'border-accent font-medium text-accent' : 'border-transparent text-muted hover:text-strong'} disabled:cursor-not-allowed disabled:opacity-40`}

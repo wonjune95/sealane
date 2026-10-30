@@ -38,6 +38,8 @@ function withClusterParam(path: string) {
   return path + (path.includes('?') ? '&' : '?') + 'cluster=' + encodeURIComponent(c)
 }
 
+export const SESSION_EVENT = 'sealane:session'
+
 async function request<T>(method: string, path: string, body?: unknown): Promise<T> {
   // Auth is the HttpOnly session cookie (sent automatically with same-origin fetch).
   const headers: Record<string, string> = {}
@@ -63,6 +65,11 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
     } catch {
       // non-JSON error body; keep status text
     }
+    // The session ended (signed out elsewhere, account changed) or the initial password must change
+    // first: let the app re-check capabilities, which shows the sign-in or password screen.
+    // (capabilities itself is excluded: re-checking it on its own 401 would loop.)
+    if ((res.status === 401 && !/^\/api\/(?:login|capabilities)/.test(path)) || code === 'password-change-required')
+      window.dispatchEvent(new Event(SESSION_EVENT))
     throw new ApiError(res.status, reason, message, code)
   }
   if (res.status === 204) return undefined as T

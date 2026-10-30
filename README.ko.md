@@ -19,10 +19,12 @@
 
 ```bash
 # Helm (OCI)
-helm install sealane oci://ghcr.io/wonjune95/charts/sealane --version 1.18.3 -n sealane --create-namespace
+helm install sealane oci://ghcr.io/wonjune95/charts/sealane --version 1.19.0 -n sealane --create-namespace
 # or plain manifests
 kubectl apply -f https://github.com/wonjune95/sealane/releases/latest/download/install.yaml
-kubectl -n sealane port-forward svc/sealane 8080:8080   # → http://localhost:8080, 초기 계정 admin / admin
+kubectl -n sealane port-forward svc/sealane 8080:8080   # → http://localhost:8080, 사용자 admin
+# 처음 시작할 때 만들어진 admin 비밀번호:
+kubectl -n sealane get secret sealane-initial-admin -o jsonpath='{.data.password}' | base64 -d; echo
 ```
 
 `install.yaml`은 istiod 버전 조회용으로 `istio-system` 네임스페이스를 전제한다. Istio가 없는 클러스터에서 `kubectl apply`가 내는 `namespaces "istio-system" not found` 오류 두 건은 무시해도 된다. Helm 설치는 Istio 없이도 된다. `istioNamespace` 네임스페이스가 없으면 차트가 istiod-reader Role을 건너뛴다(Argo CD·Flux 같은 GitOps 도구는 `helm template`으로 렌더링해 이를 감지하지 못하므로 `istioNamespace: ""`로 설정) — [Getting started](https://wonjune95.github.io/sealane/getting-started/) 참고.
@@ -100,7 +102,8 @@ go vet ./cmd/... ./internal/...
 ./hack/check-i18n.sh               # 로케일 파일 밖 한글 금지, en/ko 키 일치
 helm lint charts/sealane
 cd web && npm run lint && npm run test:cluster-selection && npm run test:flow-map && npm run test:login-sso
-./hack/e2e.sh http://localhost:8080   # 새로 설치한 인스턴스에 대한 API 스모크 테스트 (admin/admin)
+INITIAL_PASS=$(kubectl -n sealane get secret sealane-initial-admin -o jsonpath='{.data.password}' | base64 -d) \
+  ./hack/e2e.sh http://localhost:8080   # 새로 설치한 인스턴스에 대한 API 스모크 테스트
 ```
 
 전체 체크리스트와 문서 빌드 방법은 [CONTRIBUTING.md](CONTRIBUTING.md)와 [contributing 페이지](https://wonjune95.github.io/sealane/contributing/)를 참고한다.

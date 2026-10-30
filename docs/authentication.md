@@ -30,7 +30,7 @@ data:
   # viewer1: "viewer:<bcrypt-hash>"
 ```
 
-The ConfigMap lives in the cluster, not the pod, so accounts survive restarts and redeploys. The chart and `install.yaml` create it empty (the name comes from `accountsConfigMap`), Sealane adds the initial `admin`, and from then on the UI or kubectl edits it: upgrades leave existing keys alone and `helm uninstall` keeps the ConfigMap. The pod mounts it, and edits apply **within about a minute, without a restart**. The full example is [`examples/accounts-configmap.yaml`](https://github.com/wonjune95/sealane/blob/main/examples/accounts-configmap.yaml).
+The ConfigMap lives in the cluster, not the pod, so accounts survive restarts and redeploys. The chart and `install.yaml` create it empty (the name comes from `accountsConfigMap`), Sealane adds the initial `admin`, and from then on the UI or kubectl edits it: upgrades leave existing keys alone and `helm uninstall` keeps the ConfigMap. Sealane reads it through the API, so edits apply **within seconds, without a restart**, and a deleted account, a changed role or a changed password ends the sessions issued before. The full example is [`examples/accounts-configmap.yaml`](https://github.com/wonjune95/sealane/blob/main/examples/accounts-configmap.yaml).
 
 GitOps and no UI edits? Seed the accounts from Helm values instead:
 
@@ -59,11 +59,17 @@ Add a key to add an account, edit the role string to change the role, delete the
 
 ### The initial admin
 
-If the accounts ConfigMap is missing or has no `admin` key at startup, Sealane creates **`admin` / `admin`**. Logging in with that password locks the UI to a password-change screen until you change it.
+If no account has the admin role at startup, Sealane creates `admin` with a random password and stores it in Secret `sealane-initial-admin` (`<release>-initial-admin` with Helm), key `password`:
+
+```bash
+kubectl -n sealane get secret sealane-initial-admin -o jsonpath='{.data.password}' | base64 -d; echo
+```
+
+Change it after the first sign-in. Sealane reads that Secret again only when there is no admin account, so you can delete it afterwards. An install upgraded from before 1.19 whose `admin` still has the password `admin` must change it first: the server refuses every other request until then.
 
 ### Changing your own password
 
-Everyone with a local account, viewers included, changes their own password from the user chip in the header → settings page, after entering the current one. New passwords need at least 8 characters. The server patches only your own key in the ConfigMap.
+Everyone with a local account, viewers included, changes their own password from the user chip in the header → settings page, after entering the current one. New passwords need at least 8 characters. The server patches only your own key in the ConfigMap, keeps your current session and ends your other sessions.
 
 ## Single sign-on (OIDC)
 
@@ -156,7 +162,7 @@ When upgrading an existing release from 0.9, use `--reset-then-reuse-values` (He
 To try SSO without a real IdP, deploy [`examples/dex-demo.yaml`](https://github.com/wonjune95/sealane/blob/main/examples/dex-demo.yaml). It runs Dex with the **mock connector**: every sign-in succeeds as `kilgore@kilgore.trout` with the group `authors`. The comments at the top of the file give the steps: replace the two `example.com` hosts (Dex must be reachable by the browser **and** by the Sealane pod at the same issuer URL), apply the file, then upgrade Sealane with:
 
 ```bash
-helm upgrade sealane oci://ghcr.io/wonjune95/charts/sealane --version 1.18.3 -n sealane --reset-then-reuse-values \
+helm upgrade sealane oci://ghcr.io/wonjune95/charts/sealane --version 1.19.0 -n sealane --reset-then-reuse-values \
   --set oidc.enabled=true --set oidc.displayName=Dex \
   --set oidc.issuerURL=http://dex.example.com/dex --set oidc.clientID=sealane \
   --set oidc.clientSecretRef.name=sealane-dex-client \

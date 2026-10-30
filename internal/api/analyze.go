@@ -123,7 +123,7 @@ func analyzeSnapshot(st *meshSnapshot, ns string) analysis {
 			svc, ok := st.services[svcKey(b)]
 			if !ok && st.services != nil {
 				fqdn := b.Name + "." + b.Namespace + ".svc.cluster.local"
-				if serviceEntryFor(st.ses, d.Host) != "" || serviceEntryFor(st.ses, fqdn) != "" {
+				if serviceEntryFor(st.ses, d.Host, v.Namespace) != "" || serviceEntryFor(st.ses, fqdn, v.Namespace) != "" {
 					continue // VM / multicluster host backed by a ServiceEntry
 				}
 				add(finding{Severity: "error", Code: "vs-host-missing", Resource: self, Service: svcKey(b),
@@ -180,7 +180,7 @@ func analyzeSnapshot(st *meshSnapshot, ns string) analysis {
 		}
 		if !ok {
 			fqdn := b.Name + "." + b.Namespace + ".svc.cluster.local"
-			if serviceEntryFor(st.ses, host) == "" && serviceEntryFor(st.ses, fqdn) == "" {
+			if serviceEntryFor(st.ses, host, dr.Namespace) == "" && serviceEntryFor(st.ses, fqdn, dr.Namespace) == "" {
 				add(finding{Severity: "warning", Code: "dr-host-missing", Resource: self, Service: svcKey(b),
 					Path: "spec.host", Value: host,
 					Message: fmt.Sprintf("host %q is not a Service (looked for %s) and no ServiceEntry covers it", host, svcKey(b))})

@@ -6,6 +6,7 @@ import { apiDelete, apiGet, apiPost, apiPut, errorText, getCluster, setCluster }
 import { useToast } from '../components/Toast'
 import { PageHeader } from '../components/PageHeader'
 import { Icon } from '../components/icons'
+import { Modal } from '../components/Modal'
 import { t } from '../i18n'
 
 // My account info + password change.
@@ -147,6 +148,7 @@ function ClustersPanel() {
   const [picked, setPicked] = useState('')
   const [setup, setSetup] = useState(true)
   const [busy, setBusy] = useState(false)
+  const [deleting, setDeleting] = useState<Cluster | null>(null)
   const file = useRef<HTMLInputElement>(null)
   const contexts = useMemo(() => kubeconfigContexts(kubeconfig), [kubeconfig])
   const context = contexts.names.includes(picked) ? picked : contexts.current
@@ -185,19 +187,15 @@ function ClustersPanel() {
     }
   }
 
-  const remove = async (target: string) => {
-    if (!window.confirm(t('settings.cluster.confirmDelete', { name: target }))) return
-    try {
-      await apiDelete(`/api/clusters/${encodeURIComponent(target)}`)
-      if (getCluster() === target) {
-        setCluster('')
-        return
-      } // deleted the current cluster → reload on local
-      toast('success', t('settings.cluster.deleted', { name: target }))
-      void clusters.refetch()
-    } catch (err) {
-      toast('error', errorText(err))
-    }
+  const remove = async (target: string, cleanup: boolean) => {
+    await apiDelete(`/api/clusters/${encodeURIComponent(target)}${cleanup ? '?cleanup=true' : ''}`)
+    setDeleting(null)
+    if (getCluster() === target) {
+      setCluster('')
+      return
+    } // deleted the current cluster → reload on local
+    toast('success', t('settings.cluster.deleted', { name: target }))
+    void clusters.refetch()
   }
 
   return (
@@ -207,6 +205,9 @@ function ClustersPanel() {
         {t('settings.cluster.title')}
       </h3>
       <p className="text-xs text-muted">{t('settings.cluster.intro')}</p>
+      {clusters.isError && (
+        <LoadError message={errorText(clusters.error)} onRetry={() => void clusters.refetch()} />
+      )}
       <table className="w-full text-sm">
         <thead>
           <tr className="border-b border-gray-200 text-left text-xs text-muted dark:border-slate-700">
@@ -239,7 +240,7 @@ function ClustersPanel() {
               </td>
               <td className="py-1.5 text-right">
                 <button
-                  onClick={() => remove(c.name)}
+                  onClick={() => setDeleting(c)}
                   disabled={c.name === 'local'}
                   className="text-xs text-red-600 hover:underline disabled:cursor-not-allowed disabled:opacity-40 dark:text-red-400"
                 >
@@ -250,6 +251,9 @@ function ClustersPanel() {
           ))}
         </tbody>
       </table>
+      {deleting && (
+        <DeleteClusterDialog cluster={deleting} onDelete={remove} onCancel={() => setDeleting(null)} />
+      )}
 
       <form onSubmit={submit} className="space-y-2 border-t border-gray-200 pt-3 dark:border-slate-700">
         <div className="flex items-center justify-between gap-2">
@@ -336,6 +340,7 @@ type Account = { name: string; role: string }
 function AccountsPanel({ me }: { me: string }) {
   const toast = useToast()
   const [accounts, setAccounts] = useState<Account[] | null>(null)
+  const [loadError, setLoadError] = useState('')
   const [name, setName] = useState('')
   const [role, setRole] = useState('viewer')
   const [password, setPassword] = useState('')
@@ -343,11 +348,12 @@ function AccountsPanel({ me }: { me: string }) {
 
   const reload = useCallback(() => {
     apiGet<Account[]>('/api/accounts')
-      .then(setAccounts)
-      .catch((err) => {
-        toast('error', errorText(err))
+      .then((list) => {
+        setAccounts(list)
+        setLoadError('')
       })
-  }, [toast])
+      .catch((err) => setLoadError(errorText(err))) // keep the last list on screen
+  }, [])
   useEffect(reload, [reload])
 
   const exists = accounts?.some((a) => a.name === name) ?? false
@@ -391,8 +397,9 @@ function AccountsPanel({ me }: { me: string }) {
         <Icon name="user" className="h-4 w-4 text-accent" />
         {t('settings.account.title')}
       </h3>
+      {loadError && <LoadError message={loadError} onRetry={reload} />}
       {accounts === null ? (
-        <p className="text-sm text-muted">{t('common.loading')}</p>
+        !loadError && <p className="text-sm text-muted">{t('common.loading')}</p>
       ) : (
         <table className="w-full text-sm">
           <thead>
@@ -458,5 +465,76 @@ function AccountsPanel({ me }: { me: string }) {
         </button>
       </form>
     </div>
+  )
+}
+
+// A list that failed to load says so, with the reason and a retry, instead of looking empty.
+function LoadError({ message, onRetry }: { message: string; onRetry: () => void }) {
+  return (
+    <div role="alert" className="flex items-center justify-between gap-3 rounded-lg bg-red-50 px-3 py-2 text-xs text-red-700 dark:bg-red-500/10 dark:text-red-300">
+      <span>{t('settings.loadFailed', { message })}</span>
+      <button type="button" onClick={onRetry} className="btn-ghost shrink-0 px-2 py-1 text-xs">
+        {t('common.retry')}
+      </button>
+    </div>
+  )
+}
+
+// Deleting a cluster forgets its kubeconfig. A cluster registered with Sealane's own account can also
+// have that account removed, which revokes its token; pasted credentials stay valid either way.
+function DeleteClusterDialog({
+  cluster,
+  onDelete,
+  onCancel,
+}: {
+  cluster: Cluster
+  onDelete: (name: string, cleanup: boolean) => Promise<void>
+  onCancel: () => void
+}) {
+  const [cleanup, setCleanup] = useState(!!cluster.dedicated)
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState('')
+  const confirm = async () => {
+    setBusy(true)
+    setError('')
+    try {
+      await onDelete(cluster.name, cleanup)
+    } catch (err) {
+      setError(errorText(err))
+      setBusy(false)
+    }
+  }
+  return (
+    <Modal label={t('settings.cluster.confirmDelete', { name: cluster.name })} onCancel={onCancel} busy={busy}>
+      <div className="panel mx-auto w-full max-w-md space-y-3 rounded-xl p-6 shadow-xl">
+        <h3 className="text-base font-semibold text-strong">{t('settings.cluster.confirmDelete', { name: cluster.name })}</h3>
+        {cluster.dedicated ? (
+          <label className="flex items-start gap-2 text-sm">
+            <input type="checkbox" className="mt-0.5" checked={cleanup} onChange={(e) => setCleanup(e.target.checked)} />
+            <span>
+              {t('settings.cluster.cleanup')}
+              <span className="mt-0.5 block text-xs text-muted">{t('settings.cluster.cleanupHelp')}</span>
+            </span>
+          </label>
+        ) : (
+          <p className="text-sm text-muted">{t('settings.cluster.deleteKeepsAccess')}</p>
+        )}
+        {cluster.dedicated && !cleanup && <p className="text-xs text-muted">{t('settings.cluster.deleteKeepsAccount')}</p>}
+        {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
+        <div className="flex justify-end gap-2">
+          <button type="button" onClick={onCancel} disabled={busy} className="btn-ghost text-sm">
+            {t('common.cancel')}
+          </button>
+          <button
+            type="button"
+            onClick={() => void confirm()}
+            disabled={busy}
+            className="rounded bg-red-600 px-3 py-1.5 text-sm text-white hover:bg-red-700 disabled:opacity-40"
+          >
+            {t('common.delete')}
+          </button>
+        </div>
+      </div>
+    </Modal>
   )
 }

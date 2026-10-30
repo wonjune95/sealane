@@ -63,6 +63,7 @@ func main() {
 		}
 	}
 	api.AppVersion = version
+	observability.SetBuildInfo(version)
 	// No SESSION_SECRET env (install.yaml, GitOps): keep a generated key in the
 	// SESSION_SECRET_NAME Secret so restarts and replicas share it.
 	sessionSecret := os.Getenv("SESSION_SECRET")
@@ -82,6 +83,8 @@ func main() {
 		srv.EnableRequestTester()
 		slog.Info("request tester enabled (admin only, uses pods/exec)")
 	}
+	// Behind TLS-terminating proxies that do not send X-Forwarded-Proto, mark cookies Secure explicitly.
+	api.SecureCookies = os.Getenv("SECURE_COOKIES") == "true"
 	// Single sign-on (optional): OIDC_* env from the chart. Discovery is lazy, so a
 	// misconfigured issuer shows up on first use, not at boot.
 	switch cfg, err := auth.OIDCConfigFromEnv(); {
@@ -90,7 +93,7 @@ func main() {
 		os.Exit(1)
 	case cfg != nil:
 		srv.SetOIDC(auth.NewOIDC(*cfg))
-		api.SecureCookies = strings.HasPrefix(cfg.RedirectURL, "https://")
+		api.SecureCookies = api.SecureCookies || strings.HasPrefix(cfg.RedirectURL, "https://")
 		slog.Info("oidc enabled", "issuer", cfg.IssuerURL, "displayName", cfg.DisplayName)
 	}
 	srv.HideLocalLogin(os.Getenv("LOCAL_LOGIN") == "hidden")
@@ -102,7 +105,8 @@ func main() {
 	if name, ns := os.Getenv("HISTORY_CONFIGMAP"), os.Getenv("POD_NAMESPACE"); name != "" && ns != "" && !*dev {
 		srv.SetHistory(api.HistoryRef{Namespace: ns, Name: name})
 	}
-	// If there is no admin account, create the initial admin/admin account.
+	// No admin account yet: create "admin" with a random password kept in the INITIAL_ADMIN_SECRET Secret.
+	srv.SetInitialAdminSecret(os.Getenv("INITIAL_ADMIN_SECRET"))
 	srv.EnsureInitialAdmin(context.Background())
 
 	mux := http.NewServeMux()
@@ -121,9 +125,20 @@ func main() {
 	srv.Routes(mux)
 	mux.Handle("/", assets.Handler())
 
+	// Browsers' cross-site POST/PUT/DELETE are refused (CSRF), using Sec-Fetch-Site or Origin vs Host.
+	// TRUSTED_ORIGINS lists extra origins, for a proxy that rewrites the Host header.
+	csrf := http.NewCrossOriginProtection()
+	for _, o := range strings.Split(os.Getenv("TRUSTED_ORIGINS"), ",") {
+		if o = strings.TrimSpace(o); o != "" {
+			if err := csrf.AddTrustedOrigin(o); err != nil {
+				slog.Error("TRUSTED_ORIGINS invalid", "origin", o, "err", err)
+				os.Exit(1)
+			}
+		}
+	}
 	httpServer := &http.Server{
 		Addr:              *addr,
-		Handler:           logRequests(observability.Instrument(securityHeaders(mux))),
+		Handler:           logRequests(observability.Instrument(securityHeaders(csrf.Handler(mux)))),
 		ReadHeaderTimeout: 10 * time.Second,
 	}
 
@@ -174,6 +189,9 @@ func securityHeaders(next http.Handler) http.Handler {
 		h.Set("Referrer-Policy", "no-referrer")
 		h.Set("Content-Security-Policy",
 			"default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; frame-ancestors 'none'; base-uri 'self'; form-action 'self'")
+		if r.TLS != nil || strings.EqualFold(r.Header.Get("X-Forwarded-Proto"), "https") {
+			h.Set("Strict-Transport-Security", "max-age=31536000")
+		}
 		next.ServeHTTP(w, r)
 	})
 }

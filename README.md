@@ -18,10 +18,12 @@
 
 ```bash
 # Helm (OCI)
-helm install sealane oci://ghcr.io/wonjune95/charts/sealane --version 1.18.3 -n sealane --create-namespace
+helm install sealane oci://ghcr.io/wonjune95/charts/sealane --version 1.19.0 -n sealane --create-namespace
 # or plain manifests
 kubectl apply -f https://github.com/wonjune95/sealane/releases/latest/download/install.yaml
-kubectl -n sealane port-forward svc/sealane 8080:8080   # → http://localhost:8080, log in as admin / admin
+kubectl -n sealane port-forward svc/sealane 8080:8080   # → http://localhost:8080, user admin
+# the admin password, generated at first start:
+kubectl -n sealane get secret sealane-initial-admin -o jsonpath='{.data.password}' | base64 -d; echo
 ```
 
 `install.yaml` expects the `istio-system` namespace for the istiod version reader; without Istio, the two `namespaces "istio-system" not found` errors from `kubectl apply` are harmless. A Helm install works without Istio: when the `istioNamespace` namespace is absent, the chart skips its istiod-reader Role (GitOps tools render with `helm template` and cannot detect this — set `istioNamespace: ""` there) — see [Getting started](https://wonjune95.github.io/sealane/getting-started/).
@@ -97,7 +99,8 @@ go vet ./cmd/... ./internal/...
 ./hack/check-i18n.sh               # no Korean outside locale files, en/ko keys match
 helm lint charts/sealane
 cd web && npm run lint && npm run test:cluster-selection && npm run test:flow-map && npm run test:login-sso
-./hack/e2e.sh http://localhost:8080   # API smoke test against a fresh install (admin/admin)
+INITIAL_PASS=$(kubectl -n sealane get secret sealane-initial-admin -o jsonpath='{.data.password}' | base64 -d) \
+  ./hack/e2e.sh http://localhost:8080   # API smoke test against a fresh install
 ```
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) and the [contributing page](https://wonjune95.github.io/sealane/contributing/) for the full checklist and how to build the docs.

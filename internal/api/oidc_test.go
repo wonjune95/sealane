@@ -146,7 +146,7 @@ func oidcTestConfig(idp *fakeIdP, defaultRole string) auth.OIDCConfig {
 func newOIDCMux(t *testing.T, idp *fakeIdP, defaultRole string) (*http.ServeMux, *Server) {
 	t.Helper()
 	// capabilities runs a SelfSubjectAccessReview, so the source needs a (fake) kube client.
-	srv := NewServer(false, &stubSource{clients: &k8s.Clients{Kube: kubefake.NewClientset()}}, auth.NewStore(t.TempDir()), testSessions, AccountsCMRef{}, ClustersSecretRef{})
+	srv := NewServer(false, &stubSource{clients: &k8s.Clients{Kube: kubefake.NewClientset()}}, testStore(t), testSessions, AccountsCMRef{}, ClustersSecretRef{})
 	srv.SetOIDC(auth.NewOIDC(oidcTestConfig(idp, defaultRole)))
 	mux := http.NewServeMux()
 	srv.Routes(mux)
@@ -220,7 +220,7 @@ func TestAuthMethodsLocalHiddenOnlyWhenSet(t *testing.T) {
 }
 
 func TestAuthMethodsLocalHiddenNeedsOIDC(t *testing.T) {
-	srv := NewServer(false, &stubSource{}, auth.NewStore(t.TempDir()), testSessions, AccountsCMRef{}, ClustersSecretRef{})
+	srv := NewServer(false, &stubSource{}, testStore(t), testSessions, AccountsCMRef{}, ClustersSecretRef{})
 	srv.HideLocalLogin(true)
 	mux := http.NewServeMux()
 	srv.Routes(mux)

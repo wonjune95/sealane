@@ -22,14 +22,23 @@ Yes. Sealane shows the kinds whose CRDs exist and hides the rest. On a cluster w
 
 ## I lost the admin password. How do I get back in?
 
-Edit the accounts ConfigMap directly — no restart needed:
+If another admin can sign in, they set a new password for `admin` under **Settings → Accounts**. Otherwise edit the accounts ConfigMap directly, no restart needed:
 
 ```bash
 go run ./hack/bcrypt-hash.go 'new-password'
 kubectl -n sealane edit configmap sealane-accounts   # set  admin: "admin:<new-hash>"
 ```
 
-The change applies within about a minute. Alternatively, delete the `admin` key and restart the pod: when the ConfigMap has no `admin` key at startup, Sealane recreates `admin` / `admin` and forces a password change on first login.
+The change applies within seconds and ends the sessions that used the old password. Alternatively, have Sealane generate a new one: remove the `admin` key and the old initial password, then restart. With no admin account at startup, Sealane creates `admin` again with a random password in Secret `sealane-initial-admin`:
+
+```bash
+kubectl -n sealane patch configmap sealane-accounts --type json -p '[{"op":"remove","path":"/data/admin"}]'
+kubectl -n sealane delete secret sealane-initial-admin --ignore-not-found
+kubectl -n sealane rollout restart deploy/sealane && kubectl -n sealane rollout status deploy/sealane
+kubectl -n sealane get secret sealane-initial-admin -o jsonpath='{.data.password}' | base64 -d; echo
+```
+
+This works only when no other account has the admin role; otherwise one of those admins resets the password.
 
 ## Why do I have to log in again after a restart?
 

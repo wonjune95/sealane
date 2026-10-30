@@ -63,7 +63,7 @@ func (s *Server) auditResource(ctx context.Context, verb, typeID, ns, name strin
 	e := AuditEntry{
 		Time:      time.Now(),
 		Cluster:   clusterFrom(ctx),
-		User:      identityFrom(ctx).User(),
+		User:      capUser(identityFrom(ctx).User()),
 		Provider:  identityFrom(ctx).Provider,
 		Verb:      verb,
 		TypeID:    typeID,
@@ -78,4 +78,12 @@ func (s *Server) auditResource(ctx context.Context, verb, typeID, ns, name strin
 	}
 	s.auditMu.Unlock()
 	s.recordRevision(ctx, e, before, after)
+}
+
+// capUser bounds a user name (an IdP claim) so 200 history entries always fit in one ConfigMap.
+func capUser(u string) string {
+	if len(u) > 256 {
+		return u[:256]
+	}
+	return u
 }

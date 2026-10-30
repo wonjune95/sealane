@@ -16,6 +16,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/tools/clientcmd"
 
 	"github.com/wonjune95/sealane/internal/k8s"
 )
@@ -76,17 +77,19 @@ func (s *Server) dropClusterCache(name string) {
 // With ?status=true it pings each cluster in parallel to fill in connectivity and
 // version (for the settings panel).
 func (s *Server) handleClustersList(w http.ResponseWriter, r *http.Request) {
-	if _, err := s.sessionIdentity(r); err != nil {
-		writeError(w, http.StatusUnauthorized, "Unauthorized", err.Error())
+	id, ok := s.session(w, r, true)
+	if !ok {
 		return
 	}
 	type cluster struct {
 		Name      string `json:"name"`
+		Dedicated bool   `json:"dedicated,omitempty"` // registered with a Sealane-created account (can be cleaned up)
 		Connected *bool  `json:"connected,omitempty"`
 		Version   string `json:"version,omitempty"`
 		Error     string `json:"error,omitempty"`
 	}
-	withStatus := r.URL.Query().Get("status") == "true"
+	// Status pings every cluster, so only admins (the settings panel) get it.
+	withStatus := r.URL.Query().Get("status") == "true" && id.Role == "admin"
 	list := []cluster{{Name: "local"}}
 	if withStatus {
 		t := true // for local, serving this response is itself proof of connectivity
@@ -105,18 +108,21 @@ func (s *Server) handleClustersList(w http.ResponseWriter, r *http.Request) {
 				}
 				sort.Strings(names)
 				for _, n := range names {
-					list = append(list, cluster{Name: n})
+					list = append(list, cluster{Name: n, Dedicated: k8s.IsDedicatedKubeconfig(sec.Data[n])})
 				}
 			}
 		}
 	}
 	if withStatus {
 		var wg sync.WaitGroup
+		slots := make(chan struct{}, 8) // at most 8 pings at a time
 		for i := range list[1:] {
 			c := &list[i+1]
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
+				slots <- struct{}{}
+				defer func() { <-slots }()
 				connected := false
 				c.Connected = &connected
 				f, err := k8s.NewClientFactoryFromKubeconfig(kubeconfigs[c.Name])
@@ -180,6 +186,10 @@ func (s *Server) handleClusterUpsert(w http.ResponseWriter, r *http.Request) {
 		writeCoded(w, http.StatusBadRequest, "BadRequest", "kubeconfig-exec", err.Error())
 		return
 	}
+	if errors.Is(err, k8s.ErrFileReference) {
+		writeCoded(w, http.StatusBadRequest, "BadRequest", "kubeconfig-file", err.Error())
+		return
+	}
 	if err != nil {
 		writeError(w, http.StatusBadRequest, "BadRequest", err.Error())
 		return
@@ -219,10 +229,20 @@ func (s *Server) handleClusterUpsert(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, out)
 }
 
+// DELETE /api/clusters/{name}[?cleanup=true]: cleanup first removes the Sealane account on the cluster
+// (using its own token), so its access is revoked rather than just forgotten. If that fails the
+// registration stays, so the admin can retry or delete without cleanup and remove the account by hand.
 func (s *Server) handleClusterDelete(w http.ResponseWriter, r *http.Request) {
 	name, ok := s.clustersGuard(w, r)
 	if !ok {
 		return
+	}
+	if r.URL.Query().Get("cleanup") == "true" {
+		if err := s.cleanupCluster(r.Context(), name); err != nil {
+			writeError(w, http.StatusBadGateway, "CleanupFailed", "could not remove Sealane's account from the cluster, so the cluster was not deleted: "+err.Error())
+			return
+		}
+		slog.Info("cluster account removed", "cluster", name)
 	}
 	if err := s.patchClusterSecret(r.Context(), name, nil); err != nil {
 		writeError(w, http.StatusInternalServerError, "Internal", "failed to update clusters Secret: "+err.Error())
@@ -231,6 +251,32 @@ func (s *Server) handleClusterDelete(w http.ResponseWriter, r *http.Request) {
 	s.dropClusterCache(name)
 	slog.Info("cluster deleted", "cluster", name)
 	w.WriteHeader(http.StatusNoContent)
+}
+
+func (s *Server) cleanupCluster(ctx context.Context, name string) error {
+	client, err := s.factory.Base()
+	if err != nil {
+		return err
+	}
+	sec, err := client.Kube.CoreV1().Secrets(s.clustersSecret.Namespace).Get(ctx, s.clustersSecret.Name, metav1.GetOptions{})
+	if err != nil {
+		return err
+	}
+	data, ok := sec.Data[name]
+	if !ok || !k8s.IsDedicatedKubeconfig(data) {
+		return fmt.Errorf("cluster %s was not registered with a Sealane account", name)
+	}
+	cfg, err := clientcmd.RESTConfigFromKubeConfig(data)
+	if err != nil {
+		return err
+	}
+	kube, err := kubernetes.NewForConfig(cfg)
+	if err != nil {
+		return err
+	}
+	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	defer cancel()
+	return k8s.CleanupRemoteAccount(ctx, kube)
 }
 
 // patchClusterSecret merge-patches one Secret key; kubeconfig nil deletes it.

@@ -13,8 +13,6 @@ import (
 	kubefake "k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/rest"
 	k8stesting "k8s.io/client-go/testing"
-
-	"github.com/wonjune95/sealane/internal/auth"
 )
 
 func impersonationServer(t *testing.T, on bool) (*http.ServeMux, *stubSource) {
@@ -22,7 +20,7 @@ func impersonationServer(t *testing.T, on bool) (*http.ServeMux, *stubSource) {
 	base, _ := fakeDynamicClients()
 	as, _ := fakeDynamicClients()
 	src := &stubSource{clients: base, asClients: as}
-	s := NewServer(false, src, auth.NewStore(t.TempDir()), testSessions, AccountsCMRef{}, ClustersSecretRef{})
+	s := NewServer(false, src, testStore(t), testSessions, AccountsCMRef{}, ClustersSecretRef{})
 	s.SetImpersonation(on)
 	mux := http.NewServeMux()
 	s.Routes(mux)

@@ -34,6 +34,15 @@ type Identity struct {
 	Provider string // ProviderLocal | ProviderOIDC
 	// Groups are the IdP groups at sign-in, for the login log only; never stored in the session.
 	Groups []string `json:"-"`
+	// PV is a local account's password version at sign-in (PasswordVersion of its hash). A session
+	// whose PV no longer matches the account was issued before a password change and is refused.
+	PV string `json:"-"`
+}
+
+// PasswordVersion is a short, non-reversible fingerprint of a stored bcrypt hash.
+func PasswordVersion(hash string) string {
+	sum := sha256.Sum256([]byte(hash))
+	return base64.RawURLEncoding.EncodeToString(sum[:9])
 }
 
 // User returns a stable display identity for audit logs.
@@ -47,31 +56,96 @@ var validRoles = map[string]bool{"admin": true, "editor": true, "viewer": true}
 // ValidRole reports whether r is one of the app roles.
 func ValidRole(r string) bool { return validRoles[r] }
 
-// Store reads accounts from dir on every call — logins are rare and a mounted
-// ConfigMap updates in place, so no caching/watching is needed.
+// Store reads accounts ("role:bcryptHash" per user). With a source (the accounts ConfigMap read
+// through the API, see SetSource) changes are seen within sourceTTL on every replica, which is what
+// revoking a deleted or demoted account's sessions relies on; otherwise, or when the source fails,
+// it reads the mounted ConfigMap directory, which kubelet refreshes about once a minute.
 type Store struct {
 	dir string
+
+	srcMu   sync.Mutex
+	source  func() (map[string]string, error)
+	srcData map[string]string
+	srcAt   time.Time
 
 	pwMu    sync.Mutex
 	pwCache map[string]bool // "user:hash:plain" → match result (for the initial-password check in capabilities)
 }
 
+const sourceTTL = 3 * time.Second
+
 func NewStore(dir string) *Store { return &Store{dir: dir, pwCache: map[string]bool{}} }
+
+// SetSource reads accounts from fn (cached for sourceTTL) instead of the mounted directory.
+func (s *Store) SetSource(fn func() (map[string]string, error)) {
+	s.srcMu.Lock()
+	s.source, s.srcData = fn, nil
+	s.srcMu.Unlock()
+}
+
+// Invalidate drops the cached accounts, so this replica sees a change it just made at once.
+func (s *Store) Invalidate() {
+	s.srcMu.Lock()
+	s.srcData = nil
+	s.srcMu.Unlock()
+}
+
+func validUsername(u string) bool {
+	return u != "" && !strings.ContainsAny(u, "/\\") && !strings.HasPrefix(u, ".")
+}
+
+// raw returns the stored "role:hash" entry of an account.
+func (s *Store) raw(username string) (string, bool) {
+	if !validUsername(username) { // usernames are file names; reject path tricks before touching the fs
+		return "", false
+	}
+	s.srcMu.Lock()
+	if s.source != nil && (s.srcData == nil || time.Since(s.srcAt) > sourceTTL) {
+		if data, err := s.source(); err == nil {
+			s.srcData, s.srcAt = data, time.Now()
+		}
+	}
+	data := s.srcData
+	s.srcMu.Unlock()
+	if data != nil {
+		v, ok := data[username]
+		return strings.TrimSpace(v), ok
+	}
+	b, err := os.ReadFile(filepath.Join(s.dir, username))
+	if err != nil {
+		return "", false
+	}
+	return strings.TrimSpace(string(b)), true
+}
+
+// Lookup returns an account's role and password version (ok=false: no such account or a broken entry).
+func (s *Store) Lookup(username string) (role, pv string, ok bool) {
+	entry, found := s.raw(username)
+	role, hash, cut := strings.Cut(entry, ":")
+	if !found || !cut || !validRoles[role] {
+		return "", "", false
+	}
+	return role, PasswordVersion(hash), true
+}
+
+// HasAdmin reports whether any account entry has the admin role.
+func HasAdmin(entries map[string]string) bool {
+	for _, v := range entries {
+		if role, _, _ := strings.Cut(strings.TrimSpace(v), ":"); role == "admin" {
+			return true
+		}
+	}
+	return false
+}
 
 // PasswordIs reports whether the account's current password equals plain.
 // It runs on every capabilities call, so results are cached per hash (a new
 // password means a new hash and thus a new key — stale entries are harmless and
 // grow only with the number of users).
 func (s *Store) PasswordIs(username, plain string) bool {
-	if username == "" || strings.ContainsAny(username, "/\\") || strings.HasPrefix(username, ".") {
-		return false
-	}
-	b, err := os.ReadFile(filepath.Join(s.dir, username))
-	if err != nil {
-		return false
-	}
-	_, hash, ok := strings.Cut(strings.TrimSpace(string(b)), ":")
-	if !ok {
+	entry, found := s.raw(username)
+	_, hash, ok := strings.Cut(entry, ":")
+	if !found || !ok {
 		return false
 	}
 	key := username + ":" + hash + ":" + plain
@@ -88,28 +162,25 @@ func (s *Store) PasswordIs(username, plain string) bool {
 var ErrBadCredentials = errors.New("invalid username or password")
 
 // Authenticate verifies username/password and returns the account's role.
-func (s *Store) Authenticate(username, password string) (string, error) {
-	// usernames become file names; reject path tricks before touching the fs.
-	if username == "" || strings.ContainsAny(username, "/\\") || strings.HasPrefix(username, ".") {
-		return "", ErrBadCredentials
-	}
-	b, err := os.ReadFile(filepath.Join(s.dir, username))
-	if err != nil {
+// Authenticate verifies username/password and returns the account's role and password version.
+func (s *Store) Authenticate(username, password string) (role, pv string, err error) {
+	entry, found := s.raw(username)
+	if !found {
 		// burn comparable time so missing vs wrong-password is indistinguishable
 		_ = bcrypt.CompareHashAndPassword([]byte("$2a$10$7EqJtq98hPqEX7fNZaFWoOhi5B0xF3F0mQ5eGvHq0FhqYb6R1r1uW"), []byte(password))
-		return "", ErrBadCredentials
+		return "", "", ErrBadCredentials
 	}
-	role, hash, ok := strings.Cut(strings.TrimSpace(string(b)), ":")
+	role, hash, ok := strings.Cut(entry, ":")
 	if !ok || !validRoles[role] {
-		return "", fmt.Errorf("account %q is misconfigured (expected role:bcryptHash)", username)
+		return "", "", fmt.Errorf("account %q is misconfigured (expected role:bcryptHash)", username)
 	}
 	if bcrypt.CompareHashAndPassword([]byte(hash), []byte(password)) != nil {
-		return "", ErrBadCredentials
+		return "", "", ErrBadCredentials
 	}
-	return role, nil
+	return role, PasswordVersion(hash), nil
 }
 
-// Sessions signs and verifies session cookie values: "user|role|expiry|provider|sig".
+// Sessions signs and verifies session cookie values: "user|role|expiry|provider|pv|sig".
 type Sessions struct{ secret []byte }
 
 // NewSessions uses SESSION_SECRET when provided; otherwise a random per-boot key.
@@ -131,15 +202,15 @@ func (s *Sessions) Sign(id Identity, ttl time.Duration) string {
 	if provider == "" {
 		provider = ProviderLocal
 	}
-	payload := fmt.Sprintf("%s|%s|%d|%s",
-		base64.RawURLEncoding.EncodeToString([]byte(id.Name)), id.Role, time.Now().Add(ttl).Unix(), provider)
+	payload := fmt.Sprintf("%s|%s|%d|%s|%s",
+		base64.RawURLEncoding.EncodeToString([]byte(id.Name)), id.Role, time.Now().Add(ttl).Unix(), provider, id.PV)
 	return payload + "|" + s.sig(payload)
 }
 
 var ErrSessionInvalid = errors.New("login required")
 
 func (s *Sessions) Parse(value string) (Identity, error) {
-	parts, err := s.verify(value, 4)
+	parts, err := s.verify(value, 5)
 	if err != nil {
 		return Identity{}, ErrSessionInvalid
 	}
@@ -151,7 +222,7 @@ func (s *Sessions) Parse(value string) (Identity, error) {
 	if err != nil || !validRoles[parts[1]] || (parts[3] != ProviderLocal && parts[3] != ProviderOIDC) {
 		return Identity{}, ErrSessionInvalid
 	}
-	return Identity{Name: string(name), Role: parts[1], Provider: parts[3]}, nil
+	return Identity{Name: string(name), Role: parts[1], Provider: parts[3], PV: parts[4]}, nil
 }
 
 // SignState protects the OIDC login state (state, nonce, PKCE verifier) in a short-lived

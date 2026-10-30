@@ -76,7 +76,7 @@ try {
   await note.waitFor()
   assert.match(await note.innerText(), /^Managed by Helm release shop\./)
   await page.goto(`${base}/resources/${TYPE}/shop/by-hand`)
-  await page.getByRole('button', { name: 'YAML', exact: true }).waitFor()
+  await page.getByRole('tab', { name: 'YAML', exact: true }).waitFor()
   assert.equal(await note.count(), 0)
 
   assert.deepEqual(errors, [])

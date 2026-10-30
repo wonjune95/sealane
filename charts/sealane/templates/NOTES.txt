@@ -4,7 +4,9 @@ Try it before exposing it:
   kubectl -n {{ .Release.Namespace }} port-forward svc/{{ include "sealane.fullname" . }} 8080:{{ .Values.service.port }}
   open http://localhost:8080
 
-First login: admin / admin — you will be asked to change the password immediately.
+First login: user admin, with the password generated at first start:
+  kubectl -n {{ .Release.Namespace }} get secret {{ include "sealane.fullname" . }}-initial-admin -o jsonpath='{.data.password}' | base64 -d; echo
+Change it in Settings, then delete that Secret if you like (Sealane only reads it when there is no admin account).
 {{- $ingressOn := (default dict .Values.ingress).enabled }}
 {{- $routeOn := (default dict .Values.httpRoute).enabled }}
 {{- if $ingressOn }}

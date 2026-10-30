@@ -3,8 +3,9 @@
 Routing console for Istio and Gateway API. Single stateless binary, no CRDs or operators.
 
 ```bash
-helm install sealane oci://ghcr.io/wonjune95/charts/sealane --version 1.18.3 -n sealane --create-namespace
-kubectl -n sealane port-forward svc/sealane 8080:8080   # http://localhost:8080 — admin / admin, then change the password
+helm install sealane oci://ghcr.io/wonjune95/charts/sealane --version 1.19.0 -n sealane --create-namespace
+kubectl -n sealane port-forward svc/sealane 8080:8080   # http://localhost:8080, user admin
+kubectl -n sealane get secret sealane-initial-admin -o jsonpath='{.data.password}' | base64 -d; echo   # its password
 ```
 
 ## Values
@@ -22,6 +23,7 @@ kubectl -n sealane port-forward svc/sealane 8080:8080   # http://localhost:8080 
 | `accounts` | `{}` | Seed local accounts (`user: "role:bcryptHash"`); Helm manages exactly these keys, UI-added ones are kept |
 | `clustersSecret` | `sealane-clusters` | Remote kubeconfigs Secret (not managed by the chart) |
 | `requestTester.enabled` | `false` | Grants `pods/exec` cluster-wide; admin-only UI feature |
+| `secureCookies` | `false` | Mark session cookies `Secure` on every response, for a TLS proxy that does not send `X-Forwarded-Proto` |
 | `sessionSecret.create` | `true` | Generate and keep a session-signing key with Helm `lookup`. With `false` and no `existingSecret` (install.yaml, GitOps, `helm template`) Sealane generates one itself into Secret `<release>-secret`, key `SESSION_SECRET`. |
 | `sessionSecret.existingSecret` | `""` | Use your own Secret (key `session-secret`) |
 | `ingress.enabled` / `className` / `hosts` / `tls` / `annotations` | `false` … | Standard Ingress |

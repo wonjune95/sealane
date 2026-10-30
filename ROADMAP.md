@@ -96,6 +96,10 @@ Sealane is moving from an internal tool to a public project in four releases. Da
 ## 1.18 (shipped)
 - Traffic graph: namespace boxes follow their nodes and can be dragged; Kiali-style traffic dots along edges.
 
+## 1.19 (shipped)
+- Security release for open distribution: generated initial admin password, session revocation on account changes, cross-site request protection, Secure cookies behind TLS proxies, kubeconfig file references refused, remote account removal on cluster delete, read-only ServiceAccount in impersonation mode, change-history objects in a Secret.
+- Release pipeline gated on tests, e2e and a blocking vulnerability scan; signed checksums and third-party license notices with every release.
+
 ## After 1.0 (candidates, not promised)
 - Recipes and wizards for common routing changes.
 - OIDC refresh and logout at the IdP.

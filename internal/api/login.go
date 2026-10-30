@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/wonjune95/sealane/internal/auth"
@@ -16,8 +17,15 @@ const (
 	sessionTTL    = 12 * time.Hour
 )
 
-// SecureCookies marks every cookie Secure; main sets it when OIDC_REDIRECT_URL is https.
+// SecureCookies marks every cookie Secure regardless of the request (main sets it when
+// OIDC_REDIRECT_URL is https or SECURE_COOKIES=true).
 var SecureCookies bool
+
+// secureRequest reports whether cookies for r must be Secure: always when configured, and for
+// any request that reached Sealane over TLS or through a proxy that terminated TLS.
+func secureRequest(r *http.Request) bool {
+	return SecureCookies || r.TLS != nil || strings.EqualFold(r.Header.Get("X-Forwarded-Proto"), "https")
+}
 
 // handleLogin verifies a local account (ConfigMap-backed) and sets the session cookie.
 func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
@@ -41,7 +49,7 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	role, err := s.accounts.Authenticate(in.Username, in.Password)
+	role, pv, err := s.accounts.Authenticate(in.Username, in.Password)
 	if err != nil {
 		slog.Warn("login failed", "user", in.Username)
 		status, code := http.StatusUnauthorized, "invalid-credentials"
@@ -58,24 +66,24 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 	for _, k := range keys {
 		s.loginThrottle.reset(k)
 	}
-	id := auth.Identity{Name: in.Username, Role: role, Provider: auth.ProviderLocal}
-	setSessionCookie(w, s.sessions.Sign(id, sessionTTL))
+	id := auth.Identity{Name: in.Username, Role: role, Provider: auth.ProviderLocal, PV: pv}
+	setSessionCookie(w, r, s.sessions.Sign(id, sessionTTL))
 	slog.Info("login", "user", in.Username, "role", role, "provider", auth.ProviderLocal)
 	writeJSON(w, http.StatusOK, map[string]string{"user": id.Name, "role": id.Role})
 }
 
-func (s *Server) handleLogout(w http.ResponseWriter, _ *http.Request) {
-	clearCookie(w, sessionCookie, "/")
+func (s *Server) handleLogout(w http.ResponseWriter, r *http.Request) {
+	clearCookie(w, r, sessionCookie, "/")
 	w.WriteHeader(http.StatusNoContent)
 }
 
-func setSessionCookie(w http.ResponseWriter, value string) {
+func setSessionCookie(w http.ResponseWriter, r *http.Request, value string) {
 	http.SetCookie(w, &http.Cookie{
 		Name: sessionCookie, Value: value, Path: "/", HttpOnly: true, SameSite: http.SameSiteLaxMode,
-		MaxAge: int(sessionTTL.Seconds()), Secure: SecureCookies,
+		MaxAge: int(sessionTTL.Seconds()), Secure: secureRequest(r),
 	})
 }
 
-func clearCookie(w http.ResponseWriter, name, path string) {
-	http.SetCookie(w, &http.Cookie{Name: name, Value: "", Path: path, HttpOnly: true, SameSite: http.SameSiteLaxMode, MaxAge: -1, Secure: SecureCookies})
+func clearCookie(w http.ResponseWriter, r *http.Request, name, path string) {
+	http.SetCookie(w, &http.Cookie{Name: name, Value: "", Path: path, HttpOnly: true, SameSite: http.SameSiteLaxMode, MaxAge: -1, Secure: secureRequest(r)})
 }

@@ -1,5 +1,6 @@
 # Local accounts: one key per user, value "role:bcryptHash" (role: admin | editor | viewer).
-# Sealane adds admin/admin here at first start when there is no admin key; the settings page (or kubectl edit)
+# Sealane adds "admin" here at first start when no account has the admin role, with a random password kept in
+# Secret <release>-initial-admin (key "password"); the settings page (or kubectl edit)
 # changes it afterwards. helm upgrade and kubectl apply leave existing keys alone: the chart renders only
 # the keys listed in .Values.accounts (none by default), and helm uninstall keeps the ConfigMap.
 #   kubectl -n {{ .Release.Namespace }} edit configmap {{ .Values.accountsConfigMap }}     # add  username: "role:hash"

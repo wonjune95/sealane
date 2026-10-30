@@ -446,7 +446,7 @@
   "settings.description": "Manage your account, workspace users and connected clusters.",
   "settings.myAccount": "My account",
   "settings.role": "Role",
-  "settings.passwordChanged": "Password changed. (takes effect within a minute; your current session stays signed in)",
+  "settings.passwordChanged": "Password changed. Your other sessions have been signed out.",
   "settings.askAdmin": "To add or remove accounts or change roles, contact your workspace administrator.",
   "settings.cluster.title": "Clusters",
   "settings.cluster.intro": "Register a remote cluster with a kubeconfig, for example your own ~/.kube/config. Only the context you pick is used, and credentials are stored only in a Secret in this cluster.",
@@ -604,5 +604,18 @@
   "err.tester-disabled": "request tester is disabled (set Helm value requestTester.enabled=true)",
   "err.tester-admin-only": "request tester is admin only",
   "err.host-required": "host is required (example: shop.example.com)",
-  "err.viewer-readonly": "viewer role cannot make changes"
+  "err.viewer-readonly": "viewer role cannot make changes",
+  "settings.loadFailed": "Could not load the list: {message}",
+  "settings.cluster.cleanup": "Also remove Sealane's account from the cluster",
+  "settings.cluster.cleanupHelp": "Deletes the sealane-remote namespace and Sealane's cluster roles there, so the stored token stops working.",
+  "settings.cluster.deleteKeepsAccess": "Sealane forgets this cluster's kubeconfig. The credentials in it stay valid on the cluster, so revoke them there if they should stop working.",
+  "settings.cluster.deleteKeepsAccount": "The account stays on the cluster. To remove it later: kubectl delete namespace sealane-remote; kubectl delete clusterrole,clusterrolebinding -l app.kubernetes.io/managed-by=sealane",
+  "err.session-revoked": "Your session ended because your account or password changed. Sign in again.",
+  "err.password-change-required": "Change the initial password first.",
+  "err.kubeconfig-file": "This kubeconfig points to files on disk (a certificate, key or token file). Use one with the contents embedded: certificate-authority-data, client-certificate-data, client-key-data or token.",
+  "edit.tabsLabel": "Editor views",
+  "vs.uriMatchType": "URI match type",
+  "vs.uri": "URI",
+  "editor.yamlLabel": "YAML editor",
+  "editor.yamlLabelReadOnly": "YAML (read-only)"
 }

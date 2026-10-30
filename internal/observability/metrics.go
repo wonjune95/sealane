@@ -26,6 +26,21 @@ var (
 	}, []string{"method"})
 )
 
+// HistoryWriteFailures counts change-history records that could not be saved (the changes
+// themselves went through); alert on it to catch a history that silently stopped.
+var HistoryWriteFailures = promauto.NewCounter(prometheus.CounterOpts{
+	Name: "sealane_history_write_failures_total",
+	Help: "Change-history records that could not be saved.",
+})
+
+// SetBuildInfo publishes sealane_build_info{version} = 1.
+func SetBuildInfo(version string) {
+	promauto.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "sealane_build_info",
+		Help: "Sealane build information.",
+	}, []string{"version"}).WithLabelValues(version).Set(1)
+}
+
 func MetricsHandler() http.Handler { return promhttp.Handler() }
 
 // Instrument records request count and duration for every request through next.

@@ -64,6 +64,7 @@
       "properties": { "enabled": { "type": "boolean" } }
     },
     "resources": { "type": "object" },
+    "secureCookies": { "type": "boolean" },
     "serviceMonitor": {
       "type": "object", "additionalProperties": false,
       "properties": { "enabled": { "type": "boolean" } }

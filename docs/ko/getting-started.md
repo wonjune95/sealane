@@ -6,10 +6,12 @@
 
 ```bash
 # Helm (OCI)
-helm install sealane oci://ghcr.io/wonjune95/charts/sealane --version 1.18.3 -n sealane --create-namespace
+helm install sealane oci://ghcr.io/wonjune95/charts/sealane --version 1.19.0 -n sealane --create-namespace
 # or plain manifests
 kubectl apply -f https://github.com/wonjune95/sealane/releases/latest/download/install.yaml
-kubectl -n sealane port-forward svc/sealane 8080:8080   # → http://localhost:8080, log in as admin / admin
+kubectl -n sealane port-forward svc/sealane 8080:8080   # → http://localhost:8080, 사용자 admin
+# 처음 시작할 때 만들어진 admin 비밀번호:
+kubectl -n sealane get secret sealane-initial-admin -o jsonpath='{.data.password}' | base64 -d; echo
 ```
 
 !!! note "Istio가 없는 클러스터"
@@ -23,7 +25,7 @@ kubectl -n sealane port-forward svc/sealane 8080:8080   # → http://localhost:8
 
 ```bash
 # prebuilt image (recommended)
-ghcr.io/wonjune95/sealane:1.18.3     # or :latest
+ghcr.io/wonjune95/sealane:1.19.0     # or :latest
 ```
 
 직접 빌드할 수도 있습니다.
@@ -73,7 +75,7 @@ kubectl -n sealane edit configmap sealane-accounts
 # add to data:  username: "role:hash"   (role: admin | editor | viewer)
 ```
 
-재시작할 필요는 없습니다. 마운트된 볼륨이 동기화되면서 1분 안팎으로 반영됩니다. [`examples/accounts-configmap.yaml`](https://github.com/wonjune95/sealane/blob/main/examples/accounts-configmap.yaml)을 참고하세요.
+재시작할 필요는 없습니다. Sealane이 API로 읽으므로 몇 초 안에 반영됩니다. [`examples/accounts-configmap.yaml`](https://github.com/wonjune95/sealane/blob/main/examples/accounts-configmap.yaml)을 참고하세요.
 
 로컬 계정 대신 조직의 IdP로 로그인하게 하려면 [SSO(OIDC)](../authentication.md#single-sign-on-oidc)를 참고하세요.
 

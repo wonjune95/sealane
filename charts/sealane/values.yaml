@@ -22,8 +22,8 @@ service:
   port: 8080
 
 # Local accounts ConfigMap. One key = one user, value = "role:bcryptHash" (role: admin|editor|viewer).
-# The chart renders it empty (helm.sh/resource-policy: keep); Sealane adds admin/admin at first start and the
-# settings page edits it. Upgrades only touch the keys listed under accounts below, uninstall keeps it.
+# The chart renders it empty (helm.sh/resource-policy: keep). With no admin in it, Sealane adds "admin" at first
+# start with a random password kept in Secret <release>-initial-admin (key "password"); the settings page edits it. Upgrades only touch the keys listed under accounts below, uninstall keeps it.
 # Upgrading from Istio Dashboard? Set this to istio-dashboard-accounts to keep existing users.
 accountsConfigMap: sealane-accounts
 
@@ -50,6 +50,10 @@ clustersSecret: sealane-clusters
 # "run any command in any pod" — keep it off unless you need it (admin-only in the UI).
 requestTester:
   enabled: false
+
+# Mark session cookies Secure on every response. Without it they are Secure when the request came over TLS or
+# with X-Forwarded-Proto: https (most ingress controllers send it). Set true behind a proxy that does not.
+secureCookies: false
 
 # Impersonation: resource writes run as sealane:admin or sealane:editor (the signed-in user's role)
 # instead of the ServiceAccount, so cluster RBAC decides what each role may change and the API

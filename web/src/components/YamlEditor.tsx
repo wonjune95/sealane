@@ -3,6 +3,7 @@ import CodeMirror, { Decoration, EditorView, StateField, ViewPlugin, type Editor
 import { yaml } from '@codemirror/lang-yaml'
 import { indentationMarkers } from '@replit/codemirror-indentation-markers'
 import { useTheme } from '../ui/theme'
+import { t } from '../i18n'
 
 // In YAML indentation is syntax, so draw a vertical guide (|) at every level to
 // make a one-column misalignment obvious. The block holding the cursor is emphasized.
@@ -65,6 +66,7 @@ export function YamlEditor({
         extensions={[yaml(), ...whitespaceExtensions, focusExt]}
         editable={!readOnly}
         onChange={onChange}
+        aria-label={t(readOnly ? 'editor.yamlLabelReadOnly' : 'editor.yamlLabel')}
       />
     </div>
   )

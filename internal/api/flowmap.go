@@ -16,7 +16,7 @@ type flowBackend struct {
 	External     bool   `json:"external,omitempty"` // host that does not resolve to a cluster service
 	Exists       bool   `json:"exists"`
 	Endpoints    int    `json:"endpoints"`              // number of ready endpoints (roughly pods)
-	ServiceEntry string `json:"serviceEntry,omitempty"` // name of the SE covering the external host
+	ServiceEntry string `json:"serviceEntry,omitempty"` // "namespace/name" of the SE covering the external host
 }
 
 type flowRoute struct {
@@ -171,7 +171,7 @@ func (s *Server) handleFlowMap(w http.ResponseWriter, r *http.Request) {
 		for j := range out.Routes[i].Backends {
 			b := &out.Routes[i].Backends[j]
 			if b.External {
-				b.ServiceEntry = serviceEntryFor(out.ServiceEntries, b.Name)
+				b.ServiceEntry = serviceEntryFor(out.ServiceEntries, b.Name, out.Routes[i].Namespace)
 				continue
 			}
 			if _, b.Exists = st.services[b.Namespace+"/"+b.Name]; b.Exists {
@@ -192,20 +192,26 @@ func (s *Server) handleFlowMap(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, out)
 }
 
-// serviceEntryFor returns the SE covering an external host (exact match or
-// "*.suffix" wildcard match).
-func serviceEntryFor(ses []flowServiceEntry, host string) string {
+// serviceEntryFor returns "namespace/name" of the SE covering an external host (exact match or
+// "*.suffix" wildcard match), preferring one in the route's namespace: SEs of the same name can
+// exist in several namespaces.
+func serviceEntryFor(ses []flowServiceEntry, host, ns string) string {
+	found := ""
 	for _, se := range ses {
 		for _, h := range se.Hosts {
-			if h == host {
-				return se.Name
+			suffix, wild := strings.CutPrefix(h, "*")
+			if h != host && (!wild || !strings.HasSuffix(host, suffix)) {
+				continue
 			}
-			if suffix, ok := strings.CutPrefix(h, "*"); ok && strings.HasSuffix(host, suffix) {
-				return se.Name
+			if se.Namespace == ns {
+				return se.Namespace + "/" + se.Name
+			}
+			if found == "" {
+				found = se.Namespace + "/" + se.Name
 			}
 		}
 	}
-	return ""
+	return found
 }
 
 // resolveDestination maps a VS destination host to a service or external host.

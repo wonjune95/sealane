@@ -1,7 +1,13 @@
 import { useQuery } from '@tanstack/react-query'
 import { apiGet } from './client'
 
-export type Cluster = { name: string; connected?: boolean; version?: string; error?: string }
+export type Cluster = {
+  name: string
+  dedicated?: boolean // registered with Sealane's own account, which deleting can remove
+  connected?: boolean
+  version?: string
+  error?: string
+}
 
 // "local" + the remote clusters registered in the Secret. status=true adds connection state and version
 // (parallel ping, for the settings panel; the header dropdown uses the fast stateless list).

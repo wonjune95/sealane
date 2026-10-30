@@ -32,7 +32,7 @@ data:
   # viewer1: "viewer:<bcrypt-hash>"
 ```
 
-ConfigMap은 파드가 아니라 클러스터에 저장됩니다. 따라서 재시작이나 재배포 후에도 계정이 유지됩니다. 차트와 `install.yaml`은 이 ConfigMap을 빈 상태로 만들고(이름은 `accountsConfigMap` 값을 따릅니다), Sealane이 초기 `admin`을 추가합니다. 그 뒤로는 UI나 kubectl로 편집합니다. 업그레이드해도 기존 키는 그대로 남고, `helm uninstall` 후에도 ConfigMap은 지워지지 않습니다. 파드가 이 ConfigMap을 마운트하므로 편집 내용은 **재시작 없이 1분 안팎에 반영됩니다**. 전체 예시는 [`examples/accounts-configmap.yaml`](https://github.com/wonjune95/sealane/blob/main/examples/accounts-configmap.yaml)에 있습니다.
+ConfigMap은 파드가 아니라 클러스터에 저장됩니다. 따라서 재시작이나 재배포 후에도 계정이 유지됩니다. 차트와 `install.yaml`은 이 ConfigMap을 빈 상태로 만들고(이름은 `accountsConfigMap` 값을 따릅니다), Sealane이 초기 `admin`을 추가합니다. 그 뒤로는 UI나 kubectl로 편집합니다. 업그레이드해도 기존 키는 그대로 남고, `helm uninstall` 후에도 ConfigMap은 지워지지 않습니다. Sealane이 API로 이 ConfigMap을 읽으므로 편집 내용은 **재시작 없이 몇 초 안에 반영되고**, 계정을 지우거나 역할·비밀번호를 바꾸면 그 전에 발급된 세션이 종료됩니다. 전체 예시는 [`examples/accounts-configmap.yaml`](https://github.com/wonjune95/sealane/blob/main/examples/accounts-configmap.yaml)에 있습니다.
 
 GitOps로 운영하면서 UI 편집을 쓰지 않는다면, 계정을 Helm 값으로 미리 넣을 수 있습니다.
 
@@ -61,11 +61,17 @@ kubectl -n sealane edit configmap sealane-accounts
 
 ### 초기 admin
 
-시작 시점에 계정 ConfigMap이 없거나 `admin` 키가 없으면, Sealane은 **`admin` / `admin`** 계정을 만듭니다. 이 비밀번호로 로그인하면 비밀번호를 바꿀 때까지 UI가 비밀번호 변경 화면에 고정됩니다.
+시작할 때 admin 역할을 가진 계정이 하나도 없으면, Sealane은 `admin` 계정을 임의 비밀번호로 만들고 그 비밀번호를 Secret `sealane-initial-admin`(Helm이면 `<release>-initial-admin`)의 `password` 키에 넣습니다.
+
+```bash
+kubectl -n sealane get secret sealane-initial-admin -o jsonpath='{.data.password}' | base64 -d; echo
+```
+
+처음 로그인한 뒤 비밀번호를 바꾸세요. Sealane은 관리자 계정이 없을 때만 이 Secret을 다시 읽으므로, 바꾼 뒤에는 지워도 됩니다. 1.19 이전에서 업그레이드한 설치에서 `admin` 비밀번호가 아직 `admin`이면 먼저 바꿔야 합니다. 그 전까지 서버가 다른 요청을 모두 거부합니다.
 
 ### 내 비밀번호 변경
 
-로컬 계정이 있으면 viewer를 포함해 누구나 자기 비밀번호를 바꿀 수 있습니다. 헤더의 사용자 칩 → 설정 페이지에서 현재 비밀번호를 입력한 뒤 변경합니다. 새 비밀번호는 8자 이상이어야 합니다. 서버는 ConfigMap에서 본인의 키만 패치합니다.
+로컬 계정이 있으면 viewer를 포함해 누구나 자기 비밀번호를 바꿀 수 있습니다. 헤더의 사용자 칩 → 설정 페이지에서 현재 비밀번호를 입력한 뒤 변경합니다. 새 비밀번호는 8자 이상이어야 합니다. 서버는 ConfigMap에서 본인의 키만 패치하고, 지금 세션은 유지하며 다른 곳의 세션은 종료합니다.
 
 ## SSO(OIDC)
 
@@ -158,7 +164,7 @@ kubectl -n sealane rollout restart deploy/sealane
 실제 IdP 없이 SSO를 시험하려면 [`examples/dex-demo.yaml`](https://github.com/wonjune95/sealane/blob/main/examples/dex-demo.yaml)을 배포합니다. 이 파일은 Dex를 **mock connector**로 실행합니다. 모든 로그인이 `authors` 그룹에 속한 `kilgore@kilgore.trout` 사용자로 성공합니다. 절차는 파일 맨 위 주석에 있습니다. 두 `example.com` 호스트를 바꾸고(Dex는 브라우저**와** Sealane 파드 양쪽에서 같은 발급자 URL로 접근할 수 있어야 합니다), 파일을 적용한 다음 Sealane을 다음과 같이 업그레이드합니다.
 
 ```bash
-helm upgrade sealane oci://ghcr.io/wonjune95/charts/sealane --version 1.18.3 -n sealane --reset-then-reuse-values \
+helm upgrade sealane oci://ghcr.io/wonjune95/charts/sealane --version 1.19.0 -n sealane --reset-then-reuse-values \
   --set oidc.enabled=true --set oidc.displayName=Dex \
   --set oidc.issuerURL=http://dex.example.com/dex --set oidc.clientID=sealane \
   --set oidc.clientSecretRef.name=sealane-dex-client \

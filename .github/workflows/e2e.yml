@@ -49,7 +49,10 @@ jobs:
           [ "$(kubectl -n sealane get secret sealane-secret -o jsonpath='{.data.SESSION_SECRET}' | base64 -d | wc -c)" = 64 ]
           kubectl -n sealane port-forward svc/sealane 8080:8080 >/tmp/pf0.log 2>&1 &
           for i in $(seq 1 30); do curl -sf http://localhost:8080/healthz >/dev/null && break; sleep 1; done
-          curl -sf -c /tmp/jar -X POST -H 'Content-Type: application/json' -d '{"username":"admin","password":"admin"}' http://localhost:8080/api/login >/dev/null
+          kubectl -n sealane get secret sealane-initial-admin -o jsonpath='{.data.password}' | base64 -d > /tmp/initial-pass
+          [ "$(wc -c < /tmp/initial-pass)" -ge 20 ]
+          jq -n --rawfile p /tmp/initial-pass '{username:"admin",password:$p}' |
+            curl -sf -c /tmp/jar -X POST -H 'Content-Type: application/json' -d @- http://localhost:8080/api/login >/dev/null
           kill %1
           kubectl -n sealane rollout restart deploy/sealane
           kubectl -n sealane rollout status deploy/sealane --timeout=180s
@@ -62,12 +65,12 @@ jobs:
         run: |
           kubectl -n sealane port-forward svc/sealane 8080:8080 >/tmp/pf.log 2>&1 &
           for i in $(seq 1 30); do curl -sf http://localhost:8080/healthz >/dev/null && break; sleep 1; done
-          E2E_PASS_FILE=/tmp/e2e-admin-pass ./hack/e2e.sh http://localhost:8080 sealane
+          INITIAL_PASS="$(cat /tmp/initial-pass)" E2E_PASS_FILE=/tmp/e2e-admin-pass ./hack/e2e.sh http://localhost:8080 sealane
       - name: Change history is stored in the cluster
         run: |
           kubectl -n sealane get cm sealane-history -o jsonpath='{.data.revisions}' |
             jq -e 'map(select(.typeId=="virtualservices.networking.istio.io" and .name=="sealane-e2e" and .id != "")) | length >= 2'
-          kubectl -n sealane get cm sealane-history-objects -o json | jq -e '.data | length >= 2'
+          kubectl -n sealane get secret sealane-history-objects -o json | jq -e '.data | length >= 2'
       - name: Impersonation mode
         run: |
           helm upgrade sealane charts/sealane -n sealane --reuse-values --set impersonation.enabled=true

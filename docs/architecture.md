@@ -13,7 +13,7 @@
     │◀──────────── 6  JSON response │                                          │
 ```
 
-- **Local accounts = ConfigMap** — one key in the `sealane-accounts` ConfigMap is one account (`username: "role:bcryptHash"`). Stored in the cluster (etcd), not the pod, so **accounts survive restarts and redeploys**; the chart renders the CM empty (`resource-policy: keep`) and never rewrites keys it did not set, so upgrades and uninstalls keep it. Changes propagate through the mounted volume **within ~1 minute, no restart**.
+- **Local accounts = ConfigMap** — one key in the `sealane-accounts` ConfigMap is one account (`username: "role:bcryptHash"`). Stored in the cluster (etcd), not the pod, so **accounts survive restarts and redeploys**; the chart renders the CM empty (`resource-policy: keep`) and never rewrites keys it did not set, so upgrades and uninstalls keep it. Sealane reads it through the API (cached for 3 s), so changes apply **within seconds, no restart**, and sessions of a deleted, demoted or re-passworded account end.
 - **Single sign-on (optional)** — with `oidc.enabled=true`, the login page also offers an OpenID Connect button. The IdP's groups map to the same three roles and the result is the same signed session cookie, so everything after login is identical to a local account. See [Authentication](authentication.md#single-sign-on-oidc).
 - **Account management UI** — admins can add accounts, change roles/passwords, and delete accounts from the settings page (`GET/PUT/DELETE /api/accounts`; the server patches the CM). Self-deletion, self role-change, and deleting the `admin` account are blocked to prevent lockout. `kubectl edit` works too.
 - **Initial admin + forced change** — if the accounts ConfigMap has no `admin` key at boot, `admin`/`admin` is created. Logging in with the initial password **locks the UI to a password-change screen** until you change it.
@@ -39,7 +39,7 @@ Single sign-on keeps this model: an OIDC login produces an app role from the use
 
 ### Why no real-time SSE streams
 
-The design stage considered per-user watch → SSE live sync. But keeping the server stateless for HA means opening a watch per connection — replicas × concurrent users watch connections against the API server. For an internal ops tool (tens of concurrent users, low change frequency) that cost wasn't justified. → Kept the server stateless and converged on a **change history polled every 30 s** (kept in two ConfigMaps since 1.16, so replicas agree) plus manual refresh. *A deliberate trade: "unbreakable stateless HA" over "nice-to-have real-time".*
+The design stage considered per-user watch → SSE live sync. But keeping the server stateless for HA means opening a watch per connection — replicas × concurrent users watch connections against the API server. For an internal ops tool (tens of concurrent users, low change frequency) that cost wasn't justified. → Kept the server stateless and converged on a **change history polled every 30 s** (kept in the cluster since 1.16, so replicas agree) plus manual refresh. *A deliberate trade: "unbreakable stateless HA" over "nice-to-have real-time".*
 
 ### Why the `--dev` boot guardrail
 

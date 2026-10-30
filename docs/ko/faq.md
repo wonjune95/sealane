@@ -24,14 +24,23 @@ Kiali는 메시를 관측하는 도구입니다. 텔레메트리 기반 토폴�
 
 ## admin 비밀번호를 잊어버렸습니다. 어떻게 다시 로그인하나요?
 
-계정 ConfigMap을 직접 수정하세요. 재시작은 필요 없습니다.
+로그인할 수 있는 다른 관리자가 있으면 **설정 → 계정**에서 `admin`의 비밀번호를 새로 정하면 됩니다. 없으면 계정 ConfigMap을 직접 수정하세요. 재시작은 필요 없습니다.
 
 ```bash
 go run ./hack/bcrypt-hash.go 'new-password'
 kubectl -n sealane edit configmap sealane-accounts   # set  admin: "admin:<new-hash>"
 ```
 
-변경은 1분 안팎으로 반영됩니다. `admin` 키를 지우고 파드를 재시작하는 방법도 있습니다. 시작할 때 ConfigMap에 `admin` 키가 없으면 Sealane이 `admin` / `admin` 계정을 다시 만들고, 첫 로그인 때 비밀번호 변경을 강제합니다.
+변경은 몇 초 안에 반영되고, 이전 비밀번호로 로그인한 세션은 종료됩니다. Sealane이 새 비밀번호를 만들게 할 수도 있습니다. `admin` 키와 이전 초기 비밀번호를 지우고 재시작하면, 시작할 때 관리자 계정이 없으므로 Sealane이 `admin`을 다시 만들고 임의 비밀번호를 Secret `sealane-initial-admin`에 넣습니다.
+
+```bash
+kubectl -n sealane patch configmap sealane-accounts --type json -p '[{"op":"remove","path":"/data/admin"}]'
+kubectl -n sealane delete secret sealane-initial-admin --ignore-not-found
+kubectl -n sealane rollout restart deploy/sealane && kubectl -n sealane rollout status deploy/sealane
+kubectl -n sealane get secret sealane-initial-admin -o jsonpath='{.data.password}' | base64 -d; echo
+```
+
+이 방법은 admin 역할을 가진 다른 계정이 없을 때만 동작합니다. 다른 관리자가 있으면 그 관리자가 비밀번호를 다시 정하세요.
 
 ## 재시작하면 왜 다시 로그인해야 하나요?
 

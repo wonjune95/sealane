@@ -167,7 +167,7 @@ export function ResourceList() {
         </label>
         {rt?.namespaced && (
           <label className="flex shrink-0 items-center gap-2 text-xs text-muted">
-            <span>Namespace</span>
+            <span>{t('common.namespace')}</span>
             <select
               className="input-base !w-auto max-w-56"
               value={ns}

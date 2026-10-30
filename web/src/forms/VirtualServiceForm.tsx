@@ -170,13 +170,13 @@ function MatchBox({ m, onChange, onRemove }: { m: VSMatchModel; onChange: (m: VS
       {m.uriType && (
         <div className="flex items-center gap-2">
           <span className={label}>uri</span>
-          <select className={`${input} w-28`} aria-label="URI match type" value={m.uriType}
+          <select className={`${input} w-28`} aria-label={t('vs.uriMatchType')} value={m.uriType}
             onChange={(e) => set({ uriType: e.target.value as VSMatchModel['uriType'] })}>
             <option value="prefix">prefix</option>
             <option value="exact">exact</option>
             <option value="regex">regex</option>
           </select>
-          <input className={input} aria-label="URI" value={m.uriValue ?? ''} placeholder="/"
+          <input className={input} aria-label={t('vs.uri')} value={m.uriValue ?? ''} placeholder="/"
             onChange={(e) => set({ uriValue: e.target.value })} />
           <button onClick={() => set({ uriType: undefined, uriValue: undefined })} className={del}>×</button>
         </div>

@@ -1,5 +1,6 @@
-# On a v* tag push: build a multi-arch image, sign it (cosign keyless), attach an SBOM,
-# publish and sign the Helm chart on GHCR, render install.yaml and create the GitHub Release.
+# On a v* tag push: check the tagged commit (tests, lint, chart, and a passed e2e run on main), build the
+# image and scan it (HIGH/CRITICAL with a fix fail the release before anything is pushed), then publish
+# and sign the image, chart and checksums, render install.yaml, move "latest" last and create the Release.
 name: release
 
 on:
@@ -7,23 +8,70 @@ on:
     tags: ["v*"]
 
 permissions:
-  contents: write    # GitHub Release + assets
-  packages: write    # GHCR image + chart
-  id-token: write    # cosign keyless signing (Sigstore OIDC)
+  contents: read
 
 env:
   IMAGE: ghcr.io/${{ github.repository_owner }}/sealane
 
 jobs:
-  release:
+  verify:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: read   # look up the e2e run of the tagged commit
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - run: test -f "docs/releases/${GITHUB_REF_NAME}.md"   # release notes gate
+      - name: The tagged commit passed e2e on main
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          n=$(gh api "repos/${{ github.repository }}/actions/workflows/e2e.yml/runs?head_sha=${{ github.sha }}&event=push&status=success" --jq '.total_count')
+          [ "$n" -ge 1 ] || { echo "::error::no successful e2e run for ${{ github.sha }}: push it to main, wait for e2e, then tag"; exit 1; }
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: "1.26"
+      - run: go vet ./...
+      - run: go test ./...
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - run: npm ci && npm run build && npm run lint && ../hack/check-i18n.sh
+        working-directory: web
+      - run: helm lint charts/sealane
+      - run: cmp LICENSE charts/sealane/LICENSE
+
+  release:
+    needs: verify
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write    # GitHub Release + assets
+      packages: write    # GHCR image + chart
+      id-token: write    # cosign keyless signing (Sigstore OIDC)
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - id: meta
         run: echo "tag=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
-      - run: test -f docs/releases/v${{ steps.meta.outputs.tag }}.md   # release notes gate, before anything is pushed
       - uses: docker/setup-qemu-action@99012661954931238ded8c8b007157a8430204e1 # v4.4.0
       - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      - name: Build for the vulnerability scan (amd64, not pushed)
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          platforms: linux/amd64
+          load: true
+          build-args: VERSION=${{ steps.meta.outputs.tag }}
+          tags: sealane:scan
+          cache-to: type=gha,mode=max
+      - name: Vulnerability scan (HIGH/CRITICAL with a fix available fail the release)
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: sealane:scan
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: "1"
       - uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
         with:
           registry: ghcr.io
@@ -36,9 +84,8 @@ jobs:
           platforms: linux/amd64,linux/arm64
           push: true
           build-args: VERSION=${{ steps.meta.outputs.tag }}
-          tags: |
-            ${{ env.IMAGE }}:${{ steps.meta.outputs.tag }}
-            ${{ env.IMAGE }}:latest
+          tags: ${{ env.IMAGE }}:${{ steps.meta.outputs.tag }}   # "latest" moves at the end, once everything else worked
+          cache-from: type=gha
       - uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
       - name: Sign the image (keyless)
         # Rekor can accept an upload after cosign's 30 s timeout; cosign's own retry then gets 409
@@ -57,13 +104,14 @@ jobs:
           format: spdx-json
           output-file: sbom.spdx.json
           upload-artifact: false
-      - name: Vulnerability scan (informational)
-        continue-on-error: true
-        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+      - name: Third-party notices (the file in the image's /licenses)
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
         with:
-          image-ref: ${{ env.IMAGE }}@${{ steps.build.outputs.digest }}
-          severity: HIGH,CRITICAL
-          exit-code: "0"
+          context: .
+          target: notices
+          outputs: type=local,dest=notices
+          cache-from: type=gha
+      - run: cp notices/THIRD_PARTY_NOTICES . && grep -c '^----- ' THIRD_PARTY_NOTICES
       - name: Package and push the chart
         run: |
           TAG=${{ steps.meta.outputs.tag }}
@@ -99,6 +147,19 @@ jobs:
               --show-only templates/impersonation.yaml
           } > impersonation.yaml
           grep -c '^kind:' impersonation.yaml
+      - name: Checksums, signed (offline check with cosign verify-blob --bundle, see docs/install.md)
+        run: |
+          echo "${IMAGE}@${{ steps.build.outputs.digest }}" > image-digest.txt
+          sha256sum install.yaml impersonation.yaml sbom.spdx.json "sealane-${{ steps.meta.outputs.tag }}.tgz" THIRD_PARTY_NOTICES image-digest.txt > SHA256SUMS
+          cat SHA256SUMS
+          for attempt in 1 2 3; do
+            cosign sign-blob --yes --bundle SHA256SUMS.sigstore.json SHA256SUMS && exit 0
+            echo "signing attempt $attempt failed; retrying in 30 s"
+            sleep 30
+          done
+          exit 1
+      - name: Move latest
+        run: docker buildx imagetools create -t "${IMAGE}:latest" "${IMAGE}@${{ steps.build.outputs.digest }}"
       - name: GitHub Release
         uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3.0.3
         with:
@@ -109,3 +170,7 @@ jobs:
             impersonation.yaml
             sbom.spdx.json
             sealane-${{ steps.meta.outputs.tag }}.tgz
+            THIRD_PARTY_NOTICES
+            image-digest.txt
+            SHA256SUMS
+            SHA256SUMS.sigstore.json

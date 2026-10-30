@@ -21,7 +21,8 @@ cd web && npm run test:cluster-selection && npm run test:flow-map && npm run tes
 go run github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.14.0 run ./cmd/... ./internal/...
 helm lint charts/sealane
 
-./hack/e2e.sh http://localhost:8080   # API smoke test against a fresh install (admin/admin)
+INITIAL_PASS=$(kubectl -n sealane get secret sealane-initial-admin -o jsonpath='{.data.password}' | base64 -d) \
+  ./hack/e2e.sh http://localhost:8080   # API smoke test against a fresh install
 
 # single binary without a container
 cd web && npm ci && npm run build  # frontend build → internal/assets/dist

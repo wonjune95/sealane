@@ -3,11 +3,14 @@ package api
 import (
 	"bytes"
 	"context"
+	"crypto/rand"
+	"encoding/hex"
 	"encoding/json"
 	"log/slog"
 	"net/http"
 	"sort"
 	"strconv"
+	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -15,16 +18,20 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/util/retry"
+
+	"github.com/wonjune95/sealane/internal/observability"
 )
 
 // Change history kept in the cluster, so it is shared by replicas and survives restarts.
-// Two ConfigMaps next to Sealane, both created on first use:
-//   - <name>          key "revisions": JSON list of the newest historyKeep entries (who, when, what)
-//   - <name>-objects  one key per revision ID: the object before and after the change
+// Two objects next to Sealane, both created on first use:
+//   - ConfigMap <name>       key "revisions": JSON list of the newest historyKeep entries (who, when, what)
+//   - Secret <name>-objects  one key per revision ID: the object before and after the change
 //
-// The list stays small, so the home page reads it cheaply; objects are only read when someone
-// opens a revision and are dropped oldest first once they pass historyObjectsMax, because a
-// ConfigMap holds at most 1 MiB. Changes made outside Sealane (kubectl, GitOps) are not recorded.
+// The list stays small, so the home page reads it cheaply; objects are only read when an editor
+// or admin opens a revision and are dropped oldest first once they pass historyObjectsMax, because
+// an object holds at most 1 MiB. Objects can hold anything a resource's spec or annotations do,
+// so they are kept in a Secret. 1.15 to 1.18 kept them in the ConfigMap <name>-objects, which is
+// still read for revisions recorded then. Changes made outside Sealane (kubectl, GitOps) are not recorded.
 type HistoryRef struct{ Namespace, Name string }
 
 // Revision is one entry of the change history; ID orders entries (Unix nanoseconds).
@@ -50,27 +57,33 @@ const (
 // SetHistory turns on the in-cluster change history (empty Name = in-memory list only, as in dev mode).
 func (s *Server) SetHistory(ref HistoryRef) { s.history = ref }
 
-// recordRevision stores one audited change. Failures are logged and never fail the request:
-// the change itself already happened.
+// recordRevision stores one audited change. Failures are logged and counted, and never fail the
+// request: the change itself already happened.
 func (s *Server) recordRevision(ctx context.Context, e AuditEntry, before, after json.RawMessage) {
 	if s.history.Name == "" {
 		return
 	}
 	c, err := s.factory.Base()
 	if err != nil {
-		slog.Warn("change history not saved", "err", err)
+		historyFailed("change history not saved", "", err)
 		return
 	}
-	rev := Revision{ID: strconv.FormatInt(e.Time.UnixNano(), 10), AuditEntry: e}
+	// The change is done; a client that hangs up now must not cancel its record.
+	ctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 10*time.Second)
+	defer cancel()
+	suffix := make([]byte, 3)
+	_, _ = rand.Read(suffix)
+	// Nanoseconds order the IDs; the random suffix keeps two replicas' same-instant IDs apart.
+	rev := Revision{ID: strconv.FormatInt(e.Time.UnixNano(), 10) + "-" + hex.EncodeToString(suffix), AuditEntry: e}
 	if e.OK && (before != nil || after != nil) {
 		blob, _ := json.Marshal(map[string]json.RawMessage{"before": historyObject(before), "after": historyObject(after)})
 		if len(blob) <= historyObjectsMax {
-			err := updateHistoryCM(ctx, c.Kube, s.history.Namespace, s.history.Name+"-objects", func(data map[string]string) {
-				data[rev.ID] = string(blob)
+			err := updateHistorySecret(ctx, c.Kube, s.history.Namespace, s.history.Name+"-objects", func(data map[string][]byte) {
+				data[rev.ID] = blob
 				pruneHistoryObjects(data)
 			})
 			if err != nil {
-				slog.Warn("change history: objects not saved", "id", rev.ID, "err", err)
+				historyFailed("change history: objects not saved", rev.ID, err)
 			}
 		}
 	}
@@ -84,8 +97,13 @@ func (s *Server) recordRevision(ctx context.Context, e AuditEntry, before, after
 		data[historyListKey] = string(b)
 	})
 	if err != nil {
-		slog.Warn("change history not saved", "id", rev.ID, "err", err)
+		historyFailed("change history not saved", rev.ID, err)
 	}
+}
+
+func historyFailed(msg, id string, err error) {
+	observability.HistoryWriteFailures.Inc()
+	slog.Warn(msg, "id", id, "err", err)
 }
 
 // historyObject drops what the server sets on every write, so a stored version can be loaded
@@ -111,7 +129,7 @@ func historyObject(raw json.RawMessage) json.RawMessage {
 }
 
 // pruneHistoryObjects drops the oldest revisions' objects until the rest fit historyObjectsMax.
-func pruneHistoryObjects(data map[string]string) {
+func pruneHistoryObjects(data map[string][]byte) {
 	ids := make([]string, 0, len(data))
 	total := 0
 	for id, v := range data {
@@ -142,6 +160,35 @@ func decodeRevisions(s string) []Revision {
 	return list
 }
 
+// historyLabels mark the history objects as Sealane's.
+var historyLabels = map[string]string{"app.kubernetes.io/name": "sealane", "app.kubernetes.io/component": "history"}
+
+// updateHistorySecret is updateHistoryCM for the objects Secret.
+func updateHistorySecret(ctx context.Context, kube kubernetes.Interface, ns, name string, mutate func(map[string][]byte)) error {
+	secrets := kube.CoreV1().Secrets(ns)
+	return retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		sec, err := secrets.Get(ctx, name, metav1.GetOptions{})
+		if apierrors.IsNotFound(err) {
+			sec = &corev1.Secret{ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: ns, Labels: historyLabels}, Data: map[string][]byte{}}
+			mutate(sec.Data)
+			_, err = secrets.Create(ctx, sec, metav1.CreateOptions{})
+			if apierrors.IsAlreadyExists(err) { // another replica created it first: retry as an update
+				return apierrors.NewConflict(schema.GroupResource{Resource: "secrets"}, name, err)
+			}
+			return err
+		}
+		if err != nil {
+			return err
+		}
+		if sec.Data == nil {
+			sec.Data = map[string][]byte{}
+		}
+		mutate(sec.Data)
+		_, err = secrets.Update(ctx, sec, metav1.UpdateOptions{})
+		return err
+	})
+}
+
 // updateHistoryCM read-modify-writes one ConfigMap, creating it when missing; replicas writing at
 // the same time retry on the resourceVersion conflict.
 func updateHistoryCM(ctx context.Context, kube kubernetes.Interface, ns, name string, mutate func(map[string]string)) error {
@@ -149,12 +196,7 @@ func updateHistoryCM(ctx context.Context, kube kubernetes.Interface, ns, name st
 	return retry.RetryOnConflict(retry.DefaultRetry, func() error {
 		cm, err := cms.Get(ctx, name, metav1.GetOptions{})
 		if apierrors.IsNotFound(err) {
-			cm = &corev1.ConfigMap{
-				ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: ns, Labels: map[string]string{
-					"app.kubernetes.io/name": "sealane", "app.kubernetes.io/component": "history",
-				}},
-				Data: map[string]string{},
-			}
+			cm = &corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: ns, Labels: historyLabels}, Data: map[string]string{}}
 			mutate(cm.Data)
 			_, err = cms.Create(ctx, cm, metav1.CreateOptions{})
 			if apierrors.IsAlreadyExists(err) { // another replica created it first: retry as an update
@@ -212,7 +254,8 @@ func (s *Server) handleHistory(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, out)
 }
 
-// GET /api/history/{id} — one revision with its objects (null when no longer kept).
+// GET /api/history/{id} — one revision with its objects (null when no longer kept). Viewers get
+// the revision without objects: an old version can hold what has since been removed.
 func (s *Server) handleRevision(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
 	var d *RevisionDetail
@@ -226,13 +269,20 @@ func (s *Server) handleRevision(w http.ResponseWriter, r *http.Request) {
 		writeCoded(w, http.StatusNotFound, "NotFound", "revision-not-found", "no such revision: "+id)
 		return
 	}
-	if c, err := s.factory.Base(); err == nil && s.history.Name != "" {
-		cm, err := c.Kube.CoreV1().ConfigMaps(s.history.Namespace).Get(r.Context(), s.history.Name+"-objects", metav1.GetOptions{})
-		if err == nil && cm.Data[id] != "" {
-			var o struct{ Before, After json.RawMessage }
-			if json.Unmarshal([]byte(cm.Data[id]), &o) == nil {
-				d.Before, d.After = nullToNil(o.Before), nullToNil(o.After)
+	if c, err := s.factory.Base(); err == nil && s.history.Name != "" && identityFrom(r.Context()).CanWrite() {
+		var blob []byte
+		name := s.history.Name + "-objects"
+		if sec, err := c.Kube.CoreV1().Secrets(s.history.Namespace).Get(r.Context(), name, metav1.GetOptions{}); err == nil {
+			blob = sec.Data[id]
+		}
+		if blob == nil { // recorded by 1.15 to 1.18
+			if cm, err := c.Kube.CoreV1().ConfigMaps(s.history.Namespace).Get(r.Context(), name, metav1.GetOptions{}); err == nil {
+				blob = []byte(cm.Data[id])
 			}
+		}
+		var o struct{ Before, After json.RawMessage }
+		if len(blob) > 0 && json.Unmarshal(blob, &o) == nil {
+			d.Before, d.After = nullToNil(o.Before), nullToNil(o.After)
 		}
 	}
 	writeJSON(w, http.StatusOK, d)

@@ -2,6 +2,8 @@ package api
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"log/slog"
@@ -20,10 +22,14 @@ import (
 	"github.com/wonjune95/sealane/internal/auth"
 )
 
-// EnsureInitialAdmin creates the initial admin/admin account when the accounts
-// ConfigMap has no admin (or the ConfigMap itself is missing). Accounts are added
-// and changed by editing this ConfigMap. Failure should not block startup, so it
-// is only logged as a warning.
+// EnsureInitialAdmin bootstraps an "admin" account when no account has the admin role (a fresh
+// install, or a ConfigMap emptied by hand). Like Argo CD's argocd-initial-admin-secret, the password
+// is random and written to the initial-admin Secret first, so nobody can sign in with a known
+// default before the operator does:
+//
+//	kubectl -n <ns> get secret <release>-initial-admin -o jsonpath='{.data.password}' | base64 -d
+//
+// Failure does not block startup; it is logged and nobody can sign in locally until it succeeds.
 func (s *Server) EnsureInitialAdmin(ctx context.Context) {
 	if s.dev || s.accountsCM.Name == "" {
 		return
@@ -37,14 +43,27 @@ func (s *Server) EnsureInitialAdmin(ctx context.Context) {
 	cm, err := cms.Get(ctx, s.accountsCM.Name, metav1.GetOptions{})
 	cmMissing := apierrors.IsNotFound(err)
 	switch {
+	case err == nil && auth.HasAdmin(cm.Data):
+		return // an admin exists — nothing to do
 	case err == nil && cm.Data["admin"] != "":
-		return // admin exists — nothing to do
+		slog.Warn("initial admin: the accounts ConfigMap has an \"admin\" key without the admin role; not touching it")
+		return
 	case err != nil && !cmMissing:
 		slog.Warn("initial admin: read accounts configmap failed", "err", err)
 		return
 	}
-
-	hash, err := bcrypt.GenerateFromPassword([]byte("admin"), bcrypt.DefaultCost)
+	if s.initialAdminSecret == "" {
+		slog.Warn("initial admin: INITIAL_ADMIN_SECRET is not set, so there is nowhere to put a password; add an admin to the accounts ConfigMap by hand")
+		return
+	}
+	// Secret first: an account whose password is stored nowhere would lock everyone out. Replicas
+	// starting together all end up with the one password that won the Secret write.
+	password, err := loadOrCreateSecretKey(ctx, client.Kube, s.accountsCM.Namespace, s.initialAdminSecret, "password", randomPassword)
+	if err != nil {
+		slog.Warn("initial admin: write the initial-admin Secret failed", "secret", s.initialAdminSecret, "err", err)
+		return
+	}
+	hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 	if err != nil {
 		slog.Warn("initial admin: hash failed", "err", err)
 		return
@@ -55,14 +74,28 @@ func (s *Server) EnsureInitialAdmin(ctx context.Context) {
 			ObjectMeta: metav1.ObjectMeta{Name: s.accountsCM.Name, Namespace: s.accountsCM.Namespace},
 			Data:       map[string]string{"admin": entry},
 		}, metav1.CreateOptions{})
-	} else {
+	}
+	if !cmMissing || apierrors.IsAlreadyExists(err) { // another replica created it first: same password
 		err = s.patchAccount(ctx, "admin", entry)
 	}
+	s.accounts.Invalidate()
 	if err != nil {
 		slog.Warn("initial admin: write accounts configmap failed", "err", err)
 		return
 	}
-	slog.Info("initial admin account created (admin/admin) — change the password after first login")
+	slog.Info("initial admin account created; its password is in the initial-admin Secret",
+		"secret", s.accountsCM.Namespace+"/"+s.initialAdminSecret, "key", "password")
+}
+
+// SetInitialAdminSecret names the Secret that receives a generated initial admin password.
+func (s *Server) SetInitialAdminSecret(name string) { s.initialAdminSecret = name }
+
+func randomPassword() string {
+	b := make([]byte, 18)
+	if _, err := rand.Read(b); err != nil {
+		panic(err) // no entropy — nothing sane to do
+	}
+	return base64.RawURLEncoding.EncodeToString(b)
 }
 
 // AccountsCMRef locates the accounts ConfigMap so password changes can be
@@ -77,9 +110,8 @@ func (s *Server) handlePasswordChange(w http.ResponseWriter, r *http.Request) {
 		writeCoded(w, http.StatusBadRequest, "BadRequest", "dev-mode-no-accounts", "no accounts in dev mode")
 		return
 	}
-	id, err := s.sessionIdentity(r)
-	if err != nil {
-		writeError(w, http.StatusUnauthorized, "Unauthorized", err.Error())
+	id, ok := s.session(w, r, true)
+	if !ok {
 		return
 	}
 	if id.Provider == auth.ProviderOIDC {
@@ -98,7 +130,7 @@ func (s *Server) handlePasswordChange(w http.ResponseWriter, r *http.Request) {
 		writeCoded(w, http.StatusBadRequest, "BadRequest", "new-password-too-short", "new password must be at least 8 characters")
 		return
 	}
-	role, err := s.accounts.Authenticate(id.Name, in.CurrentPassword)
+	role, _, err := s.accounts.Authenticate(id.Name, in.CurrentPassword)
 	if err != nil {
 		writeCoded(w, http.StatusUnauthorized, "Unauthorized", "password-incorrect", "current password is incorrect")
 		return
@@ -116,31 +148,21 @@ func (s *Server) handlePasswordChange(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "Internal", "failed to update accounts ConfigMap: "+err.Error())
 		return
 	}
-	s.markPasswordChanged(id.Name)
+	// Older sessions of this account carry the old password version and are refused from now on;
+	// this one continues with a fresh cookie.
+	id.Role, id.PV = role, auth.PasswordVersion(string(hash))
+	setSessionCookie(w, r, s.sessions.Sign(id, sessionTTL))
 	slog.Info("password changed", "user", id.Name)
 	w.WriteHeader(http.StatusNoContent)
 }
 
-// true if the account still uses the initial password ("admin") — the UI pins the
-// user to the change-password screen. A user who just changed it is released
-// immediately in memory, without waiting for the mount sync (~1 min).
+// true if a local account still uses the old fixed initial password "admin" (installs from before
+// 1.19). withAuth then allows nothing but changing it, and the UI shows the change screen.
 func (s *Server) mustChangePassword(user string) bool {
 	if s.dev || user == "" {
 		return false
 	}
-	s.pwChangedMu.Lock()
-	changed := s.pwChanged[user]
-	s.pwChangedMu.Unlock()
-	return !changed && s.accounts.PasswordIs(user, "admin")
-}
-
-func (s *Server) markPasswordChanged(user string) {
-	s.pwChangedMu.Lock()
-	if s.pwChanged == nil {
-		s.pwChanged = map[string]bool{}
-	}
-	s.pwChanged[user] = true
-	s.pwChangedMu.Unlock()
+	return s.accounts.PasswordIs(user, "admin")
 }
 
 // patchAccount merge-patches one ConfigMap key; entry nil deletes the key.
@@ -158,6 +180,7 @@ func (s *Server) patchAccount(ctx context.Context, user string, entry any) error
 	if err != nil {
 		return fmt.Errorf("%s/%s: %w", s.accountsCM.Namespace, s.accountsCM.Name, err)
 	}
+	s.accounts.Invalidate() // this replica sees the change (and revokes sessions) at once
 	return nil
 }
 
@@ -173,9 +196,8 @@ func (s *Server) adminOnly(w http.ResponseWriter, r *http.Request) (auth.Identit
 		writeCoded(w, http.StatusBadRequest, "BadRequest", "dev-mode-no-accounts", "no accounts in dev mode")
 		return auth.Identity{}, false
 	}
-	id, err := s.sessionIdentity(r)
-	if err != nil {
-		writeError(w, http.StatusUnauthorized, "Unauthorized", err.Error())
+	id, ok := s.session(w, r, false)
+	if !ok {
 		return auth.Identity{}, false
 	}
 	if id.Role != "admin" {

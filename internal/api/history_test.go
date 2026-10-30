@@ -11,8 +11,6 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kubefake "k8s.io/client-go/kubernetes/fake"
-
-	"github.com/wonjune95/sealane/internal/auth"
 )
 
 func historyServer(t *testing.T) (*http.ServeMux, *Server, *kubefake.Clientset) {
@@ -20,7 +18,7 @@ func historyServer(t *testing.T) (*http.ServeMux, *Server, *kubefake.Clientset) 
 	clients, _ := fakeDynamicClients()
 	kube := kubefake.NewClientset()
 	clients.Kube = kube
-	s := NewServer(false, &stubSource{clients: clients}, auth.NewStore(t.TempDir()), testSessions, AccountsCMRef{}, ClustersSecretRef{})
+	s := NewServer(false, &stubSource{clients: clients}, testStore(t), testSessions, AccountsCMRef{}, ClustersSecretRef{})
 	s.SetHistory(HistoryRef{Namespace: "sealane", Name: "sealane-history"})
 	mux := http.NewServeMux()
 	s.Routes(mux)
@@ -87,12 +85,24 @@ func TestHistory_RecordsChangesWithObjects(t *testing.T) {
 		t.Errorf("create before/after = %s / %s", createRev.Before, createRev.After)
 	}
 
-	// Both ConfigMaps live next to Sealane and carry the history labels.
-	for _, name := range []string{"sealane-history", "sealane-history-objects"} {
-		cm, err := kube.CoreV1().ConfigMaps("sealane").Get(context.Background(), name, metav1.GetOptions{})
-		if err != nil || cm.Labels["app.kubernetes.io/component"] != "history" {
-			t.Errorf("%s: %v %v", name, err, cm.GetLabels())
-		}
+	// The list ConfigMap and the objects Secret live next to Sealane and carry the history labels.
+	cm, err := kube.CoreV1().ConfigMaps("sealane").Get(context.Background(), "sealane-history", metav1.GetOptions{})
+	if err != nil || cm.Labels["app.kubernetes.io/component"] != "history" {
+		t.Errorf("list: %v %v", err, cm.GetLabels())
+	}
+	sec, err := kube.CoreV1().Secrets("sealane").Get(context.Background(), "sealane-history-objects", metav1.GetOptions{})
+	if err != nil || sec.Labels["app.kubernetes.io/component"] != "history" || len(sec.Data) != 3 {
+		t.Errorf("objects: %v %v, %d keys", err, sec.GetLabels(), len(sec.Data))
+	}
+	// Viewers see who changed what, not the objects.
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/api/history/"+list[1].ID, nil)
+	req.AddCookie(&http.Cookie{Name: "sealane_session", Value: testCookie("ro", "viewer")})
+	mux.ServeHTTP(rec, req)
+	var viewerRev RevisionDetail
+	_ = json.Unmarshal(rec.Body.Bytes(), &viewerRev)
+	if rec.Code != http.StatusOK || viewerRev.Verb != "update" || !isNull(viewerRev.Before) || !isNull(viewerRev.After) {
+		t.Errorf("viewer revision = %d %s, want metadata only", rec.Code, rec.Body.String())
 	}
 	serve(t, mux, "GET", "/api/history/123", "", http.StatusNotFound)
 	// Other resources and clusters are filtered out.
@@ -114,15 +124,15 @@ func TestHistory_KeepsNewestEntriesAndBoundsObjects(t *testing.T) {
 	if len(list) != historyKeep || list[0].Time.Before(list[1].Time) {
 		t.Fatalf("kept %d entries (newest first: %v), want %d", len(list), list[0].Time.After(list[1].Time), historyKeep)
 	}
-	cm, _ := kube.CoreV1().ConfigMaps("sealane").Get(ctx, "sealane-history-objects", metav1.GetOptions{})
+	sec, _ := kube.CoreV1().Secrets("sealane").Get(ctx, "sealane-history-objects", metav1.GetOptions{})
 	size := 0
-	for k, v := range cm.Data {
+	for k, v := range sec.Data {
 		size += len(k) + len(v)
 	}
-	if size > historyObjectsMax || cm.Data[list[0].ID] == "" {
-		t.Errorf("objects = %d bytes in %d keys, newest kept: %v", size, len(cm.Data), cm.Data[list[0].ID] != "")
+	if size > historyObjectsMax || len(sec.Data[list[0].ID]) == 0 {
+		t.Errorf("objects = %d bytes in %d keys, newest kept: %v", size, len(sec.Data), len(sec.Data[list[0].ID]) > 0)
 	}
-	if _, ok := cm.Data[list[len(list)-1].ID]; ok {
+	if _, ok := sec.Data[list[len(list)-1].ID]; ok {
 		t.Error("oldest revision's objects should have been dropped to stay under the size limit")
 	}
 }
@@ -135,6 +145,40 @@ func TestHistory_OffFallsBackToMemory(t *testing.T) {
 	_ = json.Unmarshal(serve(t, mux, "GET", "/api/audit", "", http.StatusOK), &list)
 	if len(list) != 1 || list[0].ID != "" || list[0].Verb != "create" {
 		t.Errorf("memory history = %+v, want one create without an ID", list)
+	}
+}
+
+// Revisions recorded by 1.15 to 1.18 kept their objects in a ConfigMap; they still open.
+func TestHistory_ReadsObjectsFromTheOldConfigMap(t *testing.T) {
+	mux, _, kube := historyServer(t)
+	ctx := context.Background()
+	old := Revision{ID: "1700000000000000000", AuditEntry: AuditEntry{Verb: "update", TypeID: vsTypeID, Name: "x", OK: true}}
+	if err := updateHistoryCM(ctx, kube, "sealane", "sealane-history", func(d map[string]string) {
+		b, _ := json.Marshal([]Revision{old})
+		d[historyListKey] = string(b)
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if err := updateHistoryCM(ctx, kube, "sealane", "sealane-history-objects", func(d map[string]string) {
+		d[old.ID] = `{"before":{"spec":{"hosts":["old.example.com"]}},"after":null}`
+	}); err != nil {
+		t.Fatal(err)
+	}
+	var d RevisionDetail
+	_ = json.Unmarshal(serve(t, mux, "GET", "/api/history/"+old.ID, "", http.StatusOK), &d)
+	if !strings.Contains(string(d.Before), "old.example.com") || !isNull(d.After) {
+		t.Errorf("old revision = %s / %s", d.Before, d.After)
+	}
+}
+
+// A client that hangs up right after its change does not lose the record.
+func TestHistory_RecordSurvivesCanceledRequest(t *testing.T) {
+	_, s, _ := historyServer(t)
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	s.recordRevision(ctx, AuditEntry{Time: time.Now(), Verb: "create", TypeID: vsTypeID, Name: "x", OK: true}, nil, json.RawMessage(`{"a":1}`))
+	if list := s.historyList(context.Background()); len(list) != 1 || !strings.Contains(list[0].ID, "-") {
+		t.Fatalf("history after a canceled request = %+v, want one entry with a suffixed ID", list)
 	}
 }
 

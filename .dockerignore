@@ -8,3 +8,6 @@ examples
 docs
 hack
 .github
+# Needed by the image build for THIRD_PARTY_NOTICES
+!hack/go-notices.sh
+!hack/npm-notices.mjs

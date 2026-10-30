@@ -1,5 +1,8 @@
 {{- $imp := default dict .Values.impersonation }}
 {{- if $imp.enabled }}
+# Sealane's own ClusterRole, read-only on the managed kinds in this mode (replaces the one in install.yaml).
+{{ include "sealane.clusterRole" . }}
+---
 # Impersonation mode: resource writes run as sealane:admin or sealane:editor (the signed-in user's role)
 # instead of the ServiceAccount, so cluster RBAC decides and the API server's audit log records the
 # person (user extra sealane-user). The ServiceAccount may impersonate exactly these two identities.

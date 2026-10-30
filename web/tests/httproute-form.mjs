@@ -41,7 +41,7 @@ try {
   await hostnames.getByRole('button', { name: '+ Add' }).click()
   assert.equal(await rows.count(), 2)
   await rows.nth(1).fill('shop.example.com')
-  await page.getByRole('button', { name: 'YAML', exact: true }).click()
+  await page.getByRole('tab', { name: 'YAML', exact: true }).click()
   const doc = load(await page.locator('.cm-content').evaluate((el) => el.cmTile.view.state.doc.toString()))
   assert.deepEqual(doc.spec.hostnames, ['example.com', 'shop.example.com'])
   assert.deepEqual(errors, [])

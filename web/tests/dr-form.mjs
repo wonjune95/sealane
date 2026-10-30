@@ -59,8 +59,8 @@ const page = await context.newPage()
 const errors = []
 page.on('pageerror', (e) => errors.push(e.message))
 
-const formTab = page.getByRole('button', { name: 'Form', exact: true })
-const yamlTab = page.getByRole('button', { name: 'YAML', exact: true })
+const formTab = page.getByRole('tab', { name: 'Form', exact: true })
+const yamlTab = page.getByRole('tab', { name: 'YAML', exact: true })
 const isActive = async (tab) => (await tab.getAttribute('class')).includes('border-accent')
 const section = (title) => page.locator('h3', { hasText: title }).locator('xpath=../..')
 const editorText = async () => {

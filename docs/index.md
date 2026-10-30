@@ -7,10 +7,12 @@
 
 ```bash
 # Helm (OCI)
-helm install sealane oci://ghcr.io/wonjune95/charts/sealane --version 1.18.3 -n sealane --create-namespace
+helm install sealane oci://ghcr.io/wonjune95/charts/sealane --version 1.19.0 -n sealane --create-namespace
 # or plain manifests
 kubectl apply -f https://github.com/wonjune95/sealane/releases/latest/download/install.yaml
-kubectl -n sealane port-forward svc/sealane 8080:8080   # → http://localhost:8080, log in as admin / admin
+kubectl -n sealane port-forward svc/sealane 8080:8080   # → http://localhost:8080, user admin
+# the admin password, generated at first start:
+kubectl -n sealane get secret sealane-initial-admin -o jsonpath='{.data.password}' | base64 -d; echo
 ```
 
 Next: [Getting started](getting-started.md) walks through the install, exposing the UI, the first login and adding accounts.

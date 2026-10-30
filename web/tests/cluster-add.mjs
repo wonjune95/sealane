@@ -20,6 +20,7 @@ contexts:
 current-context: cicd
 `
 const puts = []
+const deletes = []
 const context = await browser.newContext({ viewport: { width: 1280, height: 1000 }, locale: 'en-US' })
 await context.route('**/api/**', async (route) => {
   const url = new URL(route.request().url())
@@ -31,7 +32,14 @@ await context.route('**/api/**', async (route) => {
     const setup = route.request().postDataJSON().setup
     return route.fulfill({ json: { connected: true, version: 'v1.34.3', ...(setup ? { account: 'sealane-remote/sealane' } : {}) } })
   }
-  if (url.pathname === '/api/clusters') return route.fulfill({ json: [{ name: 'local', connected: true }] })
+  if (url.pathname.startsWith('/api/clusters/') && route.request().method() === 'DELETE') {
+    deletes.push(url.pathname + url.search)
+    return route.fulfill({ status: 204 })
+  }
+  if (url.pathname === '/api/clusters')
+    return route.fulfill({
+      json: [{ name: 'local', connected: true }, { name: 'own', dedicated: true, connected: true }, { name: 'pasted', connected: true }],
+    })
   return route.fulfill({ json: [] })
 })
 const page = await context.newPage()
@@ -75,6 +83,24 @@ try {
   assert.equal(puts[1].path, '/api/clusters/prod')
   assert.equal(puts[1].body.setup, false)
   assert.equal(puts[1].body.context, 'nks_app-cluster')
+
+  // Deleting a cluster registered with Sealane's account removes that account by default.
+  const row = (n) => page.getByRole('row').filter({ has: page.getByRole('cell', { name: n, exact: true }) })
+  await row('own').getByRole('button', { name: 'Delete' }).click()
+  const dialog = page.getByRole('dialog', { name: 'Delete cluster own?' })
+  const cleanup = dialog.getByRole('checkbox', { name: /Also remove Sealane's account/ })
+  assert.ok(await cleanup.isChecked())
+  await dialog.getByRole('button', { name: 'Delete' }).click()
+  await page.getByRole('status').filter({ hasText: 'Deleted cluster own.' }).waitFor()
+  assert.equal(deletes[0], '/api/clusters/own?cleanup=true')
+  // A cluster registered with pasted credentials says they stay valid; nothing to clean up.
+  await row('pasted').getByRole('button', { name: 'Delete' }).click()
+  const plain = page.getByRole('dialog', { name: 'Delete cluster pasted?' })
+  await plain.getByText(/stay valid on the cluster/).waitFor()
+  assert.equal(await plain.getByRole('checkbox').count(), 0)
+  await plain.getByRole('button', { name: 'Delete' }).click()
+  await page.getByRole('status').filter({ hasText: 'Deleted cluster pasted.' }).waitFor()
+  assert.equal(deletes[1], '/api/clusters/pasted')
   assert.deepEqual(errors, [])
   console.log('cluster-add: ok')
 } finally {

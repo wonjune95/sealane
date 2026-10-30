@@ -68,7 +68,7 @@ await context.route('**/api/**', async (interception) => {
 const page = await context.newPage()
 const errors = []
 page.on('pageerror', (e) => errors.push(e.message))
-const yamlTab = page.getByRole('button', { name: 'YAML', exact: true })
+const yamlTab = page.getByRole('tab', { name: 'YAML', exact: true })
 const status = page.getByRole('status')
 
 try {

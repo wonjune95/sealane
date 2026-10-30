@@ -79,6 +79,7 @@ jobs:
       - run: helm template sealane charts/sealane -n sealane >/dev/null
       - run: helm template sealane charts/sealane -n sealane --set ingress.enabled=true --set httpRoute.enabled=true --set 'httpRoute.parentRefs[0].name=gw' --set sessionSecret.create=false >/dev/null
       - run: helm template sealane charts/sealane -n sealane --set 'accounts.admin=admin:$2a$10$x' --set oidc.enabled=true --set oidc.issuerURL=https://idp --set oidc.clientID=c --set oidc.redirectURL=https://s/cb >/dev/null
+      - run: "helm template sealane charts/sealane -n sealane --set podDisruptionBudget.enabled=false --set-string 'tlsCerts.ca\\.crt=-----BEGIN CERTIFICATE-----x' | grep -q 'ca.crt: \"-----BEGIN CERTIFICATE-----x\"'"
 
   docker:
     runs-on: ubuntu-latest

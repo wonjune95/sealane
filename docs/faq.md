@@ -14,7 +14,7 @@ Passing each user's Kubernetes token through was tried first. It was accurate bu
 
 ## Does it work in an air-gapped cluster?
 
-Yes. The frontend is embedded in the binary and nothing is fetched from the internet at runtime. Mirror the image (`ghcr.io/wonjune95/sealane:1.14.1`) and the chart to your registry, then set `image.repository` and, if needed, `imagePullSecrets`. Without Helm, download `install.yaml` from the release, replace the `image:` line with your mirror (and add `imagePullSecrets` under the pod spec if the registry needs them) and `kubectl apply` it; the SBOM and the cosign signature on the release page let you verify what you mirrored. For SSO the IdP only has to be reachable from the browser and the Sealane pod.
+Yes. The frontend is embedded in the binary and nothing is fetched from the internet at runtime; with SSO the IdP only has to be reachable from the browser and the Sealane pod. Mirror the image, pin it by digest in `install.yaml` (or set `image.repository` for Helm) and add the few settings `install.yaml` does not carry. Step by step: [Air-gapped install](air-gapped.md).
 
 ## My cluster has only Gateway API (or only Istio). Is that fine?
 

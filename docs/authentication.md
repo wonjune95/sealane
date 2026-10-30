@@ -182,27 +182,22 @@ Create a **dedicated** OAuth2 application for Sealane (Site Administration → I
 
 #### Private CA
 
-Sealane checks the issuer's TLS certificate against the image's system roots. If your IdP presents a certificate from an internal CA, put that CA certificate in a ConfigMap and point Go's `SSL_CERT_FILE` at it through the chart's pass-through values (the file is loaded in addition to the system roots):
+Sealane checks the issuer's TLS certificate against the image's system roots plus every certificate in the `sealane-tls-certs` ConfigMap (`<release>-tls-certs` with Helm), like Argo CD's `argocd-tls-certs-cm`. Both `install.yaml` and the chart create that ConfigMap empty. Add your CA certificate (PEM, any key name) and restart, since Go reads trust roots once:
 
 ```bash
-kubectl -n sealane create configmap sealane-ca --from-file=ca.crt=/path/to/ca.crt
+kubectl create configmap sealane-tls-certs --from-file=corp-ca.crt=/path/to/ca.crt --dry-run=client -o yaml |
+  kubectl -n sealane patch configmap sealane-tls-certs --type merge --patch-file /dev/stdin
+kubectl -n sealane rollout restart deploy/sealane
 ```
 
-```yaml
-extraEnv:
-  - name: SSL_CERT_FILE
-    value: /etc/sealane/ca/ca.crt
-extraVolumes:
-  - name: ca
-    configMap:
-      name: sealane-ca
-extraVolumeMounts:
-  - name: ca
-    mountPath: /etc/sealane/ca
-    readOnly: true
+Patch rather than `kubectl apply` the ConfigMap: keys added by a patch or `kubectl edit` survive later `kubectl apply -f install.yaml` and `helm upgrade`, which only manage the keys they render. With Helm you can render the certificate instead:
+
+```bash
+helm upgrade sealane oci://ghcr.io/wonjune95/charts/sealane -n sealane --reset-then-reuse-values \
+  --set-file 'tlsCerts.corp-ca\.crt=/path/to/ca.crt'
 ```
 
-The browser must trust the same CA, since users are sent to the IdP directly. The symptom of a missing CA is `x509: certificate signed by unknown authority` in the Sealane log at startup.
+The browser must trust the same CA, since users are sent to the IdP directly. Discovery happens on the first SSO sign-in, so a missing CA shows up then: the login page reports a provider error and the Sealane log has an `oidc login` warning with `x509: certificate signed by unknown authority`. Before 1.15.0 the way to do this was `SSL_CERT_FILE` plus `extraVolumes`; that still works, because the file is read in addition to the directories.
 
 ### Troubleshooting
 

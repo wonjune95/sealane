@@ -1,0 +1,16 @@
+{{- if (default dict .Values.podDisruptionBudget).enabled }}
+# At most one pod down during voluntary disruptions (node drain, cluster upgrade). With one replica a drain
+# still proceeds; with two or more one pod keeps serving.
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ include "sealane.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "sealane.labels" . | nindent 4 }}
+spec:
+  maxUnavailable: 1
+  selector:
+    matchLabels:
+      {{- include "sealane.selectorLabels" . | nindent 6 }}
+{{- end }}

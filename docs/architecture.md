@@ -1,19 +1,16 @@
 # Architecture & security model
 
-```mermaid
-sequenceDiagram
-    autonumber
-    actor User as User (browser)
-    participant Dash as Sealane (single Go binary)
-    participant K8s as Kubernetes API Server
-
-    User->>Dash: POST /api/login (username·password)
-    Note over Dash: verify bcrypt hash from accounts ConfigMap<br/>→ issue HMAC-signed session cookie (HttpOnly, 12h)
-    User->>Dash: /api request (session cookie)
-    Note over Dash: role gate: viewer gets 403 on all writes
-    Dash->>K8s: calls as the ServiceAccount (single identity)
-    K8s-->>Dash: resources
-    Dash-->>User: JSON response (UI is read-only for viewer)
+```text
+ Browser                  Sealane (single Go binary)                 Kubernetes API server
+    │                               │                                          │
+    │ 1  POST /api/login ──────────▶│ check the bcrypt hash in the accounts    │
+    │                               │ ConfigMap, issue an HMAC-signed session  │
+    │◀──────────── 2  session cookie│ cookie (HttpOnly, 12h)                   │
+    │                               │                                          │
+    │ 3  /api request + cookie ────▶│ role gate: viewers get 403 on writes     │
+    │                               │ 4  call as the ServiceAccount ──────────▶│
+    │                               │◀────────────────────────── 5  resources  │
+    │◀──────────── 6  JSON response │                                          │
 ```
 
 - **Local accounts = ConfigMap** — one key in the `sealane-accounts` ConfigMap is one account (`username: "role:bcryptHash"`). Stored in the cluster (etcd), not the pod, so **accounts survive restarts and redeploys**; the chart renders the CM empty (`resource-policy: keep`) and never rewrites keys it did not set, so upgrades and uninstalls keep it. Changes propagate through the mounted volume **within ~1 minute, no restart**.

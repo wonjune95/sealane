@@ -9,6 +9,10 @@ imagePullSecrets: []
 # The app is stateless: raise this for HA (2+ = zero-downtime rollouts).
 replicaCount: 1
 
+# PodDisruptionBudget with maxUnavailable: 1 — keeps one pod up during node drains when replicaCount >= 2.
+podDisruptionBudget:
+  enabled: true
+
 # Namespace where istiod runs — used to show the control-plane version on the home page.
 # "" skips the istiod-reader Role (no version shown); a live helm install also skips it when this namespace is absent.
 istioNamespace: istio-system
@@ -29,6 +33,13 @@ accountsConfigMap: sealane-accounts
 accounts: {}
 #  admin: "admin:$2a$10$..."
 #  viewer1: "viewer:$2a$10$..."
+
+# Extra CA certificates (PEM) to trust, e.g. a private CA that signed the OIDC provider's certificate.
+# Rendered into the <release>-tls-certs ConfigMap; keys added there with kubectl are left alone.
+tlsCerts: {}
+#  corp-ca.crt: |
+#    -----BEGIN CERTIFICATE-----
+#    ...
 
 # Multi-cluster: Secret holding remote kubeconfigs (key = cluster name, value = kubeconfig).
 # The settings page manages this Secret. Set to istio-dashboard-clusters when upgrading.

@@ -1,0 +1,21 @@
+# Extra CA certificates Sealane trusts for outgoing TLS, such as a private CA that signed the OIDC provider,
+# like Argo CD's argocd-tls-certs-cm. One key per certificate file, PEM; any key name works. They are added
+# to the system roots, not a replacement. Restart Sealane after a change (Go reads trust roots once):
+#   kubectl create configmap {{ include "sealane.fullname" . }}-tls-certs --from-file=corp-ca.crt=ca.crt --dry-run=client -o yaml |
+#     kubectl -n {{ .Release.Namespace }} patch configmap {{ include "sealane.fullname" . }}-tls-certs --type merge --patch-file /dev/stdin
+#   kubectl -n {{ .Release.Namespace }} rollout restart deploy/{{ include "sealane.fullname" . }}
+# Or kubectl edit and paste the PEM under data:. Keys added that way survive helm upgrade and kubectl apply,
+# which only manage the keys listed in .Values.tlsCerts (none by default).
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "sealane.fullname" . }}-tls-certs
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "sealane.labels" . | nindent 4 }}
+{{- with .Values.tlsCerts }}
+data:
+  {{- range $name, $pem := . }}
+  {{ $name }}: {{ $pem | quote }}
+  {{- end }}
+{{- end }}

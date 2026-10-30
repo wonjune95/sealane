@@ -47,6 +47,13 @@ nav:
       - Versioning & support: versioning.md
       - Compatibility: compatibility.md
       - Security policy: security.md
+  - Korean:
+      - ko/index.md
+      - ko/getting-started.md
+      - ko/air-gapped.md
+      - ko/authentication.md
+      - ko/operations.md
+      - ko/faq.md
   - Project:
       - Contributing: contributing.md
       - Governance & adopters: governance.md
@@ -54,6 +61,7 @@ nav:
       - Upgrading: upgrading.md
       - FAQ: faq.md
   - Release notes:
+      - "1.15.0": releases/v1.15.0.md
       - "1.14.1": releases/v1.14.1.md
       - "1.14.0": releases/v1.14.0.md
       - "1.13.0": releases/v1.13.0.md

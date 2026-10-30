@@ -19,7 +19,7 @@
 
 ```bash
 # Helm (OCI)
-helm install sealane oci://ghcr.io/wonjune95/charts/sealane --version 1.14.1 -n sealane --create-namespace
+helm install sealane oci://ghcr.io/wonjune95/charts/sealane --version 1.15.0 -n sealane --create-namespace
 # or plain manifests
 kubectl apply -f https://github.com/wonjune95/sealane/releases/latest/download/install.yaml
 kubectl -n sealane port-forward svc/sealane 8080:8080   # → http://localhost:8080, 초기 계정 admin / admin
@@ -77,7 +77,9 @@ admin은 설정 페이지에서 계정과 원격 클러스터를 관리한다.
 
 ## 문서
 
-문서는 영어로 제공됩니다: **https://wonjune95.github.io/sealane/**
+문서 사이트: **https://wonjune95.github.io/sealane/**
+
+한국어 문서(시작하기, 폐쇄망 설치, 인증, 운영, FAQ)는 [한국어 문서](https://wonjune95.github.io/sealane/ko/)에 있습니다. 나머지 페이지는 영어입니다.
 
 - [Getting started](https://wonjune95.github.io/sealane/getting-started/) — 설치, 노출, 첫 로그인, 계정
 - [Authentication](https://wonjune95.github.io/sealane/authentication/) — 로컬 계정과 OIDC SSO

@@ -75,6 +75,14 @@ jobs:
           kubectl -n sealane port-forward svc/sealane 8081:8080 >/tmp/pf2.log 2>&1 &
           for i in $(seq 1 30); do curl -sf http://localhost:8081/healthz >/dev/null && break; sleep 1; done
           ./hack/e2e-impersonation.sh http://localhost:8081 sealane "$(cat /tmp/e2e-admin-pass)"
+      - name: Register a cluster with a dedicated account
+        run: |
+          # kind's admin kubeconfig, pointed at the API address the pod can reach (the cert covers it)
+          kind get kubeconfig --name "$KIND_CLUSTER" | sed -E 's#server: https://127\.0\.0\.1:[0-9]+#server: https://kubernetes.default.svc#' > /tmp/admin.kubeconfig
+          grep -q 'server: https://kubernetes.default.svc' /tmp/admin.kubeconfig
+          kubectl -n sealane port-forward svc/sealane 8082:8080 >/tmp/pf3.log 2>&1 &
+          for i in $(seq 1 30); do curl -sf http://localhost:8082/healthz >/dev/null && break; sleep 1; done
+          ./hack/e2e-cluster-add.sh http://localhost:8082 "$(cat /tmp/e2e-admin-pass)" /tmp/admin.kubeconfig
       - name: Logs on failure
         if: failure()
         run: |

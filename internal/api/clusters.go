@@ -3,16 +3,19 @@ package api
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
 	"net/http"
 	"sort"
 	"sync"
+	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/kubernetes"
 
 	"github.com/wonjune95/sealane/internal/k8s"
 )
@@ -161,6 +164,8 @@ func (s *Server) handleClusterUpsert(w http.ResponseWriter, r *http.Request) {
 	}
 	var in struct {
 		Kubeconfig string `json:"kubeconfig"`
+		Context    string `json:"context"` // which context of a multi-context kubeconfig; "" = its current one
+		Setup      bool   `json:"setup"`   // create Sealane's own account on the cluster and store its token
 	}
 	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 1<<20)).Decode(&in); err != nil {
 		writeCoded(w, http.StatusBadRequest, "BadRequest", "invalid-body", "invalid request body")
@@ -170,22 +175,47 @@ func (s *Server) handleClusterUpsert(w http.ResponseWriter, r *http.Request) {
 		writeCoded(w, http.StatusBadRequest, "BadRequest", "kubeconfig-empty", "kubeconfig is empty")
 		return
 	}
-	f, err := k8s.NewClientFactoryFromKubeconfig([]byte(in.Kubeconfig))
+	kubeconfig, cfg, err := k8s.PrepareKubeconfig([]byte(in.Kubeconfig), in.Context)
+	if errors.Is(err, k8s.ErrExecCredential) {
+		writeCoded(w, http.StatusBadRequest, "BadRequest", "kubeconfig-exec", err.Error())
+		return
+	}
 	if err != nil {
 		writeError(w, http.StatusBadRequest, "BadRequest", err.Error())
 		return
 	}
-	if err := s.patchClusterSecret(r.Context(), name, []byte(in.Kubeconfig)); err != nil {
+	if in.Setup {
+		ctx, cancel := context.WithTimeout(r.Context(), 45*time.Second)
+		defer cancel()
+		kube, err := kubernetes.NewForConfig(cfg)
+		if err == nil {
+			kubeconfig, err = k8s.SetupRemoteAccount(ctx, kube, cfg, s.impersonate, time.Second)
+		}
+		if err != nil {
+			// Nothing is stored: the pasted credentials could not create the account.
+			writeError(w, http.StatusBadGateway, "SetupFailed", "could not create Sealane's account on the cluster: "+err.Error())
+			return
+		}
+	}
+	f, err := k8s.NewClientFactoryFromKubeconfig(kubeconfig)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "BadRequest", err.Error())
+		return
+	}
+	if err := s.patchClusterSecret(r.Context(), name, kubeconfig); err != nil {
 		writeError(w, http.StatusInternalServerError, "Internal", "failed to update clusters Secret: "+err.Error())
 		return
 	}
 	s.dropClusterCache(name)
 	version, perr := f.Ping()
 	out := map[string]any{"connected": perr == nil, "version": version}
+	if in.Setup {
+		out["account"] = k8s.RemoteNamespace + "/sealane"
+	}
 	if perr != nil {
 		out["error"] = perr.Error()
 	}
-	slog.Info("cluster upserted", "cluster", name, "connected", perr == nil)
+	slog.Info("cluster upserted", "cluster", name, "connected", perr == nil, "dedicatedAccount", in.Setup)
 	writeJSON(w, http.StatusOK, out)
 }
 

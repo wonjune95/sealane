@@ -79,7 +79,7 @@ kubectl -n sealane edit configmap sealane-accounts
 
 ## 6) 클러스터 추가 등록(선택 사항)
 
-Sealane 하나로 여러 클러스터를 관리하려면 admin으로 **설정 → 클러스터 관리**에 들어가 대상 클러스터의 kubeconfig를 이름과 함께 붙여 넣습니다. 등록할 때 연결 테스트를 실행하고, 헤더의 드롭다운에서 클러스터를 전환합니다. 대상 클러스터에는 아무것도 설치하지 않습니다. 자격 증명은 Sealane 옆의 `sealane-clusters` Secret에만 저장됩니다. [멀티 클러스터](../multi-cluster.md)를 참고하세요.
+Sealane 하나로 여러 클러스터를 관리하려면 admin으로 **설정 → 클러스터 관리**에 들어가 kubeconfig를 붙여 넣거나 파일로 불러온 뒤, 추가할 클러스터의 컨텍스트를 고릅니다. 평소 쓰는 `~/.kube/config`를 그대로 넣어도 됩니다. 기본으로 Sealane이 그 자격 증명을 한 번만 써서 대상 클러스터에 권한이 제한된 `sealane-remote` 계정을 만들고, 그 계정의 토큰만 Sealane 옆의 `sealane-clusters` Secret에 저장합니다. 등록할 때 연결 테스트를 실행하고, 헤더의 클러스터 메뉴에서 클러스터를 전환합니다. [멀티 클러스터](../multi-cluster.md)를 참고하세요.
 
 ![설정 — 계정과 클러스터](../img/screenshot-settings.png)
 

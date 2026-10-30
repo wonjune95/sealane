@@ -72,7 +72,7 @@ kubectl apply -f https://github.com/wonjune95/sealane/releases/download/v1.16.0/
 kubectl -n sealane set env deploy/sealane IMPERSONATION=true
 ```
 
-- **Remote clusters:** the same applies there. The pasted kubeconfig's credentials need `impersonate` on those two users and groups and the two extras, and `sealane:admin` / `sealane:editor` need bindings on that cluster; otherwise writes there fail with 403.
+- **Remote clusters:** the same applies there. The stored credentials need `impersonate` on those two users and groups and the two extras, and `sealane:admin` / `sealane:editor` need bindings on that cluster; otherwise writes there fail with 403. Registering a cluster with the dedicated account option while the mode is on creates both (see [Multi-cluster](multi-cluster.md#registering-a-cluster)).
 
 ## The request tester
 

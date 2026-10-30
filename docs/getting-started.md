@@ -77,7 +77,7 @@ To let people sign in with your identity provider instead, see [Single sign-on (
 
 ## 6) Register more clusters (optional)
 
-To manage multiple clusters from one Sealane install, go to **settings → cluster management** as admin and paste the target cluster's kubeconfig with a name. A connectivity test runs on registration, and the header dropdown switches clusters. Nothing is installed on target clusters; credentials live only in the `sealane-clusters` Secret next to Sealane. See [Multi-cluster](multi-cluster.md).
+To manage multiple clusters from one Sealane install, go to **settings → cluster management** as admin, paste or load your kubeconfig and pick the cluster's context. By default Sealane uses those credentials once to create a limited `sealane-remote` account on that cluster and stores only that account's token, in the `sealane-clusters` Secret next to Sealane. A connectivity test runs on registration, and the header menu switches clusters. See [Multi-cluster](multi-cluster.md).
 
 ![Settings — accounts & clusters](img/screenshot-settings.png)
 

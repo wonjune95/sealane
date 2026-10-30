@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { load as yamlLoad } from 'js-yaml'
 import { useCapabilities } from '../api/capabilities'
 import { useClusters, type Cluster } from '../api/clusters'
 import { apiDelete, apiGet, apiPost, apiPut, errorText, getCluster, setCluster } from '../api/client'
@@ -121,35 +122,61 @@ export function Settings() {
   )
 }
 
-// Admin-only multi-cluster management: register by pasting a kubeconfig (the backend stores it in a Secret).
+// Admin-only multi-cluster management. Register with any kubeconfig (pasted or loaded from a file,
+// a whole ~/.kube/config is fine): pick a context, and by default Sealane uses those credentials once
+// to create its own limited account on the cluster and stores that account's token instead.
+const clusterName = (context: string) =>
+  context.replace(/[^-._a-zA-Z0-9]/g, '-').replace(/^[^a-zA-Z0-9]+/, '').slice(0, 64)
+
+function kubeconfigContexts(text: string): { names: string[]; current: string } {
+  try {
+    const doc = yamlLoad(text) as { contexts?: { name?: string }[]; 'current-context'?: string } | null
+    const names = (doc?.contexts ?? []).map((c) => c.name ?? '').filter(Boolean)
+    return { names, current: doc?.['current-context'] ?? names[0] ?? '' }
+  } catch {
+    return { names: [], current: '' }
+  }
+}
+
 function ClustersPanel() {
   const toast = useToast()
   const clusters = useClusters(true)
   const [name, setName] = useState('')
+  const [nameTouched, setNameTouched] = useState(false)
   const [kubeconfig, setKubeconfig] = useState('')
+  const [picked, setPicked] = useState('')
+  const [setup, setSetup] = useState(true)
   const [busy, setBusy] = useState(false)
+  const file = useRef<HTMLInputElement>(null)
+  const contexts = useMemo(() => kubeconfigContexts(kubeconfig), [kubeconfig])
+  const context = contexts.names.includes(picked) ? picked : contexts.current
+  const shownName = nameTouched ? name : clusterName(context)
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!name || !kubeconfig || busy) return
+    if (!shownName || !kubeconfig || busy) return
     setBusy(true)
     try {
-      const res = await apiPut<{ connected: boolean; version?: string; error?: string }>(
-        `/api/clusters/${encodeURIComponent(name)}`,
-        { kubeconfig },
+      const res = await apiPut<{ connected: boolean; version?: string; error?: string; account?: string }>(
+        `/api/clusters/${encodeURIComponent(shownName)}`,
+        { kubeconfig, context, setup },
       )
       if (res.connected) {
         toast(
           'success',
-          res.version
-            ? t('settings.cluster.registered', { name, version: res.version })
-            : t('settings.cluster.registeredNoVersion', { name }),
+          res.account
+            ? t('settings.cluster.registeredWithAccount', { name: shownName, version: res.version ?? '', account: res.account })
+            : res.version
+              ? t('settings.cluster.registered', { name: shownName, version: res.version })
+              : t('settings.cluster.registeredNoVersion', { name: shownName }),
         )
       } else {
         toast('error', t('settings.cluster.savedButFailed', { error: res.error ?? '' }))
       }
       setName('')
+      setNameTouched(false)
       setKubeconfig('')
+      setPicked('')
       void clusters.refetch()
     } catch (err) {
       toast('error', errorText(err))
@@ -225,28 +252,78 @@ function ClustersPanel() {
       </table>
 
       <form onSubmit={submit} className="space-y-2 border-t border-gray-200 pt-3 dark:border-slate-700">
-        <p className="text-xs font-medium text-muted">{t('settings.cluster.formTitle')}</p>
-        <input
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          placeholder={t('settings.cluster.namePlaceholder')}
-          autoComplete="off"
-          className="input-base w-full"
-        />
+        <div className="flex items-center justify-between gap-2">
+          <p className="text-xs font-medium text-muted">{t('settings.cluster.formTitle')}</p>
+          <button type="button" className="btn-ghost px-2 py-1 text-xs" onClick={() => file.current?.click()}>
+            <Icon name="download" className="h-3.5 w-3.5 rotate-180" />
+            {t('settings.cluster.loadFile')}
+          </button>
+          <input
+            ref={file}
+            type="file"
+            className="hidden"
+            aria-label={t('settings.cluster.loadFile')}
+            onChange={(e) => {
+              const f = e.target.files?.[0]
+              if (f) void f.text().then(setKubeconfig)
+              e.target.value = ''
+            }}
+          />
+        </div>
         <textarea
           value={kubeconfig}
           onChange={(e) => setKubeconfig(e.target.value)}
           placeholder={t('settings.cluster.kubeconfigPlaceholder')}
+          aria-label={t('settings.cluster.kubeconfigLabel')}
           rows={6}
           spellCheck={false}
           className="input-base w-full font-mono text-xs"
         />
+        {contexts.names.length > 1 && (
+          <label className="block">
+            <span className="mb-1 block text-xs text-muted">{t('settings.cluster.context')}</span>
+            <select value={context} onChange={(e) => setPicked(e.target.value)} className="input-base w-full">
+              {contexts.names.map((c) => (
+                <option key={c} value={c}>
+                  {c}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
+        <label className="block">
+          <span className="mb-1 block text-xs text-muted">{t('common.name')}</span>
+          <input
+            value={shownName}
+            onChange={(e) => {
+              setName(e.target.value)
+              setNameTouched(true)
+            }}
+            placeholder={t('settings.cluster.namePlaceholder')}
+            autoComplete="off"
+            className="input-base w-full"
+          />
+        </label>
+        <label className="flex items-start gap-2 text-xs">
+          <input
+            type="checkbox"
+            checked={setup}
+            onChange={(e) => setSetup(e.target.checked)}
+            className="mt-0.5 rounded border-base text-accent focus:ring-accent"
+          />
+          <span>
+            <span className="font-medium text-strong">{t('settings.cluster.setup')}</span>
+            <span className="mt-0.5 block text-muted">
+              {setup ? t('settings.cluster.setupHelp') : t('settings.cluster.asIsHelp')}
+            </span>
+          </span>
+        </label>
         <button
           type="submit"
-          disabled={!name || !kubeconfig || busy}
+          disabled={!shownName || !kubeconfig || busy}
           className="btn-primary disabled:opacity-50"
         >
-          {busy ? t('settings.cluster.connecting') : t('settings.cluster.register')}
+          {busy ? t(setup ? 'settings.cluster.settingUp' : 'settings.cluster.connecting') : t('settings.cluster.register')}
         </button>
       </form>
     </div>

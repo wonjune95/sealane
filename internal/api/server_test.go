@@ -23,8 +23,8 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	dynamicfake "k8s.io/client-go/dynamic/fake"
-	"k8s.io/client-go/rest"
 	kubefake "k8s.io/client-go/kubernetes/fake"
+	"k8s.io/client-go/rest"
 	ktesting "k8s.io/client-go/testing"
 
 	istioapi "istio.io/api/networking/v1"
@@ -551,20 +551,32 @@ func TestClustersAPI_RoundTrip(t *testing.T) {
 		Name:  "sealane_session",
 		Value: testSessions.Sign(auth.Identity{Name: "bob", Role: "editor"}, time.Hour),
 	}
+	// A whole ~/.kube/config: only the chosen context may be stored.
 	kubeconfig := `apiVersion: v1
 kind: Config
 clusters:
 - name: c
   cluster: {server: "https://127.0.0.1:1"}
+- name: other
+  cluster: {server: "https://127.0.0.1:2"}
 users:
 - name: u
   user: {token: t}
+- name: other-admin
+  user: {token: other-secret}
+- name: eks
+  user:
+    exec: {apiVersion: client.authentication.k8s.io/v1beta1, command: aws}
 contexts:
 - name: x
   context: {cluster: c, user: u}
-current-context: x
+- name: other
+  context: {cluster: other, user: other-admin}
+- name: cloud
+  context: {cluster: other, user: eks}
+current-context: other
 `
-	body, _ := json.Marshal(map[string]string{"kubeconfig": kubeconfig})
+	body, _ := json.Marshal(map[string]string{"kubeconfig": kubeconfig, "context": "x"})
 
 	if rec := do("PUT", "/api/clusters/prod", string(body), editorCookie); rec.Code != http.StatusForbidden {
 		t.Fatalf("editor upsert: status = %d, want 403", rec.Code)
@@ -586,8 +598,18 @@ current-context: x
 	if err != nil {
 		t.Fatalf("secret not created: %v", err)
 	}
-	if string(sec.Data["prod"]) != kubeconfig {
-		t.Fatalf("stored kubeconfig mismatch: %q", sec.Data["prod"])
+	stored := string(sec.Data["prod"])
+	if !strings.Contains(stored, "https://127.0.0.1:1") || !strings.Contains(stored, "token: t") ||
+		strings.Contains(stored, "other-secret") || !strings.Contains(stored, "current-context: x") {
+		t.Fatalf("stored kubeconfig should hold only context x: %q", stored)
+	}
+	exec, _ := json.Marshal(map[string]string{"kubeconfig": kubeconfig, "context": "cloud"})
+	if rec := do("PUT", "/api/clusters/eks", string(exec), adminCookie); rec.Code != http.StatusBadRequest || !strings.Contains(rec.Body.String(), `"code":"kubeconfig-exec"`) {
+		t.Fatalf("exec credential: status = %d, body = %s", rec.Code, rec.Body.String())
+	}
+	missing, _ := json.Marshal(map[string]string{"kubeconfig": kubeconfig, "context": "nope"})
+	if rec := do("PUT", "/api/clusters/nope", string(missing), adminCookie); rec.Code != http.StatusBadRequest {
+		t.Fatalf("unknown context: status = %d, want 400", rec.Code)
 	}
 	if rec := do("GET", "/api/clusters", "", adminCookie); !strings.Contains(rec.Body.String(), `"prod"`) {
 		t.Fatalf("list should contain prod: %s", rec.Body.String())

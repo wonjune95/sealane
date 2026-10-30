@@ -17,6 +17,7 @@ npm run test:service-create
 npm run test:managed-by
 npm run test:cluster-menu
 npm run test:history
+npm run test:cluster-add
 ```
 
 `npm run test:ui` runs every fixture-based check; CI runs it on each push (dev server on `127.0.0.1:5173`, `SEALANE_TEST_URL` set).
@@ -56,3 +57,5 @@ Set `SEALANE_TEST_URL` to change the frontend URL. Set `SEALANE_CHROMIUM_PATH` t
 `npm run test:cluster-menu` covers the header cluster menu: no native select, current cluster checked and focused on open, Escape and outside click close it, arrow keys wrap, Enter switches the cluster (stored, app reloads), **Manage clusters…** opens Settings for admins and is absent for viewers, fixture-based.
 
 `npm run test:history` covers the change history: the editor's History tab (failed entries have no Compare), Compare with current and Load into editor carrying the current resourceVersion, a pruned revision's message, Restore on the home page only for deletions in the current cluster (opening the new-resource editor with the deleted object), and viewers who can compare but not load, fixture-based.
+
+`npm run test:cluster-add` covers registering a cluster: a multi-context kubeconfig preselects its current context and names the cluster after it, picking another context renames until the name is typed, the dedicated-account option is on by default and sent with the context, loading a file fills the box, and an unchecked option stores the kubeconfig as it is, fixture-based.

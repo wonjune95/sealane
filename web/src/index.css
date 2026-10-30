@@ -448,7 +448,7 @@ button:disabled {
     user-select: none;
   }
   /* Namespace boxes with the label pill on the bottom edge, like Kiali's namespace boxes */
-  .flow-ns > rect {
+  rect.flow-ns {
     fill: var(--fl-group);
     stroke: var(--fl-stroke);
     stroke-width: 1;

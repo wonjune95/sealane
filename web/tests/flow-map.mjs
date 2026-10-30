@@ -204,7 +204,7 @@ try {
     'PASS: keyboard selection, focus-visible links, scaled drag, Escape and layout reset work',
   )
   // Kiali-style graph: one namespace box per namespace, stages flow left → right, arrows on edges.
-  const boxes = page.locator('.flow-ns')
+  const boxes = page.locator('.flow-ns-label')
   assert.deepEqual(
     (await boxes.locator('.flow-ns-name').allTextContents()).sort(),
     ['External', 'apps', 'edge'],

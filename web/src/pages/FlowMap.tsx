@@ -334,7 +334,7 @@ function FlowCanvas({ topology }: { topology: Topology }) {
               ))}
             </defs>
             {layout.bands.map((band) => (
-              <NamespaceBox key={band.namespace || '*'} band={band} />
+              <rect key={band.namespace || '*'} className="flow-ns" x={band.x} y={band.y} width={band.width} height={band.height} rx={6} />
             ))}
             {topology.edges.map((edge) => {
               const active =
@@ -367,6 +367,10 @@ function FlowCanvas({ topology }: { topology: Topology }) {
                   setOffsets((previous) => ({ ...previous, [node.id]: offset }))
                 }
               />
+            ))}
+            {/* Box labels last, so edges fanning out of a gateway never cover them */}
+            {layout.bands.map((band) => (
+              <NamespaceLabel key={band.namespace || '*'} band={band} />
             ))}
           </svg>
         </div>
@@ -599,18 +603,16 @@ function GraphNode({
   )
 }
 
-// Namespace box with its label hanging on the bottom edge: a dark pill with an "NS" badge,
-// the way Kiali labels namespace boxes.
-function NamespaceBox({ band }: { band: Band }) {
+// Label hanging on a namespace box's bottom edge: a dark pill with an "NS" badge, the way Kiali
+// labels namespace boxes.
+function NamespaceLabel({ band }: { band: Band }) {
   const name = band.namespace || t('flow.legend.external')
   const ns = !!band.namespace
   const width = name.length * 7 + 22 + (ns ? 30 : 0)
   const cx = band.x + band.width / 2
   const y = band.y + band.height
   return (
-    <g className="flow-ns">
-      <rect x={band.x} y={band.y} width={band.width} height={band.height} rx={6} />
-      <g className="flow-ns-label" transform={`translate(${cx - width / 2} ${y - 12})`}>
+    <g className="flow-ns-label" transform={`translate(${cx - width / 2} ${y - 12})`}>
         <rect width={width} height={24} rx={12} />
         {ns && (
           <g transform="translate(6 4)">
@@ -620,10 +622,9 @@ function NamespaceBox({ band }: { band: Band }) {
             </text>
           </g>
         )}
-        <text className="flow-ns-name" x={(ns ? 30 : 0) + (width - (ns ? 30 : 0)) / 2} y={16} textAnchor="middle">
-          {name}
-        </text>
-      </g>
+      <text className="flow-ns-name" x={(ns ? 30 : 0) + (width - (ns ? 30 : 0)) / 2} y={16} textAnchor="middle">
+        {name}
+      </text>
     </g>
   )
 }

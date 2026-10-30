@@ -403,90 +403,242 @@ button:disabled {
   .flow-issue-filter span {
     @apply rounded bg-slate-500/10 px-1.5 tabular-nums;
   }
-  .flow-canvas-controls {
-    @apply flex flex-wrap items-center justify-between gap-3 px-5 py-3;
+  /* Graph colours follow PatternFly topology, which Kiali draws its graph with. */
+  .flow-stage {
+    --fl-canvas: #fff;
+    --fl-node: #fff;
+    --fl-stroke: #c7c7c7;
+    --fl-text: #151515;
+    --fl-subtle: #4d4d4d;
+    --fl-group: #f2f2f2;
+    --fl-group-label: #292929;
+    --fl-group-label-text: #fff;
+    --fl-edge: #707070;
+    --fl-success: #3d7317;
+    --fl-danger: #b1380b;
+    --fl-brand: #06c;
+    --fl-on-brand: #fff;
+    --fl-config: #876fd4;
+    @apply relative;
   }
-  .flow-control {
-    @apply inline-flex min-h-8 min-w-8 items-center justify-center gap-1.5 rounded-md text-xs text-muted hover:bg-slate-100 disabled:opacity-40 dark:hover:bg-slate-800;
+  .dark .flow-stage {
+    --fl-canvas: rgb(var(--surface));
+    --fl-node: #1e293b;
+    --fl-stroke: #475569;
+    --fl-text: #f1f5f9;
+    --fl-subtle: #94a3b8;
+    --fl-group: rgb(148 163 184 / 0.08);
+    --fl-group-label: #e2e8f0;
+    --fl-group-label-text: #0f172a;
+    --fl-edge: #94a3b8;
+    --fl-success: #63993d;
+    --fl-danger: #f0561d;
+    --fl-brand: #4394e5;
+    --fl-on-brand: #fff;
+    --fl-config: #a18fff;
   }
   .flow-viewport {
     @apply relative overflow-auto border-y border-base;
     max-height: 660px;
-    background-color: rgb(var(--canvas));
-    background-image: radial-gradient(
-      rgb(148 163 184 / 0.3) 1px,
-      transparent 1px
-    );
-    background-size: 20px 20px;
+    background: var(--fl-canvas);
   }
   .flow-svg {
     display: block;
     overflow: visible;
     user-select: none;
   }
-  /* Namespace boxes, like Kiali's namespace groups */
-  .flow-ns rect {
-    fill: rgb(148 163 184 / 0.07);
-    stroke: rgb(148 163 184 / 0.5);
-    stroke-dasharray: 6 4;
+  /* Namespace boxes with the label pill on the bottom edge, like Kiali's namespace boxes */
+  .flow-ns > rect {
+    fill: var(--fl-group);
+    stroke: var(--fl-stroke);
+    stroke-width: 1;
   }
-  .flow-ns text {
-    @apply fill-slate-500 text-[11px] font-semibold uppercase tracking-wider dark:fill-slate-400;
+  .flow-ns-label > rect {
+    fill: var(--fl-group-label);
+  }
+  .flow-ns-name {
+    fill: var(--fl-group-label-text);
+    font-size: 12px;
+    font-weight: 600;
+  }
+  .flow-ns-badge {
+    fill: none;
+    stroke: var(--fl-group-label-text);
+    stroke-width: 1;
+  }
+  .flow-ns-badge-text {
+    fill: var(--fl-group-label-text);
+    font-size: 9px;
+    font-weight: 700;
   }
   .flow-node {
     cursor: grab;
     transition: opacity 150ms;
   }
-  /* The graph draws its own focus/selection ring (thicker stroke, .flow-ring); the global outline would box the whole label */
+  /* Focus shows on the shape (brand outline); the global outline would box the whole label */
+  .flow-svg .flow-node:focus,
   .flow-svg .flow-node:focus-visible {
     outline: none;
   }
   .flow-node:active {
     cursor: grabbing;
   }
-  .flow-node.is-dimmed {
+  .flow-node.is-dimmed,
+  .flow-edge.is-dimmed {
     opacity: 0.25;
   }
   .flow-hit {
     fill: transparent;
   }
   .flow-shape {
-    @apply fill-white dark:fill-slate-900;
+    fill: var(--fl-node);
+    stroke: var(--fl-stroke);
+    stroke-width: 1.5;
+    transition:
+      stroke 100ms,
+      fill 100ms;
+  }
+  .flow-node.is-success .flow-shape,
+  .flow-shape.is-success {
+    stroke: var(--fl-success);
     stroke-width: 2;
-    transition: stroke-width 100ms;
+  }
+  .flow-node.is-danger .flow-shape {
+    stroke: var(--fl-danger);
+    stroke-width: 2;
   }
   .flow-node:hover .flow-shape,
-  .flow-node:focus-visible .flow-shape,
+  .flow-node:focus-visible .flow-shape {
+    stroke: var(--fl-brand);
+    stroke-width: 2;
+  }
+  /* Selected node is filled with the brand colour, as in Kiali */
   .flow-node.is-selected .flow-shape {
-    stroke-width: 3;
+    fill: var(--fl-brand);
+    stroke: var(--fl-brand);
   }
-  .flow-shape.is-dashed {
-    stroke-dasharray: 4 3;
+  .flow-pill > rect {
+    fill: var(--fl-node);
+    stroke: var(--fl-stroke);
+    stroke-width: 1;
   }
-  .flow-ring {
-    fill: rgb(var(--accent) / 0.12);
-    stroke: rgb(var(--accent));
-    stroke-width: 1.5;
+  .flow-node.is-success .flow-pill > rect {
+    stroke: var(--fl-success);
   }
-  .flow-badge {
-    fill: #ef4444;
+  .flow-node.is-danger .flow-pill > rect {
+    stroke: var(--fl-danger);
   }
-  .flow-badge + text {
-    fill: white;
-    font-size: 11px;
-    font-weight: 700;
+  .flow-node.is-selected .flow-pill > rect {
+    fill: var(--fl-brand);
+    stroke: var(--fl-brand);
   }
   .flow-label {
-    @apply fill-slate-900 dark:fill-slate-100;
+    fill: var(--fl-text);
     font-size: 12px;
-    font-weight: 600;
+    font-weight: 500;
+  }
+  .flow-node.is-selected .flow-label {
+    fill: var(--fl-on-brand);
+  }
+  .flow-pill-icon {
+    color: var(--fl-subtle);
+  }
+  .flow-node.is-selected .flow-pill-icon {
+    color: var(--fl-on-brand);
   }
   .flow-sublabel {
-    @apply fill-slate-500 dark:fill-slate-400;
+    fill: var(--fl-subtle);
     font-size: 10px;
   }
+  /* Corner decorators: purple for the route kind (Kiali's Istio config marks), a status mark for problems */
+  .flow-decorator.is-config circle {
+    fill: var(--fl-config);
+  }
+  .flow-decorator.is-config text {
+    fill: #fff;
+    font-size: 8px;
+    font-weight: 700;
+  }
+  .flow-badge {
+    fill: var(--fl-node);
+    stroke: var(--fl-danger);
+    stroke-width: 1.5;
+  }
+  .flow-badge + text {
+    fill: var(--fl-danger);
+    font-size: 12px;
+    font-weight: 800;
+  }
+  .flow-arrow path {
+    fill: var(--fl-edge);
+  }
+  .flow-arrow.is-active path {
+    fill: var(--fl-brand);
+  }
+  .flow-arrow.is-broken path {
+    fill: var(--fl-danger);
+  }
+  .flow-edge {
+    stroke: var(--fl-edge);
+    stroke-width: 3;
+    transition: opacity 150ms;
+  }
+  .flow-edge.is-active {
+    stroke: var(--fl-brand);
+  }
+  .flow-edge.is-broken {
+    stroke: var(--fl-danger);
+    stroke-dasharray: 8 5;
+  }
+  /* Control bar and legend in the graph's lower left */
+  .flow-controlbar {
+    @apply absolute bottom-3 left-3 z-10 flex items-center gap-0.5 rounded-md border border-base bg-white p-0.5 shadow-sm dark:bg-slate-900;
+  }
+  .flow-control {
+    @apply inline-flex min-h-8 min-w-8 items-center justify-center gap-1.5 rounded text-xs text-muted hover:bg-slate-100 hover:text-strong disabled:opacity-40 dark:hover:bg-slate-800;
+  }
+  .flow-legend-toggle {
+    @apply px-2 font-medium;
+  }
+  .flow-legend-toggle.is-active {
+    @apply bg-slate-100 text-strong dark:bg-slate-800;
+  }
+  .flow-zoom {
+    @apply w-11 text-center text-[11px] tabular-nums text-muted;
+  }
+  .flow-legend {
+    @apply absolute bottom-14 left-3 z-10 grid w-60 gap-1.5 rounded-md border border-base bg-white p-3 text-xs text-muted shadow-md dark:bg-slate-900;
+  }
+  .flow-legend > span {
+    @apply inline-flex items-center gap-2;
+  }
+  .flow-legend-title {
+    @apply mt-1 text-[10px] font-semibold uppercase tracking-wider text-faint first:mt-0;
+  }
   .flow-legend-shape {
-    @apply inline-block h-4 w-4;
+    @apply inline-block h-5 w-5 shrink-0;
+    overflow: visible;
+  }
+  .flow-legend .flow-shape {
+    stroke-width: 1.5;
+  }
+  .flow-legend-config {
+    fill: var(--fl-config);
+  }
+  .flow-legend-config-text {
+    fill: #fff;
+    font-size: 8px;
+    font-weight: 700;
+  }
+  .flow-legend-status {
+    fill: var(--fl-node);
+    stroke: var(--fl-danger);
+    stroke-width: 1.5;
+  }
+  .flow-legend-status-text {
+    fill: var(--fl-danger);
+    font-size: 12px;
+    font-weight: 800;
   }
   .flow-icon {
     @apply inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg;
@@ -510,70 +662,6 @@ button:disabled {
   .flow-tone-slate.flow-icon,
   .flow-tone-slate .flow-icon {
     @apply bg-slate-500/10 text-slate-600 dark:text-slate-400;
-  }
-  .flow-tone-blue .flow-shape {
-    @apply stroke-blue-500;
-  }
-  .flow-tone-blue .flow-node-icon {
-    @apply text-blue-600 dark:text-blue-400;
-  }
-  .flow-tone-violet .flow-shape {
-    @apply stroke-violet-500;
-  }
-  .flow-tone-violet .flow-node-icon {
-    @apply text-violet-600 dark:text-violet-400;
-  }
-  .flow-tone-green .flow-shape {
-    @apply stroke-emerald-500;
-  }
-  .flow-tone-green .flow-node-icon {
-    @apply text-emerald-600 dark:text-emerald-400;
-  }
-  .flow-tone-red .flow-shape {
-    @apply stroke-red-500;
-  }
-  .flow-tone-red .flow-node-icon {
-    @apply text-red-600 dark:text-red-400;
-  }
-  .flow-tone-slate .flow-shape {
-    @apply stroke-slate-400;
-  }
-  .flow-tone-slate .flow-node-icon {
-    @apply text-slate-500 dark:text-slate-400;
-  }
-  .flow-arrow path {
-    fill: #94a3b8;
-  }
-  .flow-arrow.is-active path {
-    fill: rgb(var(--accent));
-  }
-  .flow-arrow.is-broken path {
-    fill: #ef4444;
-  }
-  .flow-edge {
-    stroke: #94a3b8;
-    stroke-width: 1.5;
-    opacity: 0.6;
-  }
-  .flow-edge.is-active {
-    stroke: rgb(var(--accent));
-    stroke-width: 2;
-    opacity: 0.9;
-  }
-  .flow-edge.is-broken {
-    stroke: #ef4444;
-    stroke-dasharray: 5 5;
-    opacity: 0.7;
-  }
-  .flow-edge-motion {
-    stroke: rgb(var(--accent));
-    stroke-width: 2;
-    stroke-dasharray: 3 24;
-    opacity: 0.5;
-    animation: flow-dash 3s linear infinite;
-  }
-  .flow-edge-motion.is-broken {
-    display: none;
   }
   .flow-selection-hint {
     @apply flex items-center gap-2 px-5 py-4 text-xs text-muted;
@@ -603,10 +691,11 @@ button:disabled {
     @apply inline-flex items-center gap-1.5;
   }
   .flow-legend-line {
-    @apply inline-block w-5 border-t-2 border-slate-400;
+    @apply inline-block w-5 shrink-0;
+    border-top: 3px solid var(--fl-edge);
   }
   .flow-legend-line.is-broken {
-    @apply border-dashed border-red-500;
+    border-top: 3px dashed var(--fl-danger);
   }
 }
 /* Finding → editor: the offending line flashes amber, then keeps a faint tint
@@ -618,11 +707,6 @@ button:disabled {
 @keyframes focus-line-fade {
   from {
     background-color: rgb(245 158 11 / 0.45);
-  }
-}
-@keyframes flow-dash {
-  to {
-    stroke-dashoffset: -54;
   }
 }
 @media (max-width: 640px) {
@@ -637,9 +721,6 @@ button:disabled {
     flex: 1;
     min-width: 0;
     width: auto;
-  }
-  .flow-canvas-controls {
-    padding: 12px 16px;
   }
   .flow-detail-grid {
     grid-template-columns: 1fr;
@@ -712,9 +793,6 @@ button:disabled {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .flow-edge-motion {
-    animation: none !important;
-  }
   *,
   *::before,
   *::after {

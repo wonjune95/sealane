@@ -8,8 +8,10 @@ import { t, locale } from '../i18n'
 import {
   CANVAS_WIDTH,
   NODE_R,
+  ARROW,
   edgeKey,
   edgePath,
+  type Band,
   layoutTopology,
   type Point,
 } from './flowLayout'
@@ -225,36 +227,8 @@ export function FlowMap() {
         ) : (
           <FlowCanvas key={direction} topology={filtered} />
         )}
-        <div className="flow-footer" role="group" aria-label={t('flow.legend')}>
-          <span>
-            <svg aria-hidden="true" className="flow-legend-shape flow-tone-blue" viewBox="-14 -14 28 28"><circle className="flow-shape" r={10} /></svg>
-            {t('flow.source')}
-          </span>
-          <span>
-            <svg aria-hidden="true" className="flow-legend-shape flow-tone-blue" viewBox="-14 -14 28 28"><rect className="flow-shape" x={-10} y={-10} width={20} height={20} rx={5} /></svg>
-            {t('flow.gateways')}
-          </span>
-          <span>
-            <svg aria-hidden="true" className="flow-legend-shape flow-tone-violet" viewBox="-14 -14 28 28"><polygon className="flow-shape" points="0,-12 12,0 0,12 -12,0" /></svg>
-            {t('flow.routes')}
-          </span>
-          <span>
-            <svg aria-hidden="true" className="flow-legend-shape flow-tone-green" viewBox="-14 -14 28 28"><circle className="flow-shape" r={10} /></svg>
-            {t('flow.legend.service')}
-          </span>
-          <span>
-            <svg aria-hidden="true" className="flow-legend-shape flow-tone-slate" viewBox="-14 -14 28 28"><circle className="flow-shape is-dashed" r={10} /></svg>
-            {t('flow.legend.external')}
-          </span>
-          <span>
-            <span className="flow-legend-line" /> {t('flow.legendConfigured')}
-          </span>
-          <span>
-            <span className="flow-legend-line is-broken" /> {t('flow.legendBroken')}
-          </span>
-          <span className="ml-auto">
-            {t('flow.footer', { n: filteredCount })}
-          </span>
+        <div className="flow-footer">
+          <span className="ml-auto">{t('flow.footer', { n: filteredCount })}</span>
         </div>
       </section>
     </div>
@@ -265,6 +239,7 @@ function FlowCanvas({ topology }: { topology: Topology }) {
   const [selected, setSelected] = useState<string | null>(null)
   const [offsets, setOffsets] = useState<Offsets>({})
   const [zoom, setZoom] = useState<number | null>(null)
+  const [legendOpen, setLegendOpen] = useState(false)
   const [viewportWidth, setViewportWidth] = useState(CANVAS_WIDTH + 48)
   const viewportRef = useRef<HTMLDivElement>(null)
   const layout = useMemo(() => layoutTopology(topology), [topology])
@@ -311,147 +286,128 @@ function FlowCanvas({ topology }: { topology: Topology }) {
     return () => observer.disconnect()
   }, [])
 
+  const resetView = () => {
+    setOffsets({})
+    setZoom(null)
+    setSelected(null)
+    viewportRef.current?.scrollTo({ left: 0, top: 0 })
+  }
+
   return (
     <>
-      <div className="flow-canvas-controls">
-        <p className="text-xs text-muted">
-          {t('flow.canvasHint')}
-        </p>
+      <div className="flow-stage">
         <div
-          className="flex flex-wrap items-center gap-1"
-          aria-label={t('flow.viewControls')}
+          ref={viewportRef}
+          className="flow-viewport"
+          tabIndex={0}
+          aria-label={t('flow.graph')}
+          onKeyDown={(e) => {
+            if (e.key === 'Escape') setSelected(null)
+          }}
+          onClick={(e) => {
+            if (!(e.target as Element).closest('.flow-node')) setSelected(null)
+          }}
         >
-          <button
-            className="flow-control"
-            aria-label={t('flow.zoomOut')}
-            disabled={scale <= 0.25}
-            onClick={() => setZoom(Math.max(0.25, scale - 0.1))}
+          <svg
+            className="flow-svg"
+            width={layout.width * scale}
+            height={layout.height * scale}
+            viewBox={`0 0 ${layout.width} ${layout.height}`}
+            style={{ margin: 24 }}
           >
-            <Icon name="minus" className="h-4 w-4" />
-          </button>
-          <span
-            className="w-12 text-center text-xs tabular-nums text-muted"
-            aria-live="polite"
-          >
-            {Math.round(scale * 100)}%
-          </span>
+            <defs>
+              {(['', 'is-active', 'is-broken'] as const).map((variant) => (
+                <marker
+                  key={variant}
+                  id={`flow-arrow${variant ? `-${variant}` : ''}`}
+                  className={`flow-arrow ${variant}`}
+                  viewBox="0 0 10 10"
+                  refX="0"
+                  refY="5"
+                  markerUnits="userSpaceOnUse"
+                  markerWidth={ARROW}
+                  markerHeight={ARROW}
+                  orient="auto-start-reverse"
+                >
+                  <path d="M 0 0 L 10 5 L 0 10 z" />
+                </marker>
+              ))}
+            </defs>
+            {layout.bands.map((band) => (
+              <NamespaceBox key={band.namespace || '*'} band={band} />
+            ))}
+            {topology.edges.map((edge) => {
+              const active =
+                !!highlight && highlight.has(edge.from) && highlight.has(edge.to)
+              const variant = edge.broken ? 'is-broken' : active ? 'is-active' : ''
+              return (
+                <path
+                  key={edgeKey(edge)}
+                  d={edgePath(position(edge.from), position(edge.to))}
+                  className={`flow-edge ${variant} ${highlight && !active ? 'is-dimmed' : ''}`}
+                  fill="none"
+                  markerEnd={`url(#flow-arrow${variant ? `-${variant}` : ''})`}
+                />
+              )
+            })}
+            {topology.nodes.map((node) => (
+              <GraphNode
+                key={node.id}
+                node={node}
+                at={placed(node.id).at}
+                offset={placed(node.id).offset}
+                selected={selectedNode?.id === node.id}
+                dimmed={!!highlight && !highlight.has(node.id)}
+                scale={scale}
+                bounds={layout}
+                onSelect={() =>
+                  setSelected(selected === node.id ? null : node.id)
+                }
+                onMove={(offset) =>
+                  setOffsets((previous) => ({ ...previous, [node.id]: offset }))
+                }
+              />
+            ))}
+          </svg>
+        </div>
+        {legendOpen && <Legend />}
+        {/* Control bar in the graph's lower left, like Kiali's (PatternFly topology control bar). */}
+        <div className="flow-controlbar" role="group" aria-label={t('flow.viewControls')}>
           <button
             className="flow-control"
             aria-label={t('flow.zoomIn')}
+            title={t('flow.zoomIn')}
             disabled={scale >= 1.5}
             onClick={() => setZoom(Math.min(1.5, scale + 0.1))}
           >
             <Icon name="plus" className="h-4 w-4" />
           </button>
-          <button className="flow-control px-2" onClick={fit}>
-            <Icon name="fit" className="h-4 w-4" /> {t('flow.fit')}
-          </button>
           <button
-            className="flow-control px-2"
-            onClick={() => {
-              setOffsets({})
-              setZoom(null)
-              setSelected(null)
-              viewportRef.current?.scrollTo({ left: 0, top: 0 })
-            }}
+            className="flow-control"
+            aria-label={t('flow.zoomOut')}
+            title={t('flow.zoomOut')}
+            disabled={scale <= 0.25}
+            onClick={() => setZoom(Math.max(0.25, scale - 0.1))}
           >
-            <Icon name="refresh" className="h-4 w-4" /> {t('flow.resetLayout')}
+            <Icon name="minus" className="h-4 w-4" />
+          </button>
+          <button className="flow-control" aria-label={t('flow.fit')} title={t('flow.fit')} onClick={fit}>
+            <Icon name="fit" className="h-4 w-4" />
+          </button>
+          <button className="flow-control" aria-label={t('flow.resetLayout')} title={t('flow.resetLayout')} onClick={resetView}>
+            <Icon name="refresh" className="h-4 w-4" />
+          </button>
+          <span className="flow-zoom" aria-live="polite">
+            {Math.round(scale * 100)}%
+          </span>
+          <button
+            className={`flow-control flow-legend-toggle ${legendOpen ? 'is-active' : ''}`}
+            aria-pressed={legendOpen}
+            onClick={() => setLegendOpen(!legendOpen)}
+          >
+            {t('flow.legend')}
           </button>
         </div>
-      </div>
-      <div
-        ref={viewportRef}
-        className="flow-viewport"
-        tabIndex={0}
-        aria-label={t('flow.graph')}
-        onKeyDown={(e) => {
-          if (e.key === 'Escape') setSelected(null)
-        }}
-        onClick={(e) => {
-          if (!(e.target as Element).closest('.flow-node')) setSelected(null)
-        }}
-      >
-        <svg
-          className="flow-svg"
-          width={layout.width * scale}
-          height={layout.height * scale}
-          viewBox={`0 0 ${layout.width} ${layout.height}`}
-          style={{ margin: 24 }}
-        >
-          <defs>
-            {(['', 'is-active', 'is-broken'] as const).map((variant) => (
-              <marker
-                key={variant}
-                id={`flow-arrow${variant ? `-${variant}` : ''}`}
-                className={`flow-arrow ${variant}`}
-                viewBox="0 0 10 10"
-                refX="9"
-                refY="5"
-                markerWidth="7"
-                markerHeight="7"
-                orient="auto-start-reverse"
-              >
-                <path d="M 0 0 L 10 5 L 0 10 z" />
-              </marker>
-            ))}
-          </defs>
-          {layout.bands.map((band) => (
-            <g className="flow-ns" key={band.namespace || '*'}>
-              <rect
-                x={band.x}
-                y={band.y}
-                width={band.width}
-                height={band.height}
-                rx={14}
-              />
-              <text x={band.x + 14} y={band.y + 22}>
-                {band.namespace || t('flow.legend.external')}
-              </text>
-            </g>
-          ))}
-          {topology.edges.map((edge) => {
-            const active =
-              !!highlight && highlight.has(edge.from) && highlight.has(edge.to)
-            const variant = edge.broken ? 'is-broken' : active ? 'is-active' : ''
-            const d = edgePath(position(edge.from), position(edge.to))
-            return (
-              <g
-                key={edgeKey(edge)}
-                className={highlight && !active ? 'opacity-20' : ''}
-              >
-                <path
-                  d={d}
-                  className={`flow-edge ${variant}`}
-                  fill="none"
-                  markerEnd={`url(#flow-arrow${variant ? `-${variant}` : ''})`}
-                />
-                <path
-                  d={d}
-                  className={`flow-edge-motion ${edge.broken ? 'is-broken' : ''}`}
-                  fill="none"
-                />
-              </g>
-            )
-          })}
-          {topology.nodes.map((node) => (
-            <GraphNode
-              key={node.id}
-              node={node}
-              at={placed(node.id).at}
-              offset={placed(node.id).offset}
-              selected={selectedNode?.id === node.id}
-              dimmed={!!highlight && !highlight.has(node.id)}
-              scale={scale}
-              bounds={layout}
-              onSelect={() =>
-                setSelected(selected === node.id ? null : node.id)
-              }
-              onMove={(offset) =>
-                setOffsets((previous) => ({ ...previous, [node.id]: offset }))
-              }
-            />
-          ))}
-        </svg>
       </div>
       {selectedNode ? (
         <NodeDetails
@@ -471,7 +427,49 @@ function FlowCanvas({ topology }: { topology: Topology }) {
 const shorten = (text: string, max = 18) =>
   text.length > max ? `${text.slice(0, max - 1)}…` : text
 
-// Kiali-style node: a small shape per kind with the icon inside and the name below.
+// Kiali's shape vocabulary (PatternFly topology): workload = ellipse, app = rect,
+// aggregate = hexagon, service = rhombus, ServiceEntry = trapezoid. The request source
+// is drawn like a workload, gateways like apps and routes like aggregates.
+type ShapeKind = 'ellipse' | 'rect' | 'hexagon' | 'rhombus' | 'trapezoid'
+const shapeOf = (node: FlowNode): ShapeKind =>
+  node.stage === 0
+    ? 'ellipse'
+    : node.stage === 1
+      ? 'rect'
+      : node.stage === 2
+        ? 'hexagon'
+        : node.icon === 'globe'
+          ? 'trapezoid'
+          : 'rhombus'
+
+function Shape({ kind, r = NODE_R, className = 'flow-shape' }: { kind: ShapeKind; r?: number; className?: string }) {
+  const h = r * 0.866
+  switch (kind) {
+    case 'ellipse':
+      return <circle className={className} r={r} />
+    case 'rect':
+      return <rect className={className} x={-r} y={-r} width={r * 2} height={r * 2} rx={r / 6} />
+    case 'hexagon':
+      return <polygon className={className} points={`${-r},0 ${-r / 2},${-h} ${r / 2},${-h} ${r},0 ${r / 2},${h} ${-r / 2},${h}`} />
+    case 'rhombus':
+      return <polygon className={className} points={`0,${-r} ${r},0 0,${r} ${-r},0`} />
+    case 'trapezoid':
+      return <polygon className={className} points={`${-r},${r * 0.75} ${-r * 0.55},${-r * 0.75} ${r * 0.55},${-r * 0.75} ${r},${r * 0.75}`} />
+  }
+}
+
+// Route kind shown in a purple corner decorator, as Kiali marks Istio config on a node.
+const routeBadge = (node: FlowNode) =>
+  node.stage !== 2 ? '' : node.kind === 'VirtualService' ? 'VS' : node.kind === 'HTTPRoute' ? 'HR' : node.kind.slice(0, 2).toUpperCase()
+
+// Outline status like Kiali's node health: red for a problem, green for a Service with ready
+// endpoints; everything else has no health signal here (configuration only) and stays neutral.
+const statusOf = (node: FlowNode) =>
+  node.issue ? 'is-danger' : node.stage === 3 && node.endpoints !== undefined && node.endpoints > 0 ? 'is-success' : ''
+
+// The label pill is sized from the text, roughly 7px per character at 12px.
+const pillWidth = (text: string, icon: boolean) => Math.max(36, text.length * 7 + 18 + (icon ? 16 : 0))
+
 function GraphNode({
   node,
   at,
@@ -495,33 +493,18 @@ function GraphNode({
 }) {
   const drag = useRef<{ x: number; y: number; moved: boolean } | null>(null)
   const suppressClick = useRef(false)
-  const external = node.icon === 'globe' && node.stage === 3
   const sub =
     node.hosts[0] ??
     [node.port ? `:${node.port}` : '', node.stage === 3 ? node.status : '']
       .filter(Boolean)
       .join(' · ')
-  const shape =
-    node.stage === 1 ? (
-      <rect
-        className="flow-shape"
-        x={-NODE_R + 2}
-        y={-NODE_R + 2}
-        width={NODE_R * 2 - 4}
-        height={NODE_R * 2 - 4}
-        rx={10}
-      />
-    ) : node.stage === 2 ? (
-      <polygon
-        className="flow-shape"
-        points={`0,${-NODE_R - 2} ${NODE_R + 2},0 0,${NODE_R + 2} ${-NODE_R - 2},0`}
-      />
-    ) : (
-      <circle className={`flow-shape ${external ? 'is-dashed' : ''}`} r={NODE_R} />
-    )
+  const label = shorten(node.name)
+  const gatewayIcon = node.stage === 1
+  const width = pillWidth(label, gatewayIcon)
+  const badge = routeBadge(node)
   return (
     <g
-      className={`flow-node flow-tone-${node.tone} ${selected ? 'is-selected' : ''} ${dimmed ? 'is-dimmed' : ''}`}
+      className={`flow-node ${statusOf(node)} ${selected ? 'is-selected' : ''} ${dimmed ? 'is-dimmed' : ''}`}
       style={{ transform: `translate(${offset.x}px, ${offset.y}px)` }}
       role="button"
       tabIndex={0}
@@ -577,30 +560,127 @@ function GraphNode({
           {`${node.kind} · ${node.name}${node.status ? ` · ${node.status}` : ''}`}
         </title>
         {/* transparent hit area so the label and the gaps around the shape are clickable/draggable */}
-        <rect className="flow-hit" x={-36} y={-30} width={72} height={84} />
-        {selected && <circle className="flow-ring" r={NODE_R + 7} />}
-        {shape}
-        <g transform="translate(-8 -8)">
-          <Icon name={node.icon} className="flow-node-icon" size={16} />
-        </g>
+        <rect className="flow-hit" x={-Math.max(30, width / 2)} y={-NODE_R - 8} width={Math.max(60, width)} height={NODE_R * 2 + 52} />
+        <Shape kind={shapeOf(node)} />
+        {badge && (
+          <g className="flow-decorator is-config" transform={`translate(${NODE_R - 2} ${-NODE_R + 2})`}>
+            <circle r={9} />
+            <text y={3} textAnchor="middle">
+              {badge}
+            </text>
+          </g>
+        )}
         {node.issue && (
-          <g transform={`translate(${NODE_R - 6} ${-NODE_R + 6})`}>
-            <circle className="flow-badge" r={8} />
+          <g className="flow-decorator is-status" transform={`translate(${-NODE_R + 2} ${-NODE_R + 2})`}>
+            <circle className="flow-badge" r={9} />
             <text y={3.5} textAnchor="middle">
               !
             </text>
           </g>
         )}
-        <text className="flow-label" y={NODE_R + 17} textAnchor="middle">
-          {shorten(node.name)}
-        </text>
+        <g className="flow-pill" transform={`translate(0 ${NODE_R + 6})`}>
+          <rect x={-width / 2} width={width} height={22} rx={11} />
+          {gatewayIcon && (
+            <g transform={`translate(${-width / 2 + 8} 5)`}>
+              <Icon name="shield" className="flow-pill-icon" size={12} />
+            </g>
+          )}
+          <text className="flow-label" x={gatewayIcon ? 8 : 0} y={15} textAnchor="middle">
+            {label}
+          </text>
+        </g>
         {sub && (
-          <text className="flow-sublabel" y={NODE_R + 31} textAnchor="middle">
+          <text className="flow-sublabel" y={NODE_R + 44} textAnchor="middle">
             {shorten(sub, 24)}
           </text>
         )}
       </g>
     </g>
+  )
+}
+
+// Namespace box with its label hanging on the bottom edge: a dark pill with an "NS" badge,
+// the way Kiali labels namespace boxes.
+function NamespaceBox({ band }: { band: Band }) {
+  const name = band.namespace || t('flow.legend.external')
+  const ns = !!band.namespace
+  const width = name.length * 7 + 22 + (ns ? 30 : 0)
+  const cx = band.x + band.width / 2
+  const y = band.y + band.height
+  return (
+    <g className="flow-ns">
+      <rect x={band.x} y={band.y} width={band.width} height={band.height} rx={6} />
+      <g className="flow-ns-label" transform={`translate(${cx - width / 2} ${y - 12})`}>
+        <rect width={width} height={24} rx={12} />
+        {ns && (
+          <g transform="translate(6 4)">
+            <rect className="flow-ns-badge" width={24} height={16} rx={8} />
+            <text x={12} y={12} textAnchor="middle" className="flow-ns-badge-text">
+              NS
+            </text>
+          </g>
+        )}
+        <text className="flow-ns-name" x={(ns ? 30 : 0) + (width - (ns ? 30 : 0)) / 2} y={16} textAnchor="middle">
+          {name}
+        </text>
+      </g>
+    </g>
+  )
+}
+
+// Legend panel opened from the control bar, like Kiali's graph legend.
+function Legend() {
+  const shapes: [ShapeKind, string][] = [
+    ['ellipse', t('flow.source')],
+    ['rect', t('flow.gateways')],
+    ['hexagon', t('flow.routes')],
+    ['rhombus', t('flow.legend.service')],
+    ['trapezoid', t('flow.legend.external')],
+  ]
+  return (
+    <div className="flow-legend" role="group" aria-label={t('flow.legend')}>
+      <p className="flow-legend-title">{t('flow.legend.nodes')}</p>
+      {shapes.map(([kind, text]) => (
+        <span key={kind}>
+          <svg aria-hidden="true" className="flow-legend-shape" viewBox="-12 -12 24 24">
+            <Shape kind={kind} r={9} />
+          </svg>
+          {text}
+        </span>
+      ))}
+      <p className="flow-legend-title">{t('flow.legend.marks')}</p>
+      <span>
+        <svg aria-hidden="true" className="flow-legend-shape" viewBox="-12 -12 24 24">
+          <Shape kind="rhombus" r={9} className="flow-shape is-success" />
+        </svg>
+        {t('flow.legend.ready')}
+      </span>
+      <span>
+        <svg aria-hidden="true" className="flow-legend-shape" viewBox="-12 -12 24 24">
+          <circle className="flow-legend-config" r={9} />
+          <text y={3} textAnchor="middle" className="flow-legend-config-text">
+            VS
+          </text>
+        </svg>
+        {t('flow.legend.routeKind')}
+      </span>
+      <span>
+        <svg aria-hidden="true" className="flow-legend-shape" viewBox="-12 -12 24 24">
+          <circle className="flow-legend-status" r={9} />
+          <text y={3.5} textAnchor="middle" className="flow-legend-status-text">
+            !
+          </text>
+        </svg>
+        {t('flow.legendBroken')}
+      </span>
+      <p className="flow-legend-title">{t('flow.legend.edges')}</p>
+      <span>
+        <span className="flow-legend-line" /> {t('flow.legendConfigured')}
+      </span>
+      <span>
+        <span className="flow-legend-line is-broken" /> {t('flow.legendBroken')}
+      </span>
+    </div>
   )
 }
 

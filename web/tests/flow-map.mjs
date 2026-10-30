@@ -206,16 +206,30 @@ try {
   // Kiali-style graph: one namespace box per namespace, stages flow left → right, arrows on edges.
   const boxes = page.locator('.flow-ns')
   assert.deepEqual(
-    (await boxes.locator('text').allTextContents()).sort(),
+    (await boxes.locator('.flow-ns-name').allTextContents()).sort(),
     ['External', 'apps', 'edge'],
   )
+  // Kiali's shape vocabulary: gateway = rect, route = hexagon (with a VS mark), service = rhombus.
+  const shapeOf = (name) =>
+    cards.filter({ has: page.locator('.flow-label', { hasText: new RegExp(`^${name}$`) }) }).locator('.flow-shape').evaluate((el) => el.tagName)
+  assert.equal(await shapeOf('public-gateway'), 'rect')
+  assert.equal(await shapeOf('checkout-route'), 'polygon')
+  assert.equal(await cards.filter({ hasText: 'checkout-route' }).locator('.flow-decorator.is-config').textContent(), 'VS')
+  assert.ok((await cards.filter({ has: page.locator('.flow-label', { hasText: /^checkout$/ }) }).getAttribute('class')).includes('is-success'))
+  // The legend opens from the control bar.
+  const legend = page.getByRole('group', { name: 'Legend', exact: true })
+  assert.equal(await legend.count(), 0)
+  await page.getByRole('button', { name: 'Legend', exact: true }).click()
+  await legend.getByText('Service with ready endpoints').waitFor()
+  await page.getByRole('button', { name: 'Legend', exact: true }).click()
+  assert.equal(await legend.count(), 0)
   const x = async (name) =>
     (await cards.filter({ has: page.locator('.flow-label', { hasText: new RegExp(`^${name}$`) }) }).boundingBox()).x
   assert.ok((await x('public-gateway')) < (await x('checkout-route')) && (await x('checkout-route')) < (await x('checkout')))
   assert.ok((await page.locator('.flow-edge[marker-end]').count()) > 0)
   assert.equal(await page.locator('.flow-edge.is-broken').count(), 3)
   assert.equal(await page.locator('.flow-badge').count(), 2)
-  console.log('PASS: namespace boxes, left-to-right stages, arrowheads and issue badges render')
+  console.log('PASS: namespace boxes, Kiali shapes and marks, legend toggle, left-to-right stages, arrowheads and issue badges render')
 
   await checkout.click()
   await page.getByRole('button', { name: 'Dark mode', exact: true }).click()
@@ -241,17 +255,7 @@ try {
       .evaluate((el) => el.scrollWidth > el.clientWidth + 1),
     false,
   )
-  await page.emulateMedia({ reducedMotion: 'reduce' })
-  assert.equal(
-    await page
-      .locator('.flow-edge-motion')
-      .first()
-      .evaluate((el) => getComputedStyle(el).animationName),
-    'none',
-  )
-  console.log(
-    'PASS: 320–1440px layouts contain horizontal scrolling; fit and reduced motion work',
-  )
+  console.log('PASS: 320–1440px layouts contain horizontal scrolling; fit works')
 
   await page.getByRole('textbox', { name: 'Search flows' }).fill('no-such-host')
   await page.getByText('No matching paths', { exact: true }).waitFor()

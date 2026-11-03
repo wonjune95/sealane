@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import { load as yamlLoad } from 'js-yaml'
 import { useCapabilities } from '../api/capabilities'
 import { useClusters, type Cluster } from '../api/clusters'
@@ -142,6 +143,9 @@ function kubeconfigContexts(text: string): { names: string[]; current: string } 
 function ClustersPanel() {
   const toast = useToast()
   const clusters = useClusters(true)
+  const queryClient = useQueryClient()
+  // The header cluster menu keeps its own list (without status): refresh every cluster list.
+  const reloadClusters = () => void queryClient.invalidateQueries({ queryKey: ['clusters'] })
   const [name, setName] = useState('')
   const [nameTouched, setNameTouched] = useState(false)
   const [kubeconfig, setKubeconfig] = useState('')
@@ -179,7 +183,7 @@ function ClustersPanel() {
       setNameTouched(false)
       setKubeconfig('')
       setPicked('')
-      void clusters.refetch()
+      reloadClusters()
     } catch (err) {
       toast('error', errorText(err))
     } finally {
@@ -195,7 +199,7 @@ function ClustersPanel() {
       return
     } // deleted the current cluster → reload on local
     toast('success', t('settings.cluster.deleted', { name: target }))
-    void clusters.refetch()
+    reloadClusters()
   }
 
   return (

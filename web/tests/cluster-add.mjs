@@ -23,6 +23,7 @@ const puts = []
 const deletes = []
 let listFails = 2 // the first list and react-query's one retry fail, to check the error and retry
 let cleanupFails = true // the first account removal fails, to check the dialog stays
+const registered = new Map([['own', { dedicated: true }], ['pasted', {}]]) // what the server would list
 const context = await browser.newContext({ viewport: { width: 1280, height: 1000 }, locale: 'en-US' })
 await context.route('**/api/**', async (route) => {
   const url = new URL(route.request().url())
@@ -32,6 +33,7 @@ await context.route('**/api/**', async (route) => {
   if (url.pathname.startsWith('/api/clusters/') && route.request().method() === 'PUT') {
     puts.push({ path: url.pathname, body: route.request().postDataJSON() })
     const setup = route.request().postDataJSON().setup
+    registered.set(decodeURIComponent(url.pathname.split('/').pop()), setup ? { dedicated: true } : {})
     return route.fulfill({ json: { connected: true, version: 'v1.34.3', ...(setup ? { account: 'sealane-remote/sealane' } : {}) } })
   }
   if (url.pathname.startsWith('/api/clusters/') && route.request().method() === 'DELETE') {
@@ -40,6 +42,7 @@ await context.route('**/api/**', async (route) => {
       return route.fulfill({ status: 502, json: { error: { reason: 'CleanupFailed', message: 'cluster unreachable' } } })
     }
     deletes.push(url.pathname + url.search)
+    registered.delete(decodeURIComponent(url.pathname.split('/').pop()))
     return route.fulfill({ status: 204 })
   }
   if (url.pathname === '/api/clusters' && url.search === '?status=true' && listFails > 0) {
@@ -48,7 +51,7 @@ await context.route('**/api/**', async (route) => {
   }
   if (url.pathname === '/api/clusters')
     return route.fulfill({
-      json: [{ name: 'local', connected: true }, { name: 'own', dedicated: true, connected: true }, { name: 'pasted', connected: true }],
+      json: [{ name: 'local', connected: true }, ...[...registered].map(([name, c]) => ({ name, ...c, connected: true }))],
     })
   return route.fulfill({ json: [] })
 })
@@ -80,6 +83,20 @@ try {
   assert.equal(await name.inputValue(), 'nks_app-cluster')
   await page.getByRole('button', { name: 'Register cluster' }).click()
   await page.getByRole('status').filter({ hasText: 'with the account sealane-remote/sealane' }).waitFor()
+  // The header cluster menu shows the new cluster at once, without a reload.
+  const headerMenu = async () => {
+    await page.getByRole('button', { name: 'Select cluster: local' }).click()
+    await page.getByRole('menu', { name: 'Select cluster' }).waitFor()
+    const names = await page.getByRole('menuitemradio').allInnerTexts()
+    await page.keyboard.press('Escape')
+    return names.map((n) => n.trim())
+  }
+  let names = await headerMenu()
+  for (let i = 0; i < 20 && !names.some((n) => n.includes('nks_app-cluster')); i++) {
+    await page.waitForTimeout(100)
+    names = await headerMenu()
+  }
+  assert.ok(names.some((n) => n.includes('nks_app-cluster')), `header menu after registering: ${names}`)
   assert.equal(puts[0].path, '/api/clusters/nks_app-cluster')
   assert.deepEqual({ ...puts[0].body, kubeconfig: undefined }, { kubeconfig: undefined, context: 'nks_app-cluster', setup: true })
   assert.equal(puts[0].body.kubeconfig, kubeconfig)
@@ -111,6 +128,12 @@ try {
   assert.equal(deletes.length, 0)
   await dialog.getByRole('button', { name: 'Delete' }).click()
   await page.getByRole('status').filter({ hasText: 'Deleted cluster own.' }).waitFor()
+  names = await headerMenu()
+  for (let i = 0; i < 20 && names.some((n) => n === 'own' || n.startsWith('own')); i++) {
+    await page.waitForTimeout(100)
+    names = await headerMenu()
+  }
+  assert.ok(!names.some((n) => n === 'own' || n.startsWith('own')), `header menu after deleting own: ${names}`)
   assert.equal(deletes[0], '/api/clusters/own?cleanup=true')
   // A cluster registered with pasted credentials says they stay valid; nothing to clean up.
   await row('pasted').getByRole('button', { name: 'Delete' }).click()

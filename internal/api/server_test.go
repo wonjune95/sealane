@@ -1308,8 +1308,8 @@ func TestKeepEnsuringInitialAdmin_RetriesTransientErrors(t *testing.T) {
 	}
 }
 
-// Deleting with cleanup when the cluster already refuses the stored token (an earlier cleanup
-// removed the account, then the local delete failed): the registration is removed.
+// Deleting with cleanup when the cluster refuses the stored token: a refused token does not prove
+// the account is gone, so nothing is deleted and the error says how to check.
 func TestClusterDelete_CleanupAfterTokenRevoked(t *testing.T) {
 	srv := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
@@ -1330,11 +1330,101 @@ func TestClusterDelete_CleanupAfterTokenRevoked(t *testing.T) {
 	req.AddCookie(&http.Cookie{Name: "sealane_session", Value: testCookie("admin", "admin")})
 	rec := httptest.NewRecorder()
 	mux.ServeHTTP(rec, req)
-	if rec.Code != http.StatusNoContent {
-		t.Fatalf("status = %d, want 204: %s", rec.Code, rec.Body.String())
+	if rec.Code != http.StatusBadGateway || !strings.Contains(rec.Body.String(), "managed-by=sealane") {
+		t.Fatalf("status = %d, want 502 with the check command: %s", rec.Code, rec.Body.String())
 	}
 	sec, _ := kube.CoreV1().Secrets("ns1").Get(context.Background(), "clusters", metav1.GetOptions{})
-	if _, ok := sec.Data["old"]; ok {
-		t.Error("registration still there")
+	if _, ok := sec.Data["old"]; !ok {
+		t.Error("registration removed although the cleanup did not happen")
+	}
+}
+
+// An admin deletes or demotes an account while its owner is changing the password: the write
+// conflicts, the change is re-checked against the new data, and the admin's change stands.
+func TestPasswordChange_RacingAdminChange(t *testing.T) {
+	for _, tc := range []struct {
+		name      string
+		adminSets map[string]string // the accounts after the admin's change
+		wantCode  int
+		wantEntry string // role prefix bob must have afterwards ("" = gone)
+	}{
+		{"deleted", map[string]string{"admin": "admin:" + testHash}, http.StatusUnauthorized, ""},
+		{"demoted", nil, http.StatusNoContent, "viewer:"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			old, _ := bcrypt.GenerateFromPassword([]byte("oldpw123"), bcrypt.MinCost)
+			start := map[string]string{"admin": "admin:" + testHash, "bob": "editor:" + string(old)}
+			kube := kubefake.NewClientset(&corev1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{Name: "accounts", Namespace: "ns1", ResourceVersion: "1"},
+				Data:       start,
+			})
+			after := tc.adminSets
+			if after == nil {
+				after = map[string]string{"admin": "admin:" + testHash, "bob": "viewer:" + string(old)}
+			}
+			raced := false
+			kube.PrependReactor("update", "configmaps", func(ktesting.Action) (bool, runtime.Object, error) {
+				if raced {
+					return false, nil, nil
+				}
+				raced = true // the admin's change lands between our read and our write
+				cm := &corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: "accounts", Namespace: "ns1", ResourceVersion: "2"}, Data: after}
+				if err := kube.Tracker().Update(corev1.SchemeGroupVersion.WithResource("configmaps"), cm, "ns1"); err != nil {
+					t.Fatal(err)
+				}
+				return true, nil, apierrors.NewConflict(corev1.Resource("configmaps"), "accounts", nil)
+			})
+			mux := http.NewServeMux()
+			NewServer(false, &stubSource{clients: &k8s.Clients{Kube: kube}},
+				auth.NewStore(t.TempDir()), testSessions, AccountsCMRef{Namespace: "ns1", Name: "accounts"}, ClustersSecretRef{}).Routes(mux)
+			req := httptest.NewRequest("POST", "/api/account/password", strings.NewReader(`{"currentPassword":"oldpw123","newPassword":"newpw1234"}`))
+			req.AddCookie(&http.Cookie{Name: "sealane_session",
+				Value: testSessions.Sign(auth.Identity{Name: "bob", Role: "editor", PV: auth.PasswordVersion(string(old))}, time.Hour)})
+			rec := httptest.NewRecorder()
+			mux.ServeHTTP(rec, req)
+			if rec.Code != tc.wantCode {
+				t.Fatalf("status = %d, want %d: %s", rec.Code, tc.wantCode, rec.Body.String())
+			}
+			cm, _ := kube.CoreV1().ConfigMaps("ns1").Get(context.Background(), "accounts", metav1.GetOptions{})
+			entry, ok := cm.Data["bob"]
+			if tc.wantEntry == "" && ok {
+				t.Fatalf("deleted account came back: %q", entry)
+			}
+			if tc.wantEntry != "" && !strings.HasPrefix(entry, tc.wantEntry) {
+				t.Fatalf("entry = %q, want role %s kept", entry, tc.wantEntry)
+			}
+		})
+	}
+}
+
+// Two replicas: a cluster deleted through one stops working on the other within clusterRecheck.
+func TestClusterSource_OtherReplicaSeesDelete(t *testing.T) {
+	kc := "apiVersion: v1\nkind: Config\nclusters:\n- name: c\n  cluster: {server: \"https://127.0.0.1:1\"}\nusers:\n- name: u\n  user: {token: t}\ncontexts:\n- name: x\n  context: {cluster: c, user: u}\ncurrent-context: x\n"
+	kube := kubefake.NewClientset(&corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{Name: "clusters", Namespace: "ns1"},
+		Data:       map[string][]byte{"prod": []byte(kc)},
+	})
+	newReplica := func() *Server {
+		return NewServer(false, &stubSource{clients: &k8s.Clients{Kube: kube}}, testStore(t), testSessions, AccountsCMRef{}, ClustersSecretRef{Namespace: "ns1", Name: "clusters"})
+	}
+	a, b := newReplica(), newReplica()
+	ctx := context.Background()
+	first, err := b.clusterSource(ctx, "prod")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if again, _ := b.clusterSource(ctx, "prod"); again != first {
+		t.Error("an unchanged kubeconfig should keep its factory")
+	}
+	if err := a.patchClusterSecret(ctx, "prod", nil); err != nil { // deleted through replica a
+		t.Fatal(err)
+	}
+	b.clusterMu.Lock()
+	c := b.clusterCache["prod"]
+	c.checked = time.Now().Add(-clusterRecheck - time.Second)
+	b.clusterCache["prod"] = c
+	b.clusterMu.Unlock()
+	if _, err := b.clusterSource(ctx, "prod"); err == nil {
+		t.Fatal("replica b still serves a deleted cluster")
 	}
 }

@@ -1,8 +1,13 @@
 Sealane {{ .Chart.AppVersion }} is installed in namespace {{ .Release.Namespace }}.
 
+{{ if .Values.secureCookies -}}
+secureCookies is on, so sign-in works only over HTTPS: open Sealane through your HTTPS Ingress or Gateway,
+not through a plain-http port-forward.
+{{- else -}}
 Try it before exposing it:
   kubectl -n {{ .Release.Namespace }} port-forward svc/{{ include "sealane.fullname" . }} 8080:{{ .Values.service.port }}
   open http://localhost:8080
+{{- end }}
 
 First login: user admin, with the password generated at first start:
   kubectl -n {{ .Release.Namespace }} get secret {{ include "sealane.fullname" . }}-initial-admin -o jsonpath='{.data.password}' | base64 -d; echo

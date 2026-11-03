@@ -82,7 +82,7 @@ function SubsetCard({ s, onChange, onRemove }: { s: DRSubsetModel; onChange: (s:
     <div className="space-y-2 rounded border border-base p-3">
       <div className="flex items-center gap-2">
         <span className="text-xs text-muted">{t('form.subsetName')}<span className="text-red-500">*</span></span>
-        <input className={`${input} max-w-xs`} value={s.name} placeholder="v1"
+        <input className={`${input} max-w-xs`} value={s.name} placeholder="v1" aria-label={t('form.subsetName')}
           onChange={(e) => set({ name: e.target.value })} />
         <button onClick={onRemove} className={`ml-auto ${del}`}>{t('form.deleteSubset')}</button>
       </div>
@@ -90,7 +90,7 @@ function SubsetCard({ s, onChange, onRemove }: { s: DRSubsetModel; onChange: (s:
         <div key={li} className="flex items-center gap-2 pl-6">
           {/* Committed on blur: a half-typed key (app on the way to app-tier) must not
               collide with an existing label key mid-word. */}
-          <input key={`${li}:${l.key}`} className={input} defaultValue={l.key} placeholder={t('form.ph.label')}
+          <input key={`${li}:${l.key}`} className={input} defaultValue={l.key} placeholder={t('form.ph.label')} aria-label={t('form.ph.label')}
             onBlur={(e) => {
               const v = e.target.value
               if (v === l.key) return
@@ -99,9 +99,9 @@ function SubsetCard({ s, onChange, onRemove }: { s: DRSubsetModel; onChange: (s:
               else set({ labels: replace(s.labels, li, { ...l, key: v }) })
             }} />
           <span className="text-faint">=</span>
-          <input className={input} value={l.value} placeholder={t('form.ph.value')}
+          <input className={input} value={l.value} placeholder={t('form.ph.value')} aria-label={t('form.ph.value')}
             onChange={(e) => set({ labels: replace(s.labels, li, { ...l, value: e.target.value }) })} />
-          <button onClick={() => set({ labels: s.labels.filter((_, j) => j !== li) })} className={del}>×</button>
+          <button onClick={() => set({ labels: s.labels.filter((_, j) => j !== li) })} className={del} aria-label={t('form.deleteLabel')} title={t('form.deleteLabel')}>×</button>
         </div>
       ))}
       <button onClick={() => set({ labels: [...s.labels, { key: '', value: '' }] })}

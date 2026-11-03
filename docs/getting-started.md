@@ -4,7 +4,7 @@ Running in-cluster is the default. To install the prebuilt image you only need H
 
 ```bash
 # Helm (OCI)
-helm install sealane oci://ghcr.io/wonjune95/charts/sealane --version 1.19.1 -n sealane --create-namespace
+helm install sealane oci://ghcr.io/wonjune95/charts/sealane --version 1.19.2 -n sealane --create-namespace
 # or plain manifests
 kubectl apply -f https://github.com/wonjune95/sealane/releases/latest/download/install.yaml
 kubectl -n sealane port-forward svc/sealane 8080:8080   # → http://localhost:8080, user admin
@@ -23,7 +23,7 @@ Every release tag (`v*`) publishes an image via GitHub Actions — use it direct
 
 ```bash
 # prebuilt image (recommended)
-ghcr.io/wonjune95/sealane:1.19.1     # or :latest
+ghcr.io/wonjune95/sealane:1.19.2     # or :latest
 ```
 
 Or build your own:
@@ -93,4 +93,4 @@ To manage multiple clusters from one Sealane install, go to **settings → clust
 
 ① change the admin password (forced at first login) ② add accounts (settings → account management) or turn on single sign-on ③ for multi-cluster, register kubeconfigs (settings → cluster management).
 
-Uninstall with `helm uninstall sealane -n sealane` (the accounts ConfigMap and clusters Secret survive — delete them too for a full cleanup).
+Uninstall with `helm uninstall sealane -n sealane`; the accounts, registered clusters, session key and history it created stay in the namespace until you delete it (`kubectl delete namespace sealane`). With `install.yaml`, `kubectl delete -f install.yaml` deletes the namespace and all of that at once. See [Operations](operations.md#uninstall).

@@ -647,5 +647,16 @@
   "form.backends": "Backends",
   "form.backend": "backend",
   "form.subsetName": "name",
-  "form.ruleName": "name"
+  "form.ruleName": "name",
+  "form.match": "Match (uri / headers)",
+  "form.route": "Route",
+  "form.addUri": "URI",
+  "form.deleteUri": "Delete URI condition",
+  "form.deleteHeader": "Delete header condition",
+  "form.deleteRoute": "Delete route destination",
+  "form.deleteBackend": "Delete backend",
+  "form.deleteLabel": "Delete label",
+  "form.headerMatchType": "Header match type",
+  "form.pathType": "Path match type",
+  "list.summary": "Summary"
 }

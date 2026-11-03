@@ -10,19 +10,19 @@ From any 1.x release you can go straight to the latest; there is no need to step
    With Helm (`--reset-then-reuse-values` needs Helm 3.14 or later; with an older Helm pass your values again with `-f values.yaml` instead):
 
    ```bash
-   helm upgrade sealane oci://ghcr.io/wonjune95/charts/sealane --version 1.19.1 -n <namespace> --reset-then-reuse-values
+   helm upgrade sealane oci://ghcr.io/wonjune95/charts/sealane --version 1.19.2 -n <namespace> --reset-then-reuse-values
    ```
 
    With `install.yaml`:
 
    ```bash
-   kubectl apply -f https://github.com/wonjune95/sealane/releases/download/v1.19.1/install.yaml
+   kubectl apply -f https://github.com/wonjune95/sealane/releases/download/v1.19.2/install.yaml
    ```
 
    **Only if you use impersonation mode** (`IMPERSONATION=true` on the Deployment), apply its RBAC after `install.yaml`. Without the mode, skip it: it makes Sealane's own role read-only, and writes would then fail.
 
    ```bash
-   kubectl apply -f https://github.com/wonjune95/sealane/releases/download/v1.19.1/impersonation.yaml
+   kubectl apply -f https://github.com/wonjune95/sealane/releases/download/v1.19.2/impersonation.yaml
    ```
 
 3. **Read the section for the versions you cross**, at least [From 1.11–1.18 to 1.19](#from-111118-to-119): everyone signs in again once, and an `admin` still on the old default password must change it first.
@@ -137,7 +137,7 @@ Without the two commands the upgrade stops with `invalid ownership metadata` and
 - **Remote clusters.** Registered clusters keep working. New registrations refuse kubeconfigs that point to files or use `http://`. To use **Also remove Sealane's account** when deleting a cluster registered before 1.19, register it again first: that adds the `sealane-remote-cleanup` role the removal needs. Until then the removal fails with 403; delete without the option and run the `kubectl delete` shown in [Multi-cluster](multi-cluster.md#deleting-a-cluster).
 - **Impersonation mode.** Sealane's own ClusterRole becomes read-only on the managed kinds. With `install.yaml`, apply `impersonation.yaml` after `install.yaml` (it now carries that role) every time you upgrade. On remote clusters, register again to drop the dedicated account's write rights, and again whenever you turn the mode on or off.
 - **Explicit kinds.** Sealane's ClusterRole (and a remote dedicated account, once registered again) lists the managed kinds by name instead of every resource in the four API groups.
-- **RBAC.** The namespace Role adds `update` on Sealane's own Secrets (session key, initial admin password, history objects) and `delete` on the old history-objects ConfigMap; the chart and `install.yaml` bring them. With a hand-maintained Role that lacks them, Sealane stops at startup when it cannot read or store its session key (the log says why), instead of running with a key the other replicas do not share.
+- **RBAC.** The namespace Role adds `update` on Sealane's own Secrets (session key, initial admin password, history objects) and on the accounts ConfigMap (from 1.19.2: account changes are versioned read-modify-writes), and `delete` on the old history-objects ConfigMap; the chart and `install.yaml` bring them. With a hand-maintained Role that lacks them, Sealane stops at startup when it cannot read or store its session key (the log says why), instead of running with a key the other replicas do not share.
 - **Upstream errors.** When a cluster refuses Sealane's own credentials (an expired remote token), the API answers 502 `cluster-auth-failed` instead of 401, so the UI shows an error instead of the sign-in page.
 - **Metrics.** `sealane_build_info`, `sealane_history_write_failures_total`, `sealane_login_failures_total` and `sealane_account_read_errors_total` are new; see [Operations](operations.md#metrics).
 

@@ -211,7 +211,7 @@ try {
   await section('HTTP rules').waitFor()
 
   // The × on the uri row drops the uri only; the match keeps its headers and gets "+ URI" back.
-  await page.getByLabel('URI', { exact: true }).locator('xpath=..').getByRole('button', { name: '×' }).click()
+  await page.getByLabel('URI', { exact: true }).locator('xpath=..').getByRole('button', { name: 'Delete URI condition' }).click()
   await page.getByRole('button', { name: '+ URI' }).waitFor()
   assert.deepEqual((await editorYaml()).spec.http[0].match[0], {
     headers: { 'x-user': { exact: 'qa' }, 'x-env': { prefix: 'stg' }, 'x-user-id': { exact: '' } },

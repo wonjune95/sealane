@@ -10,6 +10,12 @@ on:
 permissions:
   contents: read
 
+# One release at a time, never cancelled half-way: a slower older release must not finish after a
+# newer one (the "latest" step also checks the version).
+concurrency:
+  group: release
+  cancel-in-progress: false
+
 env:
   IMAGE: ghcr.io/${{ github.repository_owner }}/sealane
 
@@ -22,12 +28,15 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - run: test -f "docs/releases/${GITHUB_REF_NAME}.md"   # release notes gate
-      - name: The tagged commit passed e2e on main
+      - name: The tagged commit passed ci, e2e and CodeQL on main
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          n=$(gh api "repos/${{ github.repository }}/actions/workflows/e2e.yml/runs?head_sha=${{ github.sha }}&event=push&status=success" --jq '.total_count')
-          [ "$n" -ge 1 ] || { echo "::error::no successful e2e run for ${{ github.sha }}: push it to main, wait for e2e, then tag"; exit 1; }
+          runs=$(gh api "repos/${{ github.repository }}/actions/runs?head_sha=${{ github.sha }}&per_page=100")
+          for p in .github/workflows/ci.yml .github/workflows/e2e.yml dynamic/github-code-scanning/codeql; do
+            jq -e --arg p "$p" '[.workflow_runs[] | select(.path == $p and .conclusion == "success")] | length > 0' <<<"$runs" >/dev/null ||
+              { echo "::error::no successful $p run for ${{ github.sha }}: push it to main, wait for every check, then tag"; exit 1; }
+          done
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version: "1.26"
@@ -205,5 +214,11 @@ jobs:
             image-digest.txt
             SHA256SUMS
             SHA256SUMS.sigstore.json
-      - name: Move latest
-        run: docker buildx imagetools create -t "${IMAGE}:latest" "${IMAGE}@${{ steps.build.outputs.digest }}"
+      - name: Move latest (only for the newest version)
+        run: |
+          newest=$(git ls-remote --tags --refs origin 'v*' | sed 's#.*refs/tags/v##' | sort -V | tail -1)
+          if [ "$newest" != "${{ steps.meta.outputs.tag }}" ]; then
+            echo "v$newest is newer; latest stays where it is"
+            exit 0
+          fi
+          docker buildx imagetools create -t "${IMAGE}:latest" "${IMAGE}@${{ steps.build.outputs.digest }}"

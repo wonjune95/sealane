@@ -52,7 +52,7 @@ export function VirtualServiceForm({
         {model.hosts.map((h, i) => (
           <Row key={i} onRemove={() => set({ hosts: model.hosts.filter((_, j) => j !== i) })}>
             <div className="flex items-center gap-2">
-              <input className={input} list="vs-svc-list" value={h} placeholder="reviews / example.com"
+              <input className={input} list="vs-svc-list" value={h} placeholder="reviews / example.com" aria-label={t('form.hosts')}
                 onChange={(e) => set({ hosts: replace(model.hosts, i, e.target.value) })} />
               <Missing host={h} services={services} />
             </div>
@@ -65,7 +65,7 @@ export function VirtualServiceForm({
         onAdd={() => set({ gateways: [...model.gateways, gwValues[0] ?? 'mesh'] })}>
         {model.gateways.map((g, i) => (
           <Row key={i} onRemove={() => set({ gateways: model.gateways.filter((_, j) => j !== i) })}>
-            <select className={input} value={g}
+            <select className={input} value={g} aria-label={t('form.gateways')}
               onChange={(e) => set({ gateways: replace(model.gateways, i, e.target.value) })}>
               <option value="mesh">{t('form.meshOption')}</option>
               {gwValues.map((v) => <option key={v} value={v}>{v}</option>)}
@@ -107,14 +107,14 @@ function RuleCard({
     <div className="space-y-4 rounded border border-base p-3">
       <div className="flex items-center gap-2">
         <span className={label}>{t('form.ruleName')}<span className="text-faint"> {t('form.optionalWord')}</span></span>
-        <input className={`${input} max-w-xs`} value={rule.name ?? ''} placeholder="reviews-v2"
+        <input className={`${input} max-w-xs`} value={rule.name ?? ''} placeholder="reviews-v2" aria-label={t('form.ruleName')}
           onChange={(e) => set({ name: e.target.value })} />
         <button onClick={onRemove} className={`ml-auto ${del}`}>{t('form.deleteRule')}</button>
       </div>
 
       {/* match */}
       <div className="space-y-2">
-        <div className={label}>Match (uri / headers)<span className="text-faint"> {t('form.optionalWord')}</span></div>
+        <div className={label}>{t('form.match')}<span className="text-faint"> {t('form.optionalWord')}</span></div>
         {rule.match.map((m, mi) => (
           <MatchBox key={mi} m={m}
             onChange={(nm) => set({ match: replace(rule.match, mi, nm) })}
@@ -128,7 +128,7 @@ function RuleCard({
       <div className="space-y-2">
         <div className="flex items-center justify-between">
           <span className={label}>
-            Route (host<span className="text-red-500">*</span> / subset / port / weight<span className="text-faint"> {t('form.optionalWord')}</span>)
+            {t('form.route')} ({t('form.ph.host')}<span className="text-red-500">*</span> / {t('form.ph.subset')} / {t('form.ph.port')} / {t('form.ph.weight')}<span className="text-faint"> {t('form.optionalWord')}</span>)
           </span>
           {rule.route.length > 1 && <span className="text-xs text-faint">{t('form.weightSum', { n: weightSum })}</span>}
         </div>
@@ -178,14 +178,14 @@ function MatchBox({ m, onChange, onRemove }: { m: VSMatchModel; onChange: (m: VS
           </select>
           <input className={input} aria-label={t('vs.uri')} value={m.uriValue ?? ''} placeholder="/"
             onChange={(e) => set({ uriValue: e.target.value })} />
-          <button onClick={() => set({ uriType: undefined, uriValue: undefined })} className={del}>×</button>
+          <button onClick={() => set({ uriType: undefined, uriValue: undefined })} className={del} aria-label={t('form.deleteUri')} title={t('form.deleteUri')}>×</button>
         </div>
       )}
       {m.headers.map((h, hi) => (
         <div key={hi} className="flex items-center gap-2 pl-6">
           {/* Committed on blur: a half-typed name (x-user on the way to x-user-id)
               must not collide with an existing header key mid-word. */}
-          <input key={`${hi}:${h.name}`} className={input} defaultValue={h.name} placeholder={t('form.ph.header')}
+          <input key={`${hi}:${h.name}`} className={input} defaultValue={h.name} placeholder={t('form.ph.header')} aria-label={t('form.ph.header')}
             onBlur={(e) => {
               const v = e.target.value
               if (v === h.name) return
@@ -193,20 +193,20 @@ function MatchBox({ m, onChange, onRemove }: { m: VSMatchModel; onChange: (m: VS
               if (m.headers.some((o, j) => j !== hi && o.name === v)) e.target.value = h.name
               else set({ headers: replace(m.headers, hi, { ...h, name: v }) })
             }} />
-          <select className={`${input} w-28`} value={h.type}
+          <select className={`${input} w-28`} value={h.type} aria-label={t('form.headerMatchType')}
             onChange={(e) => set({ headers: replace(m.headers, hi, { ...h, type: e.target.value as typeof h.type }) })}>
             <option value="exact">exact</option>
             <option value="prefix">prefix</option>
             <option value="regex">regex</option>
           </select>
-          <input className={input} value={h.value} placeholder={t('form.ph.value')}
+          <input className={input} value={h.value} placeholder={t('form.ph.value')} aria-label={t('form.ph.value')}
             onChange={(e) => set({ headers: replace(m.headers, hi, { ...h, value: e.target.value }) })} />
-          <button onClick={() => set({ headers: m.headers.filter((_, j) => j !== hi) })} className={del}>×</button>
+          <button onClick={() => set({ headers: m.headers.filter((_, j) => j !== hi) })} className={del} aria-label={t('form.deleteHeader')} title={t('form.deleteHeader')}>×</button>
         </div>
       ))}
       <div className="flex items-center gap-3 pl-6">
         {!m.uriType && (
-          <button onClick={() => set({ uriType: 'prefix', uriValue: '/' })} className={add}>+ URI</button>
+          <button onClick={() => set({ uriType: 'prefix', uriValue: '/' })} className={add}>+ {t('form.addUri')}</button>
         )}
         <button onClick={() => set({ headers: [...m.headers, { name: '', type: 'exact', value: '' }] })}
           className={add}>+ {t('form.addHeader')}</button>
@@ -235,21 +235,21 @@ function RouteRow({
   const offered = d.host ? subsets.filter((s) => fqdn(s.host, s.namespace) === fqdn(d.host, ns)) : []
   return (
     <div className="flex items-center gap-2">
-      <input className={`${input} flex-1`} list="vs-svc-list" value={d.host} placeholder={t('form.ph.host')}
+      <input className={`${input} flex-1`} list="vs-svc-list" value={d.host} placeholder={t('form.ph.host')} aria-label={t('form.ph.host')}
         onChange={(e) => onChange({ ...d, host: e.target.value })} />
       <Missing host={d.host} services={services} />
-      <input className={`${input} w-28`} list={listId} value={d.subset ?? ''} placeholder={t('form.ph.subset')}
+      <input className={`${input} w-28`} list={listId} value={d.subset ?? ''} placeholder={t('form.ph.subset')} aria-label={t('form.ph.subset')}
         onChange={(e) => onChange({ ...d, subset: e.target.value })} />
       <datalist id={listId}>
         {offered.map((s) => <option key={`${s.dr}/${s.name}`} value={s.name} />)}
       </datalist>
-      <input className={`${input} w-24`} type="number" value={d.port ?? ''} placeholder={t('form.ph.port')}
+      <input className={`${input} w-24`} type="number" value={d.port ?? ''} placeholder={t('form.ph.port')} aria-label={t('form.ph.port')}
         onChange={(e) => onChange({ ...d, port: num(e.target.value) })} />
       {showWeight && (
-        <input className={`${input} w-24`} type="number" value={d.weight ?? ''} placeholder={t('form.ph.weight')}
+        <input className={`${input} w-24`} type="number" value={d.weight ?? ''} placeholder={t('form.ph.weight')} aria-label={t('form.ph.weight')}
           onChange={(e) => onChange({ ...d, weight: num(e.target.value) })} />
       )}
-      <button onClick={onRemove} className={del}>×</button>
+      <button onClick={onRemove} className={del} aria-label={t('form.deleteRoute')} title={t('form.deleteRoute')}>×</button>
     </div>
   )
 }

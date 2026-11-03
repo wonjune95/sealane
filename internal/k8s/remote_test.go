@@ -35,16 +35,17 @@ func TestSetupRemoteAccount(t *testing.T) {
 	kube := fakeWithTokenController()
 	base := &rest.Config{Host: "https://api.example:6443", TLSClientConfig: rest.TLSClientConfig{CAData: []byte("CA-PEM")}}
 
-	out, err := SetupRemoteAccount(ctx, kube, base, false, time.Millisecond)
-	if err != nil {
-		t.Fatal(err)
+	out, fresh, err := SetupRemoteAccount(ctx, kube, base, "http://proxy.internal:3128", false, time.Millisecond)
+	if err != nil || !fresh {
+		t.Fatalf("setup: fresh=%v err=%v", fresh, err)
 	}
 	kc, err := clientcmd.Load(out)
 	if err != nil {
 		t.Fatal(err)
 	}
 	c := kc.Contexts[kc.CurrentContext]
-	if kc.AuthInfos[c.AuthInfo].Token != "tok-123" || kc.Clusters[c.Cluster].Server != base.Host || string(kc.Clusters[c.Cluster].CertificateAuthorityData) != "CA-PEM" {
+	if kc.AuthInfos[c.AuthInfo].Token != "tok-123" || kc.Clusters[c.Cluster].Server != base.Host || string(kc.Clusters[c.Cluster].CertificateAuthorityData) != "CA-PEM" ||
+		kc.Clusters[c.Cluster].ProxyURL != "http://proxy.internal:3128" {
 		t.Errorf("kubeconfig = %s", out)
 	}
 	role, err := kube.RbacV1().ClusterRoles().Get(ctx, "sealane-remote", metav1.GetOptions{})
@@ -60,8 +61,8 @@ func TestSetupRemoteAccount(t *testing.T) {
 	}
 
 	// Registering again (or with impersonation on) updates in place.
-	if _, err := SetupRemoteAccount(ctx, kube, base, true, time.Millisecond); err != nil {
-		t.Fatalf("second setup: %v", err)
+	if _, fresh, err := SetupRemoteAccount(ctx, kube, base, "", true, time.Millisecond); err != nil || fresh {
+		t.Fatalf("second setup: fresh=%v err=%v, want an update of the existing account", fresh, err)
 	}
 	imp, err := kube.RbacV1().ClusterRoles().Get(ctx, "sealane-remote-impersonator", metav1.GetOptions{})
 	if err != nil || !reflect.DeepEqual(imp.Rules[0].ResourceNames, []string{"sealane:admin", "sealane:editor"}) {
@@ -71,13 +72,26 @@ func TestSetupRemoteAccount(t *testing.T) {
 	if len(writer.Subjects) != 2 || writer.Subjects[0].Kind != "Group" {
 		t.Errorf("writer binding = %+v", writer.Subjects)
 	}
+
+	// Turning the mode off and registering again drops what the mode added.
+	if _, _, err := SetupRemoteAccount(ctx, kube, base, "", false, time.Millisecond); err != nil {
+		t.Fatalf("third setup: %v", err)
+	}
+	for _, name := range []string{"sealane-remote-impersonator", "sealane-remote-writer"} {
+		if _, err := kube.RbacV1().ClusterRoles().Get(ctx, name, metav1.GetOptions{}); err == nil {
+			t.Errorf("cluster role %s left after turning impersonation off", name)
+		}
+		if _, err := kube.RbacV1().ClusterRoleBindings().Get(ctx, name, metav1.GetOptions{}); err == nil {
+			t.Errorf("cluster role binding %s left after turning impersonation off", name)
+		}
+	}
 }
 
 // Deleting a cluster with cleanup removes the account Sealane made there, so its token stops working.
 func TestCleanupRemoteAccount(t *testing.T) {
 	ctx := context.Background()
 	kube := fakeWithTokenController()
-	if _, err := SetupRemoteAccount(ctx, kube, &rest.Config{Host: "https://x"}, true, time.Millisecond); err != nil {
+	if _, _, err := SetupRemoteAccount(ctx, kube, &rest.Config{Host: "https://x"}, "", true, time.Millisecond); err != nil {
 		t.Fatal(err)
 	}
 	if err := CleanupRemoteAccount(ctx, kube); err != nil {
@@ -105,7 +119,7 @@ func TestSetupRemoteAccount_ForbiddenStopsEarly(t *testing.T) {
 	kube.PrependReactor("create", "clusterroles", func(k8stesting.Action) (bool, runtime.Object, error) {
 		return true, nil, errForbidden
 	})
-	_, err := SetupRemoteAccount(context.Background(), kube, &rest.Config{Host: "https://x"}, false, time.Millisecond)
+	_, _, err := SetupRemoteAccount(context.Background(), kube, &rest.Config{Host: "https://x"}, "", false, time.Millisecond)
 	if err == nil || !strings.Contains(err.Error(), "cluster role sealane-remote") {
 		t.Errorf("err = %v, want the failing step named", err)
 	}

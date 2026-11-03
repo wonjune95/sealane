@@ -37,7 +37,7 @@ groups:
 
 `job` is whatever your scrape config names it. The log message for a history failure says why (`change history not saved`). There is no per-cluster metric: the connection state of each registered cluster is on the **Settings** page, and failing calls to a cluster show up as 5xx responses above.
 
-Probes: `/healthz` (liveness) and `/readyz` (readiness — pings the Kubernetes API server with a 2 s timeout and returns 503 `not ready` on failure). The chart wires both.
+Probes: `/healthz` (liveness) and `/readyz` (readiness — 503 `not ready` while the Kubernetes API server does not answer within 2 s, and while the first admin account could not be created yet; the log says why). The chart wires both.
 
 ## Logs
 
@@ -102,4 +102,7 @@ Restoring onto the running install instead (to roll back an accidental edit) is 
 
 ## Uninstall
 
-`helm uninstall sealane -n sealane` (or `kubectl delete -f install.yaml`) removes Sealane. What it created at run time stays: the accounts ConfigMap, the clusters, session, initial-admin and history Secrets and the history ConfigMap. Since Sealane lives in a namespace of its own, `kubectl delete namespace sealane` removes all of it. Remote clusters registered with the dedicated account keep that account until you delete each registration with the account removal option first (see [Multi-cluster](multi-cluster.md)).
+The two install methods remove different amounts. Back up first (see above) if you may want the data again.
+
+- **Helm:** `helm uninstall sealane -n sealane` removes Sealane but keeps what it created at run time: the accounts ConfigMap, the clusters, session, initial-admin and history Secrets and the history ConfigMap. `kubectl delete namespace sealane` then removes all of it.
+- **`install.yaml`:** `kubectl delete -f install.yaml` also deletes the `sealane` namespace, which it contains, and with it every account, registered cluster, session key and history entry. To remove only Sealane and keep the data, delete everything but the namespace: `kubectl delete -f install.yaml --ignore-not-found` on a copy of the file without its first `Namespace` document. Remote clusters registered with the dedicated account keep that account until you delete each registration with the account removal option first (see [Multi-cluster](multi-cluster.md)).

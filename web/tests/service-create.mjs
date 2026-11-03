@@ -25,6 +25,8 @@ async function open(role) {
     const path = new URL(interception.request().url()).pathname
     if (!path.startsWith('/api/')) return interception.continue()
     if (path.startsWith('/api/access/')) return interception.fulfill({ json: { create: true, update: true, delete: true } })
+    // The service answers late, so the page is checked while its ports are still unknown.
+    if (path === '/api/services/shop/reviews/mesh') await new Promise((done) => setTimeout(done, 800))
     const fixtures = {
       '/api/clusters': [{ name: 'local' }],
       '/api/capabilities': {
@@ -70,6 +72,8 @@ try {
 
   // An editor gets the create buttons, pointing at the prefilled create URLs.
   await page.goto(`${base}/services/shop/reviews`)
+  await page.getByRole('heading', { name: 'reviews' }).waitFor()
+  assert.equal(await page.getByRole('link', { name: createDR }).count(), 0, 'no create links before the ports are known')
   await page.getByRole('link', { name: createDR }).waitFor()
   assert.equal(await page.getByRole('link', { name: createDR }).getAttribute('href'), `/resources/${DR}/new?ns=shop&host=reviews&port=9080`)
   assert.equal(await page.getByRole('link', { name: createHR }).getAttribute('href'), `/resources/${HR}/new?ns=shop&host=reviews&port=9080`)

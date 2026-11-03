@@ -439,12 +439,14 @@ function AccountsPanel({ me }: { me: string }) {
             value={name}
             onChange={(e) => setName(e.target.value)}
             placeholder={t('login.username')}
+            aria-label={t('login.username')}
             autoComplete="off"
             className="input-base min-w-0 flex-1"
           />
           <select
             value={role}
             onChange={(e) => setRole(e.target.value)}
+            aria-label={t('settings.role')}
             className="input-base !w-32 shrink-0"
           >
             <option value="admin">admin</option>
@@ -457,6 +459,7 @@ function AccountsPanel({ me }: { me: string }) {
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           placeholder={exists ? t('settings.account.passwordKeep') : t('settings.account.passwordNew')}
+          aria-label={exists ? t('settings.account.passwordKeep') : t('settings.account.passwordNew')}
           autoComplete="new-password"
           className="input-base w-full"
         />

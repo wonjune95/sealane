@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+	"time"
 
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
@@ -91,16 +92,23 @@ type ResolvedType struct {
 	GVR         schema.GroupVersionResource `json:"-"`
 }
 
-// CatalogCached returns the discovery-resolved registry, computing it once.
+// catalogTTL is how long a discovered catalog is used; CRDs installed or upgraded after Sealane
+// started show up within it, without a restart.
+const catalogTTL = time.Minute
+
+// CatalogCached returns the discovery-resolved registry, rediscovered after catalogTTL. When a
+// rediscovery fails, the last catalog is kept.
 func (f *ClientFactory) CatalogCached() ([]ResolvedType, error) {
 	f.catMu.Lock()
 	defer f.catMu.Unlock()
-	if f.catalog == nil {
+	if f.catalog == nil || time.Since(f.catAt) > catalogTTL {
 		c, err := f.Catalog()
-		if err != nil {
+		if err != nil && f.catalog == nil {
 			return nil, err
 		}
-		f.catalog = c
+		if err == nil {
+			f.catalog, f.catAt = c, time.Now()
+		}
 	}
 	return f.catalog, nil
 }

@@ -82,7 +82,7 @@ The same table is in the [chart README](https://github.com/wonjune95/sealane/blo
 | Path | Purpose |
 |---|---|
 | `/healthz` | liveness — returns `ok` while the process runs |
-| `/readyz` | readiness — pings the Kubernetes API server (2 s timeout) and returns 503 `not ready` on failure |
+| `/readyz` | readiness — 503 `not ready` while the Kubernetes API server does not answer within 2 s, and while the first admin account could not be created yet (the log says why, often the Role) |
 | `/metrics` | Prometheus metrics: `http_requests_total` (by `method`, `status`), `http_request_duration_seconds` (by `method`), `sealane_build_info` (by `version`, always 1), `sealane_history_write_failures_total`, `sealane_login_failures_total` (by `reason`) and `sealane_account_read_errors_total`, plus the standard Go and process collectors |
 
 Logs are structured `slog` JSON (request log + write audit log). The running version is shown at the bottom of the Settings page. See [Operations](operations.md) for scraping and log fields.

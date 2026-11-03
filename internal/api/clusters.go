@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"crypto/sha256"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -27,9 +28,20 @@ import (
 // Sealane runs in.
 type ClustersSecretRef struct{ Namespace, Name string }
 
+// cachedCluster is a remote cluster's factory and the kubeconfig it was made from.
+type cachedCluster struct {
+	src     ClientSource
+	sum     [32]byte
+	checked time.Time
+}
+
+// clusterRecheck bounds how long a replica keeps using a kubeconfig after another replica (or
+// kubectl) replaced or deleted it in the Secret.
+const clusterRecheck = 5 * time.Second
+
 // clusterSource resolves the ?cluster= parameter to a per-cluster factory.
-// ""/"local" is always the pod's SA (or dev kubeconfig) factory.
-// ponytail: the cache is invalidated only on PUT/DELETE — editing the Secret directly with kubectl needs a restart.
+// ""/"local" is always the pod's SA (or dev kubeconfig) factory. A cached factory is used for
+// clusterRecheck; after that the Secret is read again and a deleted or changed kubeconfig drops it.
 func (s *Server) clusterSource(ctx context.Context, name string) (ClientSource, error) {
 	if name == "" || name == "local" {
 		return s.factory, nil
@@ -39,8 +51,9 @@ func (s *Server) clusterSource(ctx context.Context, name string) (ClientSource, 
 	}
 	s.clusterMu.Lock()
 	defer s.clusterMu.Unlock()
-	if f, ok := s.clusterCache[name]; ok {
-		return f, nil
+	cached, ok := s.clusterCache[name]
+	if ok && time.Since(cached.checked) < clusterRecheck {
+		return cached.src, nil
 	}
 	client, err := s.factory.Base()
 	if err != nil {
@@ -53,16 +66,24 @@ func (s *Server) clusterSource(ctx context.Context, name string) (ClientSource, 
 	}
 	kc, ok := sec.Data[name]
 	if !ok {
+		delete(s.clusterCache, name)
 		return nil, fmt.Errorf("unknown cluster: %s", name)
+	}
+	sum := sha256.Sum256(kc)
+	if cached.src != nil && cached.sum == sum { // unchanged: keep the factory (and its CRD caches)
+		cached.checked = time.Now()
+		s.clusterCache[name] = cached
+		return cached.src, nil
 	}
 	f, err := k8s.NewClientFactoryFromKubeconfig(kc)
 	if err != nil {
+		delete(s.clusterCache, name)
 		return nil, fmt.Errorf("cluster %s: %w", name, err)
 	}
 	if s.clusterCache == nil {
-		s.clusterCache = map[string]ClientSource{}
+		s.clusterCache = map[string]cachedCluster{}
 	}
-	s.clusterCache[name] = f
+	s.clusterCache[name] = cachedCluster{src: f, sum: sum, checked: time.Now()}
 	return f, nil
 }
 
@@ -194,25 +215,40 @@ func (s *Server) handleClusterUpsert(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "BadRequest", err.Error())
 		return
 	}
+	// undo removes an account this request just created when the kubeconfig cannot be stored, so
+	// a failed registration leaves no token and rights behind on the cluster.
+	undo := func() {}
 	if in.Setup {
 		ctx, cancel := context.WithTimeout(r.Context(), 45*time.Second)
 		defer cancel()
 		kube, err := kubernetes.NewForConfig(cfg)
+		fresh := false
 		if err == nil {
-			kubeconfig, err = k8s.SetupRemoteAccount(ctx, kube, cfg, s.impersonate, time.Second)
+			kubeconfig, fresh, err = k8s.SetupRemoteAccount(ctx, kube, cfg, k8s.ProxyURLOf(kubeconfig), s.impersonate, time.Second)
 		}
 		if err != nil {
 			// Nothing is stored: the pasted credentials could not create the account.
 			writeError(w, http.StatusBadGateway, "SetupFailed", "could not create Sealane's account on the cluster: "+err.Error())
 			return
 		}
+		if fresh {
+			undo = func() {
+				ctx, cancel := context.WithTimeout(context.WithoutCancel(r.Context()), 30*time.Second)
+				defer cancel()
+				if err := k8s.RemoveRemoteAccount(ctx, kube); err != nil {
+					slog.Warn("registration failed and the account it created could not be removed", "cluster", name, "err", err)
+				}
+			}
+		}
 	}
 	f, err := k8s.NewClientFactoryFromKubeconfig(kubeconfig)
 	if err != nil {
+		undo()
 		writeError(w, http.StatusBadRequest, "BadRequest", err.Error())
 		return
 	}
 	if err := s.patchClusterSecret(r.Context(), name, kubeconfig); err != nil {
+		undo()
 		writeError(w, http.StatusInternalServerError, "Internal", "failed to update clusters Secret: "+err.Error())
 		return
 	}
@@ -278,10 +314,10 @@ func (s *Server) cleanupCluster(ctx context.Context, name string) error {
 	defer cancel()
 	err = k8s.CleanupRemoteAccount(ctx, kube)
 	if apierrors.IsUnauthorized(err) {
-		// The token is no longer accepted: an earlier cleanup removed the account but the local
-		// delete then failed. Nothing is left to revoke, so let the registration go.
-		slog.Info("cluster account already gone (token refused)", "cluster", name)
-		return nil
+		// A refused token does not prove the account is gone (someone may have revoked only the
+		// token), so say what to check instead of guessing.
+		return fmt.Errorf("the cluster refused Sealane's token, so Sealane cannot tell whether its account is still there; " +
+			"delete without the option and check with: kubectl get clusterrole,clusterrolebinding,namespace -l app.kubernetes.io/managed-by=sealane")
 	}
 	return err
 }

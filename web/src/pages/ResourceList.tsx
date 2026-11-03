@@ -205,7 +205,7 @@ export function ResourceList() {
               </th>
               <SortHeader label="Namespace" sortKey="namespace" state={sort} onToggle={onSort} />
               <SortHeader label="Name" sortKey="name" state={sort} onToggle={onSort} />
-              <SortHeader label="Summary" sortKey="summary" state={sort} onToggle={onSort} />
+              <SortHeader label={t('list.summary')} sortKey="summary" state={sort} onToggle={onSort} />
               <SortHeader label="Age" sortKey="age" state={sort} onToggle={onSort} />
               <Th />
             </tr>

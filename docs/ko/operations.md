@@ -39,7 +39,7 @@ groups:
 
 `job`은 수집 설정에서 붙인 이름으로 바꾸세요. 변경 기록 저장에 실패하면 로그 메시지 `change history not saved`에 원인이 나옵니다. 클러스터별 메트릭은 없습니다. 등록한 클러스터의 연결 상태는 **설정** 화면에 나오고, 클러스터 호출이 실패하면 위의 5xx 응답으로 잡힙니다.
 
-프로브는 `/healthz`(liveness)와 `/readyz`(readiness)입니다. `/readyz`는 Kubernetes API 서버에 2초 타임아웃으로 요청을 보내고, 실패하면 503 `not ready`를 반환합니다. 차트가 두 프로브를 모두 설정합니다.
+프로브는 `/healthz`(liveness)와 `/readyz`(readiness)입니다. `/readyz`는 Kubernetes API 서버가 2초 안에 응답하지 않을 때, 그리고 첫 admin 계정을 아직 만들지 못했을 때 503 `not ready`를 반환합니다. 원인은 로그에 남습니다. 차트가 두 프로브를 모두 설정합니다.
 
 ## 로그
 
@@ -104,4 +104,7 @@ Helm으로 설치했던 객체에는 Helm 소유 주석이 있어서, 같은 릴
 
 ## 삭제
 
-`helm uninstall sealane -n sealane`(또는 `kubectl delete -f install.yaml`)으로 Sealane을 삭제합니다. Sealane이 실행 중에 만든 것은 남습니다. 계정 ConfigMap, 클러스터·세션·초기 관리자·변경 기록 Secret, 변경 기록 ConfigMap입니다. Sealane은 전용 네임스페이스에 있으므로 `kubectl delete namespace sealane`으로 모두 지울 수 있습니다. 전용 계정으로 등록한 원격 클러스터에는 그 계정이 남으므로, 먼저 각 등록을 계정 삭제 옵션과 함께 지우세요([멀티 클러스터](../multi-cluster.md) 참고).
+설치 방법에 따라 지워지는 범위가 다릅니다. 데이터를 다시 쓸 수도 있다면 먼저 위의 백업을 하세요.
+
+- **Helm:** `helm uninstall sealane -n sealane`은 Sealane을 지우지만 실행 중에 만든 것은 남깁니다. 계정 ConfigMap, 클러스터·세션·초기 관리자·변경 기록 Secret, 변경 기록 ConfigMap입니다. 이어서 `kubectl delete namespace sealane`을 하면 모두 지워집니다.
+- **`install.yaml`:** `kubectl delete -f install.yaml`은 파일에 들어 있는 `sealane` 네임스페이스까지 지우므로, 계정·등록한 클러스터·세션 키·변경 기록이 모두 함께 사라집니다. 데이터를 남기고 Sealane만 지우려면 파일에서 첫 번째 `Namespace` 문서를 뺀 사본으로 `kubectl delete -f`를 실행하세요. 전용 계정으로 등록한 원격 클러스터에는 그 계정이 남으므로, 먼저 각 등록을 계정 삭제 옵션과 함께 지우세요([멀티 클러스터](../multi-cluster.md) 참고).

@@ -22,7 +22,8 @@
     "test:managed-by": "node tests/managed-by.mjs",
     "test:cluster-menu": "node tests/cluster-menu.mjs",
     "test:history": "node tests/history.mjs",
-    "test:cluster-add": "node tests/cluster-add.mjs"
+    "test:cluster-add": "node tests/cluster-add.mjs",
+    "test:session-ended": "node tests/session-ended.mjs"
   },
   "dependencies": {
     "@codemirror/lang-yaml": "^6.1.3",

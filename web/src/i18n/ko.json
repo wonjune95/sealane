@@ -647,5 +647,16 @@
   "form.backends": "백엔드",
   "form.backend": "백엔드",
   "form.subsetName": "이름",
-  "form.ruleName": "이름"
+  "form.ruleName": "이름",
+  "form.match": "매치 (uri / 헤더)",
+  "form.route": "라우트",
+  "form.addUri": "URI 조건",
+  "form.deleteUri": "URI 조건 삭제",
+  "form.deleteHeader": "헤더 조건 삭제",
+  "form.deleteRoute": "라우트 목적지 삭제",
+  "form.deleteBackend": "백엔드 삭제",
+  "form.deleteLabel": "레이블 삭제",
+  "form.headerMatchType": "헤더 매치 방식",
+  "form.pathType": "경로 매치 방식",
+  "list.summary": "요약"
 }

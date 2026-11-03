@@ -17,7 +17,9 @@ By default **Create a dedicated Sealane account on the cluster** is on, which wo
 | Token Secret | `sealane-remote-token` (a long-lived ServiceAccount token) |
 | With impersonation mode on | `sealane-remote-impersonator` and `sealane-remote-writer`, as the chart renders them |
 
-It then stores a kubeconfig that logs in with that token, never the credentials you pasted. Those need the rights to create namespaces, cluster roles and bindings, typically a cluster admin. Registering again refreshes the objects. If creating them fails on a first registration, Sealane removes what it made and stores nothing. Clear the checkbox to store the chosen context as it is instead; Sealane can then do exactly what its credentials allow.
+It then stores a kubeconfig that logs in with that token, never the credentials you pasted. Those need the rights to create namespaces, cluster roles and bindings, typically a cluster admin. Registering again refreshes the objects; with impersonation mode off it also removes the impersonation roles an earlier registration added. If creating them fails on a first registration, or the kubeconfig cannot be stored afterwards, Sealane removes what it made and stores nothing. A `proxy-url` in the pasted kubeconfig is kept in the stored one.
+
+Registering under a name that is already taken replaces its stored kubeconfig. If that name pointed to another cluster through a dedicated account, delete it with the account removal option first, or that account stays on the other cluster. Clear the checkbox to store the chosen context as it is instead; Sealane can then do exactly what its credentials allow.
 
 A pasted kubeconfig must carry its credentials inline: one that points to files (`certificate-authority`, `client-certificate`, `client-key`, `tokenFile`) or runs a credential plugin is refused, and the server must be `https://`.
 
@@ -27,7 +29,7 @@ A connectivity test runs on registration and the result is shown next to the clu
 
 Deleting a cluster always removes its stored kubeconfig. What happens on the cluster depends on how it was registered:
 
-- **With the dedicated account:** the delete dialog offers **Also remove Sealane's account from the cluster**, checked by default. Sealane then uses the stored token to delete its cluster role bindings, cluster roles and the `sealane-remote` namespace, which takes the ServiceAccount and its token with it. Only the `sealane-remote-cleanup` cluster role stays, bound to nothing: the account loses its rights once that binding goes, so it cannot remove the role as well. The command below removes it. If the cluster cannot be reached, nothing is deleted and the registration stays; try again later, or delete without the option and remove the account yourself on the cluster:
+- **With the dedicated account:** the delete dialog offers **Also remove Sealane's account from the cluster**, checked by default. Sealane then uses the stored token to delete its cluster role bindings, cluster roles and the `sealane-remote` namespace, which takes the ServiceAccount and its token with it. Only the `sealane-remote-cleanup` cluster role stays, bound to nothing: the account loses its rights once that binding goes, so it cannot remove the role as well. The command below removes it. If the cluster cannot be reached, or refuses the stored token (Sealane then cannot tell whether its account is still there), nothing is deleted and the registration stays; try again later, or delete without the option and check or remove the account yourself on the cluster:
 
 ```bash
 kubectl delete clusterrolebinding,clusterrole,namespace -l app.kubernetes.io/managed-by=sealane

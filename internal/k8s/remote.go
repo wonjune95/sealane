@@ -104,12 +104,15 @@ var remoteObjects = []string{remoteName + "-writer", remoteName + "-impersonator
 
 // SetupRemoteAccount creates or refreshes, on the cluster kube points at, a ServiceAccount with
 // ManagedRules (plus the impersonation RBAC when Sealane runs in that mode) and a token for it,
-// and returns a kubeconfig that logs in with that token. The caller's credentials are used only
-// for this, like `argocd cluster add`; Sealane stores the returned kubeconfig instead of them.
-func SetupRemoteAccount(ctx context.Context, kube kubernetes.Interface, base *rest.Config, impersonation bool, poll time.Duration) (out []byte, err error) {
-	fresh := false // the namespace is new: a failed setup is rolled back, a failed refresh is not
+// and returns a kubeconfig that logs in with that token (through proxyURL, the pasted
+// kubeconfig's proxy-url, if any). The caller's credentials are used only for this, like
+// `argocd cluster add`; Sealane stores the returned kubeconfig instead of them. fresh reports
+// that this call created the account: if the caller then fails to store the kubeconfig, it
+// removes the account again with RemoveRemoteAccount.
+func SetupRemoteAccount(ctx context.Context, kube kubernetes.Interface, base *rest.Config, proxyURL string, impersonation bool, poll time.Duration) (out []byte, fresh bool, err error) {
+	created := false // the namespace is new: a failed setup is rolled back, a failed refresh is not
 	defer func() {
-		if err != nil && fresh { // do not leave half an account behind; the pasted credentials can remove it
+		if err != nil && created { // do not leave half an account behind; the pasted credentials can remove it
 			_ = removeRemoteAccount(context.WithoutCancel(ctx), kube, true)
 		}
 	}()
@@ -159,12 +162,12 @@ func SetupRemoteAccount(ctx context.Context, kube kubernetes.Interface, base *re
 	}
 
 	_, err = kube.CoreV1().Namespaces().Create(ctx, &corev1.Namespace{ObjectMeta: meta(RemoteNamespace, "")}, metav1.CreateOptions{})
-	fresh = err == nil
+	created = err == nil
 	if err = ignoreExists(err); err != nil {
-		return nil, fmt.Errorf("create namespace %s: %w", RemoteNamespace, err)
+		return nil, false, fmt.Errorf("create namespace %s: %w", RemoteNamespace, err)
 	}
 	if _, err := kube.CoreV1().ServiceAccounts(RemoteNamespace).Create(ctx, &corev1.ServiceAccount{ObjectMeta: meta(remoteSA, RemoteNamespace)}, metav1.CreateOptions{}); ignoreExists(err) != nil {
-		return nil, fmt.Errorf("create service account: %w", err)
+		return nil, false, fmt.Errorf("create service account: %w", err)
 	}
 	for _, role := range roles {
 		_, err := kube.RbacV1().ClusterRoles().Create(ctx, role, metav1.CreateOptions{})
@@ -172,7 +175,7 @@ func SetupRemoteAccount(ctx context.Context, kube kubernetes.Interface, base *re
 			_, err = kube.RbacV1().ClusterRoles().Update(ctx, role, metav1.UpdateOptions{})
 		}
 		if err != nil {
-			return nil, fmt.Errorf("cluster role %s: %w", role.Name, err)
+			return nil, false, fmt.Errorf("cluster role %s: %w", role.Name, err)
 		}
 	}
 	for _, binding := range bindings {
@@ -181,7 +184,17 @@ func SetupRemoteAccount(ctx context.Context, kube kubernetes.Interface, base *re
 			_, err = kube.RbacV1().ClusterRoleBindings().Update(ctx, binding, metav1.UpdateOptions{})
 		}
 		if err != nil {
-			return nil, fmt.Errorf("cluster role binding %s: %w", binding.Name, err)
+			return nil, false, fmt.Errorf("cluster role binding %s: %w", binding.Name, err)
+		}
+	}
+	if !impersonation { // the mode is off: drop what an earlier registration with it on added
+		for _, name := range []string{remoteName + "-impersonator", remoteName + "-writer"} {
+			if err := kube.RbacV1().ClusterRoleBindings().Delete(ctx, name, metav1.DeleteOptions{}); err != nil && !apierrors.IsNotFound(err) {
+				return nil, false, fmt.Errorf("remove cluster role binding %s: %w", name, err)
+			}
+			if err := kube.RbacV1().ClusterRoles().Delete(ctx, name, metav1.DeleteOptions{}); err != nil && !apierrors.IsNotFound(err) {
+				return nil, false, fmt.Errorf("remove cluster role %s: %w", name, err)
+			}
 		}
 	}
 	// A long-lived token Secret, the same kind `argocd cluster add` creates; the token controller fills it in.
@@ -191,7 +204,7 @@ func SetupRemoteAccount(ctx context.Context, kube kubernetes.Interface, base *re
 	}
 	tokenSecret.Annotations = map[string]string{corev1.ServiceAccountNameKey: remoteSA}
 	if _, err := kube.CoreV1().Secrets(RemoteNamespace).Create(ctx, tokenSecret, metav1.CreateOptions{}); ignoreExists(err) != nil {
-		return nil, fmt.Errorf("create token secret: %w", err)
+		return nil, false, fmt.Errorf("create token secret: %w", err)
 	}
 	var token []byte
 	err = wait.PollUntilContextTimeout(ctx, poll, 20*time.Second, true, func(ctx context.Context) (bool, error) {
@@ -203,7 +216,7 @@ func SetupRemoteAccount(ctx context.Context, kube kubernetes.Interface, base *re
 		return len(token) > 0, nil
 	})
 	if err != nil {
-		return nil, fmt.Errorf("waiting for the service account token: %w", err)
+		return nil, false, fmt.Errorf("waiting for the service account token: %w", err)
 	}
 
 	cluster := clientcmdapi.NewCluster()
@@ -211,6 +224,7 @@ func SetupRemoteAccount(ctx context.Context, kube kubernetes.Interface, base *re
 	cluster.CertificateAuthorityData = base.CAData
 	cluster.InsecureSkipTLSVerify = base.Insecure
 	cluster.TLSServerName = base.ServerName
+	cluster.ProxyURL = proxyURL
 	user := clientcmdapi.NewAuthInfo()
 	user.Token = string(token)
 	kc := clientcmdapi.NewConfig()
@@ -218,7 +232,26 @@ func SetupRemoteAccount(ctx context.Context, kube kubernetes.Interface, base *re
 	kc.AuthInfos["sealane"] = user
 	kc.Contexts["remote"] = &clientcmdapi.Context{Cluster: "remote", AuthInfo: "sealane", Namespace: RemoteNamespace}
 	kc.CurrentContext = "remote"
-	return clientcmd.Write(*kc)
+	out, err = clientcmd.Write(*kc)
+	return out, created && err == nil, err
+}
+
+// RemoveRemoteAccount deletes everything SetupRemoteAccount created, with credentials that may
+// (the pasted admin ones, not the account's own token).
+func RemoveRemoteAccount(ctx context.Context, kube kubernetes.Interface) error {
+	return removeRemoteAccount(ctx, kube, true)
+}
+
+// ProxyURLOf returns the proxy-url of a prepared (single-context) kubeconfig's cluster.
+func ProxyURLOf(kubeconfig []byte) string {
+	kc, err := clientcmd.Load(kubeconfig)
+	if err != nil {
+		return ""
+	}
+	if c := kc.Contexts[kc.CurrentContext]; c != nil && kc.Clusters[c.Cluster] != nil {
+		return kc.Clusters[c.Cluster].ProxyURL
+	}
+	return ""
 }
 
 func ignoreExists(err error) error {

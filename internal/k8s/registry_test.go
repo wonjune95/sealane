@@ -4,6 +4,7 @@ import (
 	"os"
 	"strings"
 	"testing"
+	"time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/discovery"
@@ -111,6 +112,15 @@ func TestCatalogCached_SingleConsistentSnapshot(t *testing.T) {
 	}
 	if *calls != 1 {
 		t.Errorf("discovery constructed %d times, want 1 (cached)", *calls)
+	}
+
+	// After catalogTTL the catalog is discovered again: a CRD installed after Sealane started shows
+	// up without a restart.
+	f.catMu.Lock()
+	f.catAt = time.Now().Add(-catalogTTL - time.Second)
+	f.catMu.Unlock()
+	if _, err := f.ResolveType(vsTypeID); err != nil {
+		t.Errorf("newly installed virtualservices still unknown after the TTL: %v", err)
 	}
 }
 

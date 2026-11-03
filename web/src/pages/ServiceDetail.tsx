@@ -58,7 +58,9 @@ export function ServiceDetail() {
         }
         actions={
           <>
-            {canWrite && caps?.virtualServiceInstalled && (
+            {/* Only once the service is loaded: the links carry its first port, without which the
+                editor would fall back to port 80. */}
+            {canWrite && data && caps?.virtualServiceInstalled && (
               <>
                 <Link to={`/resources/virtualservices.networking.istio.io/${q}`} className="btn-ghost">
                   {t('services.createVS')}
@@ -68,7 +70,7 @@ export function ServiceDetail() {
                 </Link>
               </>
             )}
-            {canWrite && caps?.httpRouteInstalled && (
+            {canWrite && data && caps?.httpRouteInstalled && (
               <Link to={`/resources/httproutes.gateway.networking.k8s.io/${q}`} className="btn-ghost">
                 {t('services.createHR')}
               </Link>

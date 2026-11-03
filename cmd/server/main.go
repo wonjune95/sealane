@@ -165,6 +165,12 @@ func main() {
 		Addr:              *addr,
 		Handler:           logRequests(observability.Instrument(securityHeaders(csrf.Handler(mux)))),
 		ReadHeaderTimeout: 10 * time.Second,
+		// Request bodies are small (a kubeconfig at most 1 MiB): a client that trickles one in, or
+		// keeps idle connections open, does not tie up the server. No WriteTimeout: some answers
+		// (a remote cluster that is slow, the request tester) legitimately take longer.
+		ReadTimeout:    30 * time.Second,
+		IdleTimeout:    2 * time.Minute,
+		MaxHeaderBytes: 64 << 10,
 	}
 
 	go func() {

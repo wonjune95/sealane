@@ -32,11 +32,11 @@ export function Section({ title, required, onAdd, children }: { title: string; r
   )
 }
 
-export function Row({ children, onRemove }: { children: React.ReactNode; onRemove: () => void }) {
+export function Row({ children, onRemove, removeLabel }: { children: React.ReactNode; onRemove: () => void; removeLabel?: string }) {
   return (
     <div className="flex items-center gap-2">
       <div className="flex-1">{children}</div>
-      <button onClick={onRemove} className="text-sm text-red-600 hover:underline dark:text-red-400">×</button>
+      <button onClick={onRemove} aria-label={removeLabel ?? t('common.delete')} title={removeLabel ?? t('common.delete')} className="text-sm text-red-600 hover:underline dark:text-red-400">×</button>
     </div>
   )
 }

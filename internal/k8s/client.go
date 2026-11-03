@@ -41,7 +41,8 @@ type ClientFactory struct {
 	newDiscovery func() (discovery.DiscoveryInterface, error) // swappable in tests
 
 	catMu       sync.Mutex
-	catalog     []ResolvedType // lazily cached; restart to pick up newly installed CRDs
+	catalog     []ResolvedType // lazily cached for catalogTTL, so newly installed CRDs show up
+	catAt       time.Time
 	schemaMu    sync.Mutex
 	schemaCache map[string]json.RawMessage // typeID -> spec schema
 	istiodMu    sync.Mutex

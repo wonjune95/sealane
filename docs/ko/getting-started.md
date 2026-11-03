@@ -6,7 +6,7 @@
 
 ```bash
 # Helm (OCI)
-helm install sealane oci://ghcr.io/wonjune95/charts/sealane --version 1.19.1 -n sealane --create-namespace
+helm install sealane oci://ghcr.io/wonjune95/charts/sealane --version 1.19.2 -n sealane --create-namespace
 # or plain manifests
 kubectl apply -f https://github.com/wonjune95/sealane/releases/latest/download/install.yaml
 kubectl -n sealane port-forward svc/sealane 8080:8080   # → http://localhost:8080, 사용자 admin
@@ -25,7 +25,7 @@ kubectl -n sealane get secret sealane-initial-admin -o jsonpath='{.data.password
 
 ```bash
 # prebuilt image (recommended)
-ghcr.io/wonjune95/sealane:1.19.1     # or :latest
+ghcr.io/wonjune95/sealane:1.19.2     # or :latest
 ```
 
 직접 빌드할 수도 있습니다.
@@ -95,4 +95,4 @@ Sealane 하나로 여러 클러스터를 관리하려면 admin으로 **설정 �
 
 ① admin 비밀번호 변경(첫 로그인 때 강제) ② 계정 추가(설정 → 계정 관리) 또는 SSO 켜기 ③ 멀티 클러스터라면 kubeconfig 등록(설정 → 클러스터 관리).
 
-삭제는 `helm uninstall sealane -n sealane`으로 합니다. 계정 ConfigMap과 클러스터 Secret은 남으므로, 완전히 정리하려면 이 둘도 삭제하세요.
+삭제는 `helm uninstall sealane -n sealane`으로 합니다. 실행 중에 만든 계정·등록한 클러스터·세션 키·변경 기록은 네임스페이스를 지울 때(`kubectl delete namespace sealane`)까지 남습니다. `install.yaml`로 설치했다면 `kubectl delete -f install.yaml`이 네임스페이스와 그 안의 데이터를 한꺼번에 지웁니다. [운영](operations.md) 문서를 참고하세요.

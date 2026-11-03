@@ -39,7 +39,7 @@ export function HTTPRouteForm({
         onAdd={() => set({ parentRefs: [...model.parentRefs, { name: apiGateways[0]?.name ?? '' }] })}>
         {model.parentRefs.map((p, i) => (
           <Row key={i} onRemove={() => set({ parentRefs: model.parentRefs.filter((_, j) => j !== i) })}>
-            <select className={input} value={p.name}
+            <select className={input} value={p.name} aria-label={t('form.parentGateways')}
               onChange={(e) => set({ parentRefs: replace(model.parentRefs, i, { ...p, name: e.target.value }) })}>
               {apiGateways.length === 0 && <option value={p.name}>{p.name || t('form.noGateways')}</option>}
               {apiGateways.map((g) => <option key={g.name} value={g.name}>{g.name}</option>)}
@@ -53,7 +53,7 @@ export function HTTPRouteForm({
         onAdd={() => set({ hostnames: [...model.hostnames, ''] })}>
         {model.hostnames.map((h, i) => (
           <Row key={i} onRemove={() => set({ hostnames: model.hostnames.filter((_, j) => j !== i) })}>
-            <input className={input} value={h} placeholder="example.com"
+            <input className={input} value={h} placeholder="example.com" aria-label={t('form.hostnames')}
               onChange={(e) => set({ hostnames: replace(model.hostnames, i, e.target.value) })} />
           </Row>
         ))}
@@ -85,12 +85,12 @@ function RuleCard({
     <div className="rounded border border-base p-3">
       <div className="mb-3 flex items-center gap-2">
         <span className="text-xs text-muted">{t('form.path')}<span className="text-red-500">*</span></span>
-        <select className={input} value={rule.pathType}
+        <select className={input} value={rule.pathType} aria-label={t('form.pathType')}
           onChange={(e) => onChange({ ...rule, pathType: e.target.value as RuleModel['pathType'] })}>
           <option value="PathPrefix">PathPrefix</option>
           <option value="Exact">Exact</option>
         </select>
-        <input className={input} value={rule.pathValue} placeholder="/"
+        <input className={input} value={rule.pathValue} placeholder="/" aria-label={t('form.path')}
           onChange={(e) => onChange({ ...rule, pathValue: e.target.value })} />
         <button onClick={onRemove} className="ml-auto text-sm text-red-600 hover:underline dark:text-red-400">{t('form.deleteRule')}</button>
       </div>
@@ -129,7 +129,7 @@ function BackendRow({
   return (
     <div className="flex items-center gap-2">
       <div className="flex-1">
-        <input className={input} list="svc-list" value={b.name} placeholder={t('form.ph.service')}
+        <input className={input} list="svc-list" value={b.name} placeholder={t('form.ph.service')} aria-label={t('form.ph.service')}
           onChange={(e) => onChange({ ...b, name: e.target.value })} />
         <datalist id="svc-list">
           {services.map((s) => <option key={s.name} value={s.name} />)}
@@ -138,11 +138,11 @@ function BackendRow({
       {b.name !== '' && !known && (
         <span className="rounded bg-amber-100 px-1.5 py-0.5 text-xs text-amber-700 dark:bg-amber-500/15 dark:text-amber-300" title={t('form.serviceNotInNs')}>⚠ {t('form.missing')}</span>
       )}
-      <input className={`${input} w-24`} type="number" value={b.port} placeholder={t('form.ph.port')}
+      <input className={`${input} w-24`} type="number" value={b.port} placeholder={t('form.ph.port')} aria-label={t('form.ph.port')}
         onChange={(e) => onChange({ ...b, port: Number(e.target.value) })} />
-      <input className={`${input} w-24`} type="number" value={b.weight ?? ''} placeholder={t('form.ph.weight')}
+      <input className={`${input} w-24`} type="number" value={b.weight ?? ''} placeholder={t('form.ph.weight')} aria-label={t('form.ph.weight')}
         onChange={(e) => onChange({ ...b, weight: e.target.value === '' ? undefined : Number(e.target.value) })} />
-      <button onClick={onRemove} className="text-sm text-red-600 hover:underline dark:text-red-400">×</button>
+      <button onClick={onRemove} aria-label={t('form.deleteBackend')} title={t('form.deleteBackend')} className="text-sm text-red-600 hover:underline dark:text-red-400">×</button>
     </div>
   )
 }

@@ -37,7 +37,7 @@ rules:
   - apiGroups: [""]
     resources: ["configmaps"]
     resourceNames: [{{ .Values.accountsConfigMap | quote }}]
-    verbs: ["get", "patch"]
+    verbs: ["get", "patch", "update"]   # update: account changes are read-modify-writes on the resourceVersion
   # Change history: read and rewrite the list ConfigMap
   - apiGroups: [""]
     resources: ["configmaps"]

@@ -18,6 +18,7 @@ npm run test:managed-by
 npm run test:cluster-menu
 npm run test:history
 npm run test:cluster-add
+npm run test:session-ended
 ```
 
 `npm run test:ui` runs every fixture-based check; CI runs it on each push (dev server on `127.0.0.1:5173`, `SEALANE_TEST_URL` set).
@@ -42,7 +43,7 @@ The checks replace API responses with fixtures. They verify that a removed clust
 
 `npm run test:editor-focus` covers opening a finding's field: `findFocusLine` on js-yaml-shaped text, `?focus=<path>&value=<v>` switching a form-capable VirtualService to the YAML tab with the offending line highlighted and the banner dismissible, and the not-found banner for a path absent from the YAML, fixture-based (`SEALANE_SCREENSHOT=<path>` also saves a screenshot).
 
-`npm run test:service-create` covers creating from the Service page: a viewer sees no create buttons, an editor's "New VirtualService/DestinationRule for this service" open `?ns=<ns>&host=<name>` on the Form tab with name, namespace and host(s) prefilled, and a lone `ns` leaves the template unchanged, fixture-based (`SEALANE_SCREENSHOT=<path>` also saves a screenshot).
+`npm run test:service-create` covers creating from the Service page: a viewer sees no create buttons, the editor's buttons appear only once the service (and so its port) has loaded, an editor's "New VirtualService/DestinationRule for this service" open `?ns=<ns>&host=<name>&port=<port>` on the Form tab with name, namespace and host(s) prefilled, and a lone `ns` leaves the template unchanged, fixture-based (`SEALANE_SCREENSHOT=<path>` also saves a screenshot).
 
 The flow map checks cover mixed ingress/egress parents, missing gateways, search and namespace filters retaining related paths, problem paths, keyboard selection, scaled drag, layout reset, 320–1440px layouts, reduced motion, and empty/error/retry states.
 
@@ -56,6 +57,10 @@ Set `SEALANE_TEST_URL` to change the frontend URL. Set `SEALANE_CHROMIUM_PATH` t
 
 `npm run test:cluster-menu` covers the header cluster menu: no native select, current cluster checked and focused on open, Escape and outside click close it, arrow keys wrap, Enter switches the cluster (stored, app reloads), **Manage clusters…** opens Settings for admins and is absent for viewers, fixture-based.
 
-`npm run test:history` covers the change history: the editor's History tab (failed entries have no Compare), Compare with current and Load into editor carrying the current resourceVersion, a pruned revision's message, Restore on the home page only for deletions in the current cluster (opening the new-resource editor with the deleted object), and viewers who can compare but not load, fixture-based.
+`npm run test:history` covers the change history: the editor's History tab (failed entries have no Compare), Compare with current and Load into editor carrying the current resourceVersion, a pruned revision's message, Restore on the home page only for deletions in the current cluster (opening the new-resource editor with the deleted object), no Apply bar on the History tab, and viewers who see the list but cannot compare, load or restore, fixture-based.
 
-`npm run test:cluster-add` covers registering a cluster: a multi-context kubeconfig preselects its current context and names the cluster after it, picking another context renames until the name is typed, the dedicated-account option is on by default and sent with the context, loading a file fills the box, and an unchecked option stores the kubeconfig as it is, fixture-based.
+`npm run test:cluster-add` covers registering a cluster: a multi-context kubeconfig preselects its current context and names the cluster after it, picking another context renames until the name is typed, the dedicated-account option is on by default and sent with the context, loading a file fills the box, an unchecked option stores the kubeconfig as it is, a failed list shows its reason with Retry, and deleting a cluster offers removing Sealane's account (kept open with the reason when that fails), fixture-based.
+
+`npm run test:session-ended` covers a session the server ends (the app returns to the sign-in page without re-checking in a loop) and a cluster that refuses Sealane's credentials (an error, not the sign-in page), fixture-based.
+
+`npm run test:dr-form` also covers the editor tabs' keyboard behavior (arrow keys and Home move focus and selection).

@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -16,7 +17,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/util/retry"
 
 	"golang.org/x/crypto/bcrypt"
 
@@ -79,7 +80,7 @@ func (s *Server) EnsureInitialAdmin(ctx context.Context) (settled bool) {
 		}, metav1.CreateOptions{})
 	}
 	if !cmMissing || apierrors.IsAlreadyExists(err) { // another replica created it first: same password
-		err = s.patchAccount(ctx, "admin", entry)
+		err = s.updateAccount(ctx, "admin", func(string, bool) (string, error) { return entry, nil })
 	}
 	s.accounts.Invalidate()
 	if err != nil {
@@ -123,8 +124,8 @@ func randomPassword() string {
 type AccountsCMRef struct{ Namespace, Name string }
 
 // handlePasswordChange lets any logged-in user (viewers included) change their own
-// password: verify the current one, bcrypt the new one, patch the ConfigMap key.
-// The mounted dir syncs within ~1min, so the old password works until then.
+// password: verify the current one against the stored entry and write the new hash in one
+// read-modify-write (updateAccount).
 func (s *Server) handlePasswordChange(w http.ResponseWriter, r *http.Request) {
 	if s.dev {
 		writeCoded(w, http.StatusBadRequest, "BadRequest", "dev-mode-no-accounts", "no accounts in dev mode")
@@ -150,11 +151,6 @@ func (s *Server) handlePasswordChange(w http.ResponseWriter, r *http.Request) {
 		writeCoded(w, http.StatusBadRequest, "BadRequest", "new-password-too-short", "new password must be at least 8 characters")
 		return
 	}
-	role, _, err := s.accounts.Authenticate(id.Name, in.CurrentPassword)
-	if err != nil {
-		writeCoded(w, http.StatusUnauthorized, "Unauthorized", "password-incorrect", "current password is incorrect")
-		return
-	}
 	if s.accountsCM.Name == "" {
 		writeCoded(w, http.StatusInternalServerError, "Internal", "accounts-not-configured", "accounts ConfigMap location is not configured (ACCOUNTS_CONFIGMAP/POD_NAMESPACE)")
 		return
@@ -164,7 +160,29 @@ func (s *Server) handlePasswordChange(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "Internal", err.Error())
 		return
 	}
-	if err := s.patchAccount(r.Context(), id.Name, role+":"+string(hash)); err != nil {
+	// The current password is checked against the entry as stored at the moment of the write, and
+	// the account keeps the role it has then.
+	var role string
+	err = s.updateAccount(r.Context(), id.Name, func(old string, exists bool) (string, error) {
+		if !exists {
+			return "", errAccountGone
+		}
+		var stored string
+		role, stored, _ = strings.Cut(strings.TrimSpace(old), ":")
+		if !auth.ValidRole(role) || bcrypt.CompareHashAndPassword([]byte(stored), []byte(in.CurrentPassword)) != nil {
+			return "", errPasswordIncorrect
+		}
+		return role + ":" + string(hash), nil
+	})
+	switch {
+	case errors.Is(err, errPasswordIncorrect):
+		writeCoded(w, http.StatusUnauthorized, "Unauthorized", "password-incorrect", "current password is incorrect")
+		return
+	case errors.Is(err, errAccountGone):
+		clearCookie(w, r, sessionCookie, "/")
+		writeCoded(w, http.StatusUnauthorized, "Unauthorized", "session-revoked", "your session ended because the account changed; sign in again")
+		return
+	case err != nil:
 		writeError(w, http.StatusInternalServerError, "Internal", "failed to update accounts ConfigMap: "+err.Error())
 		return
 	}
@@ -185,23 +203,55 @@ func (s *Server) mustChangePassword(user string) bool {
 	return s.accounts.PasswordIs(user, "admin")
 }
 
-// patchAccount merge-patches one ConfigMap key; entry nil deletes the key.
-func (s *Server) patchAccount(ctx context.Context, user string, entry any) error {
+// errPasswordRequired: a role-only change for an account that does not exist.
+var errPasswordRequired = errors.New("a new account requires a password")
+
+// errAccountGone: the account was deleted while a change to it was being made.
+var errAccountGone = errors.New("account no longer exists")
+
+// errPasswordIncorrect: the current password does not match the stored hash.
+var errPasswordIncorrect = errors.New("current password is incorrect")
+
+// updateAccount changes one account in the ConfigMap with a read-modify-write on its
+// resourceVersion: mutate gets the entry as stored now ("" and false when there is none) and
+// returns the new entry, or "" to delete it. A concurrent change makes the write conflict, and
+// mutate runs again on the new data, so a password change can never revive an account an admin
+// deleted, or undo a role change, a moment earlier.
+func (s *Server) updateAccount(ctx context.Context, user string, mutate func(old string, exists bool) (string, error)) error {
 	client, err := s.factory.Base()
 	if err != nil {
 		return err
 	}
-	b, err := json.Marshal(map[string]any{"data": map[string]any{user: entry}})
-	if err != nil {
+	cms := client.Kube.CoreV1().ConfigMaps(s.accountsCM.Namespace)
+	err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		cm, err := cms.Get(ctx, s.accountsCM.Name, metav1.GetOptions{})
+		if err != nil {
+			return err
+		}
+		old, exists := cm.Data[user]
+		entry, err := mutate(old, exists)
+		if err != nil {
+			return err
+		}
+		if entry == "" && !exists {
+			return nil // nothing to delete
+		}
+		if cm.Data == nil {
+			cm.Data = map[string]string{}
+		}
+		if entry == "" {
+			delete(cm.Data, user)
+		} else {
+			cm.Data[user] = entry
+		}
+		_, err = cms.Update(ctx, cm, metav1.UpdateOptions{}) // carries the resourceVersion read above
 		return err
-	}
-	_, err = client.Kube.CoreV1().ConfigMaps(s.accountsCM.Namespace).
-		Patch(ctx, s.accountsCM.Name, types.MergePatchType, b, metav1.PatchOptions{})
-	if err != nil {
+	})
+	s.accounts.Invalidate() // this replica sees the change (and revokes sessions) at once
+	if err != nil && !errors.Is(err, errAccountGone) && !errors.Is(err, errPasswordIncorrect) && !errors.Is(err, errPasswordRequired) {
 		return fmt.Errorf("%s/%s: %w", s.accountsCM.Namespace, s.accountsCM.Name, err)
 	}
-	s.accounts.Invalidate() // this replica sees the change (and revokes sessions) at once
-	return nil
+	return err
 }
 
 // --- Account management (admin only): exposes the ConfigMap via the API for editing in the UI ---
@@ -296,7 +346,7 @@ func (s *Server) handleAccountUpsert(w http.ResponseWriter, r *http.Request) {
 		writeCoded(w, http.StatusBadRequest, "BadRequest", "own-role", "you cannot change your own role")
 		return
 	}
-	var entry string
+	var newHash string
 	if in.Password != "" {
 		if len(in.Password) < 8 {
 			writeCoded(w, http.StatusBadRequest, "BadRequest", "password-too-short", "password must be at least 8 characters")
@@ -307,27 +357,24 @@ func (s *Server) handleAccountUpsert(w http.ResponseWriter, r *http.Request) {
 			writeError(w, http.StatusInternalServerError, "Internal", err.Error())
 			return
 		}
-		entry = in.Role + ":" + string(hash)
-	} else {
-		// Role-only change: read and keep the existing hash.
-		client, err := s.factory.Base()
-		if err != nil {
-			writeError(w, http.StatusInternalServerError, "Internal", err.Error())
-			return
-		}
-		cm, err := client.Kube.CoreV1().ConfigMaps(s.accountsCM.Namespace).Get(r.Context(), s.accountsCM.Name, metav1.GetOptions{})
-		if err != nil {
-			writeError(w, http.StatusInternalServerError, "Internal", "failed to read accounts ConfigMap: "+err.Error())
-			return
-		}
-		_, hash, found := strings.Cut(cm.Data[name], ":")
-		if !found {
-			writeCoded(w, http.StatusBadRequest, "BadRequest", "password-required", "a new account requires a password")
-			return
-		}
-		entry = in.Role + ":" + hash
+		newHash = string(hash)
 	}
-	if err := s.patchAccount(r.Context(), name, entry); err != nil {
+	err := s.updateAccount(r.Context(), name, func(old string, exists bool) (string, error) {
+		if newHash != "" {
+			return in.Role + ":" + newHash, nil
+		}
+		// Role-only change: keep the hash stored now.
+		_, hash, found := strings.Cut(strings.TrimSpace(old), ":")
+		if !exists || !found {
+			return "", errPasswordRequired
+		}
+		return in.Role + ":" + hash, nil
+	})
+	if errors.Is(err, errPasswordRequired) {
+		writeCoded(w, http.StatusBadRequest, "BadRequest", "password-required", "a new account requires a password")
+		return
+	}
+	if err != nil {
 		writeError(w, http.StatusInternalServerError, "Internal", "failed to update accounts ConfigMap: "+err.Error())
 		return
 	}
@@ -349,7 +396,7 @@ func (s *Server) handleAccountDelete(w http.ResponseWriter, r *http.Request) {
 		writeCoded(w, http.StatusBadRequest, "BadRequest", "own-account", "you cannot delete your own account")
 		return
 	}
-	if err := s.patchAccount(r.Context(), name, nil); err != nil {
+	if err := s.updateAccount(r.Context(), name, func(string, bool) (string, error) { return "", nil }); err != nil {
 		writeError(w, http.StatusInternalServerError, "Internal", "failed to update accounts ConfigMap: "+err.Error())
 		return
 	}

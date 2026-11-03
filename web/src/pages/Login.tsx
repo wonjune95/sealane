@@ -13,6 +13,10 @@ const OIDC_ERRORS = new Map<string, Key>([
   ['idp', 'login.oidcError.idp'],
 ])
 
+// Read once when the page loads: the sign-in screen may mount more than once while the app finds
+// out there is no session, and the URL is cleaned after the first mount. Sign-out reloads the page.
+const initialOidcError = OIDC_ERRORS.get(new URLSearchParams(window.location.search).get('oidc_error') ?? '')
+
 export function Login() {
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
@@ -21,7 +25,7 @@ export function Login() {
   const { theme, toggle } = useTheme()
   const methods = useAuthMethods().data
   const showLocal = !methods?.localHidden || new URLSearchParams(window.location.search).has('local')
-  const [oidcError] = useState(() => OIDC_ERRORS.get(new URLSearchParams(window.location.search).get('oidc_error') ?? ''))
+  const [oidcError] = useState(initialOidcError)
   // Shown once: drop ?oidc_error= so it does not return after a later sign-out. An effect, not the
   // initializer, because StrictMode re-runs initializers and the second run would see the clean URL.
   useEffect(() => {

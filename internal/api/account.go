@@ -155,15 +155,11 @@ func (s *Server) handlePasswordChange(w http.ResponseWriter, r *http.Request) {
 		writeCoded(w, http.StatusInternalServerError, "Internal", "accounts-not-configured", "accounts ConfigMap location is not configured (ACCOUNTS_CONFIGMAP/POD_NAMESPACE)")
 		return
 	}
-	hash, err := bcrypt.GenerateFromPassword([]byte(in.NewPassword), bcrypt.DefaultCost)
-	if err != nil {
-		writeError(w, http.StatusInternalServerError, "Internal", err.Error())
-		return
-	}
 	// The current password is checked against the entry as stored at the moment of the write, and
-	// the account keeps the role it has then.
+	// the account keeps the role it has then. The new hash is made only once that check passed.
 	var role string
-	err = s.updateAccount(r.Context(), id.Name, func(old string, exists bool) (string, error) {
+	var hash []byte
+	err := s.updateAccount(r.Context(), id.Name, func(old string, exists bool) (string, error) {
 		if !exists {
 			return "", errAccountGone
 		}
@@ -171,6 +167,13 @@ func (s *Server) handlePasswordChange(w http.ResponseWriter, r *http.Request) {
 		role, stored, _ = strings.Cut(strings.TrimSpace(old), ":")
 		if !auth.ValidRole(role) || bcrypt.CompareHashAndPassword([]byte(stored), []byte(in.CurrentPassword)) != nil {
 			return "", errPasswordIncorrect
+		}
+		if hash == nil {
+			h, err := bcrypt.GenerateFromPassword([]byte(in.NewPassword), bcrypt.DefaultCost)
+			if err != nil {
+				return "", err
+			}
+			hash = h
 		}
 		return role + ":" + string(hash), nil
 	})

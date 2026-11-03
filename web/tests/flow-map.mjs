@@ -272,7 +272,8 @@ try {
   await page.getByRole('button', { name: 'Light mode', exact: true }).click()
   for (const width of [320, 390, 768, 1024, 1440]) {
     await page.setViewportSize({ width, height: 1000 })
-    await page.waitForTimeout(150)
+    // wait for the layout after the resize instead of a fixed delay
+    await page.evaluate(() => new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done))))
     assert.equal(
       await page.evaluate(
         () => document.documentElement.scrollWidth > window.innerWidth,

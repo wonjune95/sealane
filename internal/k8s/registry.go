@@ -97,17 +97,20 @@ type ResolvedType struct {
 const catalogTTL = time.Minute
 
 // CatalogCached returns the discovery-resolved registry, rediscovered after catalogTTL. When a
-// rediscovery fails, the last catalog is kept.
+// rediscovery fails, the last catalog is kept for another catalogTTL, so a failing discovery is
+// not retried on every request.
 func (f *ClientFactory) CatalogCached() ([]ResolvedType, error) {
 	f.catMu.Lock()
 	defer f.catMu.Unlock()
 	if f.catalog == nil || time.Since(f.catAt) > catalogTTL {
 		c, err := f.Catalog()
-		if err != nil && f.catalog == nil {
-			return nil, err
-		}
-		if err == nil {
+		switch {
+		case err == nil:
 			f.catalog, f.catAt = c, time.Now()
+		case f.catalog == nil:
+			return nil, err
+		default:
+			f.catAt = time.Now()
 		}
 	}
 	return f.catalog, nil

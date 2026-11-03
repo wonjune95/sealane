@@ -166,7 +166,9 @@ func SetupRemoteAccount(ctx context.Context, kube kubernetes.Interface, base *re
 	if err = ignoreExists(err); err != nil {
 		return nil, false, fmt.Errorf("create namespace %s: %w", RemoteNamespace, err)
 	}
-	if _, err := kube.CoreV1().ServiceAccounts(RemoteNamespace).Create(ctx, &corev1.ServiceAccount{ObjectMeta: meta(remoteSA, RemoteNamespace)}, metav1.CreateOptions{}); ignoreExists(err) != nil {
+	_, err = kube.CoreV1().ServiceAccounts(RemoteNamespace).Create(ctx, &corev1.ServiceAccount{ObjectMeta: meta(remoteSA, RemoteNamespace)}, metav1.CreateOptions{})
+	created = created || err == nil // a new account, also when only the namespace was left over
+	if err = ignoreExists(err); err != nil {
 		return nil, false, fmt.Errorf("create service account: %w", err)
 	}
 	for _, role := range roles {

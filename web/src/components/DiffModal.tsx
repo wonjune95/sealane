@@ -100,6 +100,7 @@ export function DiffModal({
                 value={typed}
                 onChange={(e) => setTyped(e.target.value)}
                 placeholder={name}
+                aria-label={t('danger.inputLabel')}
                 className="input-base"
               />
             </div>

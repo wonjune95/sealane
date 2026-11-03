@@ -32,7 +32,8 @@ func (f *ClientFactory) SpecSchema(typeID string) (json.RawMessage, error) {
 	if f.schemaCache == nil {
 		f.schemaCache = map[string]json.RawMessage{}
 	}
-	if s, ok := f.schemaCache[typeID]; ok {
+	key := typeID + "@" + rt.Version // a CRD upgrade that changes the served version gets its new schema
+	if s, ok := f.schemaCache[key]; ok {
 		return s, nil
 	}
 
@@ -60,7 +61,7 @@ func (f *ClientFactory) SpecSchema(typeID string) (json.RawMessage, error) {
 		if err != nil {
 			return nil, err
 		}
-		f.schemaCache[typeID] = raw
+		f.schemaCache[key] = raw
 		return raw, nil
 	}
 	return nil, fmt.Errorf("crd %s: version %s not found", typeID, rt.Version)

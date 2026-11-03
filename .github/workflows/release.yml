@@ -34,7 +34,7 @@ jobs:
         run: |
           runs=$(gh api "repos/${{ github.repository }}/actions/runs?head_sha=${{ github.sha }}&per_page=100")
           for p in .github/workflows/ci.yml .github/workflows/e2e.yml dynamic/github-code-scanning/codeql; do
-            jq -e --arg p "$p" '[.workflow_runs[] | select(.path == $p and .conclusion == "success")] | length > 0' <<<"$runs" >/dev/null ||
+            jq -e --arg p "$p" '[.workflow_runs[] | select(.path == $p and .head_branch == "main" and (.event == "push" or .event == "dynamic") and .conclusion == "success")] | length > 0' <<<"$runs" >/dev/null ||
               { echo "::error::no successful $p run for ${{ github.sha }}: push it to main, wait for every check, then tag"; exit 1; }
           done
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
@@ -216,7 +216,9 @@ jobs:
             SHA256SUMS.sigstore.json
       - name: Move latest (only for the newest version)
         run: |
-          newest=$(git ls-remote --tags --refs origin 'v*' | sed 's#.*refs/tags/v##' | sort -V | tail -1)
+          # Pre-releases (a "-" in the version) never become latest, and are left out of the comparison.
+          case "${{ steps.meta.outputs.tag }}" in *-*) echo "pre-release; latest stays where it is"; exit 0 ;; esac
+          newest=$(git ls-remote --tags --refs origin 'v*' | sed 's#.*refs/tags/v##' | grep -v -- - | sort -V | tail -1)
           if [ "$newest" != "${{ steps.meta.outputs.tag }}" ]; then
             echo "v$newest is newer; latest stays where it is"
             exit 0

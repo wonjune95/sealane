@@ -1,7 +1,7 @@
 # Stage 1 — build the React frontend on the build host (no emulation).
 # Base images are pinned by digest (Dependabot proposes updates), so a rebuild of the same commit
 # gives the image that was scanned.
-FROM --platform=$BUILDPLATFORM node:20-alpine@sha256:fb4cd12c85ee03686f6af5362a0b0d56d50c58a04632e6c0fb8363f609372293 AS web
+FROM --platform=$BUILDPLATFORM node:26-alpine@sha256:c6ad9e9c1d80f6eb607c26b4b0a132ff7a2344fad1c78ea3baa2a7d4c8de6d94 AS web
 WORKDIR /src/web
 COPY web/package.json web/package-lock.json ./
 RUN npm ci
@@ -11,7 +11,7 @@ COPY hack/npm-notices.mjs /tmp/
 RUN node /tmp/npm-notices.mjs > /tmp/npm-notices
 
 # Stage 2 — cross-compile the Go binary for the target platform.
-FROM --platform=$BUILDPLATFORM golang:1.26@sha256:670bb5aa5349ae03b8516764718486f4f16399134bdc9acd0c46a23f043ab05c AS go
+FROM --platform=$BUILDPLATFORM golang:1.27@sha256:2920bb124f1a2e12a1d39f0cab756ae0068441ee1da7655dec7f5e374944095b AS go
 ARG TARGETOS
 ARG TARGETARCH
 ARG VERSION=dev
@@ -31,7 +31,7 @@ FROM scratch AS notices
 COPY --from=go /THIRD_PARTY_NOTICES /
 
 # Stage 3 — minimal non-root runtime.
-FROM gcr.io/distroless/static:nonroot@sha256:18f4cc26c9ffa7f20a359298be7deadac5c607c8e03a02b8119f1a5fc2f82c99
+FROM gcr.io/distroless/static:nonroot@sha256:25ac8f0c3b2334a9eb05452266bd4697864a8c8ef0ef71e5e6480d7f92868329
 COPY --from=go /sealane /sealane
 COPY LICENSE /licenses/LICENSE
 COPY --from=go /THIRD_PARTY_NOTICES /licenses/THIRD_PARTY_NOTICES

@@ -101,7 +101,7 @@ Sealane is moving from an internal tool to a public project in four releases. Da
 - Release pipeline gated on tests, e2e and a blocking vulnerability scan; signed checksums and third-party license notices with every release.
 
 ## 1.20 (shipped)
-- New look: navy sidebar with the cluster picker, a home page of resource health with problems first, kind badges, Lucide icons, the Inter typeface and a new favicon.
+- New look: navy sidebar with the cluster picker, a home page of resource health with problems first, kind badges, Lucide icons, the Inter typeface and a new two-waves mark.
 
 ## After 1.0 (candidates, not promised)
 - Recipes and wizards for common routing changes.

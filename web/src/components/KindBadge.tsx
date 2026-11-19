@@ -24,7 +24,7 @@ export function KindBadge({
   const a = accentFor(category ?? (typeId ? categoryOf(typeId) : undefined))
   const abbr = ABBR[kind] ?? (kind.replace(/[^A-Z]/g, '') || kind).slice(0, 3)
   return (
-    <span className="inline-flex shrink-0 items-center gap-1.5" title={kind}>
+    <span className="relative inline-flex shrink-0 items-center gap-1.5" title={kind}>
       <span
         aria-hidden
         className={`inline-block min-w-7 rounded-sm px-1 py-px text-center text-[10px] font-bold leading-4 tracking-wide ${a.badge}`}

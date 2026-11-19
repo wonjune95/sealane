@@ -273,8 +273,9 @@ button:disabled {
     @apply bg-transparent;
     color: rgb(var(--nav-muted));
   }
+  /* relative: absolutely positioned descendants (sr-only text) scroll with main, not the window */
   .app-main {
-    @apply min-w-0 flex-1 overflow-y-auto p-6;
+    @apply relative min-w-0 flex-1 overflow-y-auto p-6;
   }
   .app-main > .resource-editor {
     max-width: 1120px;

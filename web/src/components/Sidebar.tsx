@@ -36,7 +36,7 @@ export function Sidebar({ onNavigate, onClose }: { onNavigate?: () => void; onCl
     <nav className="app-sidebar" aria-label={t('sidebar.primaryNav')}>
       <div className="flex items-center justify-between border-b border-base pr-2">
         <Link to="/" className="app-brand" aria-label={t('layout.brandHome')} onClick={onNavigate}>
-          <img src="/favicon.svg" alt="" className="h-7 w-7 shrink-0" />
+          <img src="/favicon.svg?v=3" alt="" className="h-7 w-7 shrink-0" />
           <span className="text-[16px] font-bold text-white">Sealane</span>
         </Link>
         {onClose && (

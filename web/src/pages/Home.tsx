@@ -6,13 +6,13 @@ import { useCapabilities } from '../api/capabilities'
 import { useResourceTypes, CATEGORY_LABELS, type Category, type ResourceType } from '../api/resourceTypes'
 import { CATEGORY_ORDER } from '../ui/categories'
 import { useAudit, type AuditEntry } from '../api/audit'
-import { VERB_LABEL, VERB_TINT, formatTime } from '../lib/verbs'
+import { VERB_LABEL, VERB_TINT, formatTime, timeAgo } from '../lib/verbs'
 import { useAnalysis, type Finding } from '../api/analyze'
 import { Icon } from '../components/icons'
 import { KindBadge } from '../components/KindBadge'
 import { EmptyState } from '../components/EmptyState'
 import type { ResourceSummary } from '../api/resources'
-import { t, type Key } from '../i18n'
+import { t, locale, type Key } from '../i18n'
 
 const QUICK: { type: string; label: string; hint: Key }[] = [
   { type: 'virtualservices.networking.istio.io', label: 'VirtualService', hint: 'home.hint.virtualService' },
@@ -339,33 +339,39 @@ function FindingRow({ f }: { f: Finding }) {
 function ActionRow({ a, kind, canRestore }: { a: AuditEntry; kind: string; canRestore: boolean }) {
   // A deletion made in the cluster being viewed can be reopened in the editor and recreated.
   const restorable = canRestore && a.verb === 'delete' && a.ok && a.id && (a.cluster ?? '') === currentCluster()
+  const target = `${a.namespace ? `${a.namespace}/` : ''}${a.name}`
   return (
-    <li className="flex flex-wrap items-center gap-2 py-2.5 text-xs">
-      <KindBadge kind={kind} typeId={a.typeId} />
+    <li className="flex items-start gap-2.5 py-2.5 text-xs">
+      <span className="mt-px">
+        <KindBadge kind={kind} typeId={a.typeId} />
+      </span>
       <span className="min-w-0 flex-1">
-        <span className="block truncate font-medium text-strong">
-          {a.namespace ? `${a.namespace}/` : ''}
-          {a.name}
+        <span className="block truncate font-medium text-strong" title={target}>
+          {target}
         </span>
-        <span className="mt-0.5 block text-[11px] text-muted">
-          <span className={`mr-1.5 rounded px-1.5 py-px font-medium ${VERB_TINT[a.verb]}`}>{t(VERB_LABEL[a.verb])}</span>
-          {a.user}
-          {a.user && a.provider === 'oidc' && ` ${t('home.auditViaSso')}`}
+        <span className="mt-1 flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-[11px] text-muted">
+          <span className={`rounded px-1.5 py-px font-medium ${VERB_TINT[a.verb]}`}>{t(VERB_LABEL[a.verb])}</span>
+          {a.user && (
+            <span className="max-w-[10rem] truncate" title={a.user}>
+              {a.user}
+              {a.provider === 'oidc' && ` ${t('home.auditViaSso')}`}
+            </span>
+          )}
+          <time dateTime={a.time} title={formatTime(a.time)} className="whitespace-nowrap tabular-nums">
+            {timeAgo(a.time, locale)}
+          </time>
+          {!a.ok && <span className="font-medium text-red-600">{t('home.failed')}</span>}
         </span>
       </span>
-      {!a.ok && <span className="text-red-600">{t('home.failed')}</span>}
       {restorable && (
         <Link
           to={`/resources/${a.typeId}/new?restore=${encodeURIComponent(a.id ?? '')}`}
           title={t('home.restoreTitle')}
-          className="btn-ghost !min-h-6 !px-2 text-xs"
+          className="btn-ghost !min-h-6 shrink-0 !px-2 text-xs"
         >
           {t('home.restore')}
         </Link>
       )}
-      <time dateTime={a.time} className="text-[11px] tabular-nums text-muted">
-        {formatTime(a.time)}
-      </time>
     </li>
   )
 }

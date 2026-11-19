@@ -49,7 +49,7 @@ export function Login() {
     <div className="login-shell">
       <section className="login-story">
         <div className="relative flex items-center gap-3">
-          <img src="/favicon.svg" alt="" className="h-9 w-9" />
+          <img src="/favicon.svg?v=3" alt="" className="h-9 w-9" />
           <span className="text-lg font-semibold tracking-tight">Sealane</span>
         </div>
         <div className="relative my-auto py-16">
@@ -103,7 +103,7 @@ export function Login() {
         </button>
         <div className="w-full max-w-[360px]">
           <div className="mb-10 flex items-center gap-3 lg:hidden">
-            <img src="/favicon.svg" alt="" className="h-9 w-9" />
+            <img src="/favicon.svg?v=3" alt="" className="h-9 w-9" />
             <span className="font-semibold text-strong">Sealane</span>
           </div>
           <span className="mb-6 flex h-12 w-12 items-center justify-center rounded-md border border-cyan-100 bg-cyan-50 text-cyan-700 dark:border-cyan-500/20 dark:bg-cyan-500/10 dark:text-cyan-300">
@@ -202,8 +202,7 @@ function MeshIllustration() {
       <rect x="16" y="66" width="48" height="48" rx="12" fill="#1b3449" stroke="#2e4d66" />
       <path d="M29 90h22m-7-7 7 7-7 7" stroke="#8fdcef" strokeWidth="1.5" />
       <rect x="188" y="66" width="48" height="48" rx="12" fill="#0a7ea4" />
-      <path d="M198 90h10c4.5 0 6-10 10.5-10h8M208 90c4.5 0 6 10 10.5 10h8" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" fill="none" />
-      <circle cx="199" cy="90" r="4" fill="white" />
+      <path d="M196 84c4 0 4-4 7-4s3.5 4 7 4 4-4 7-4 3.5 4 7 4M196 96c4 0 4-4 7-4s3.5 4 7 4 4-4 7-4 3.5 4 7 4" stroke="white" strokeWidth="2.5" strokeLinecap="round" fill="none" />
       <rect x="338" y="18" width="108" height="40" rx="10" fill="#1b3449" stroke="#2e4d66" />
       <rect x="302" y="70" width="144" height="40" rx="10" fill="#1b3449" stroke="#3fc1e0" />
       <rect x="338" y="122" width="108" height="40" rx="10" fill="#1b3449" stroke="#2e4d66" />

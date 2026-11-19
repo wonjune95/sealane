@@ -12,6 +12,15 @@ export const VERB_TINT: Record<AuditEntry['verb'], string> = {
   delete: 'bg-red-50 text-red-700 dark:bg-red-500/10 dark:text-red-400',
 }
 
+// "5 min. ago" / "5분 전" for lists; the full time goes in a tooltip.
+export const timeAgo = (iso: string, lang: string) => {
+  const s = (new Date(iso).getTime() - Date.now()) / 1000
+  const rtf = new Intl.RelativeTimeFormat(lang, { numeric: 'auto', style: 'narrow' })
+  for (const [unit, sec] of [['day', 86400], ['hour', 3600], ['minute', 60]] as const)
+    if (Math.abs(s) >= sec) return rtf.format(Math.round(s / sec), unit)
+  return rtf.format(0, 'minute')
+}
+
 export const formatTime = (iso: string) => {
   const d = new Date(iso)
   return d.toDateString() === new Date().toDateString() ? d.toLocaleTimeString() : d.toLocaleString()

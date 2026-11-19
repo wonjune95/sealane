@@ -69,7 +69,7 @@ export function Layout({ children }: { children: ReactNode }) {
             <Icon name="list" />
           </button>
           <Link to="/" className="app-brand md:hidden" aria-label={t('layout.brandHome')}>
-            <img src="/favicon.svg" alt="" className="h-7 w-7 shrink-0" />
+            <img src="/favicon.svg?v=3" alt="" className="h-7 w-7 shrink-0" />
             <span className="text-[15px] font-bold text-strong">Sealane</span>
           </Link>
           <nav aria-label={t('layout.breadcrumb')} className="hidden min-w-0 items-center gap-2 px-6 text-[13px] md:flex">

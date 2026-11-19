@@ -11,7 +11,7 @@ COPY hack/npm-notices.mjs /tmp/
 RUN node /tmp/npm-notices.mjs > /tmp/npm-notices
 
 # Stage 2 — cross-compile the Go binary for the target platform.
-FROM --platform=$BUILDPLATFORM golang:1.26@sha256:670bb5aa5349ae03b8516764718486f4f16399134bdc9acd0c46a23f043ab05c AS go
+FROM --platform=$BUILDPLATFORM golang:1.26@sha256:4165ee6bf3b7811fd7b40373290405c83d0167dcb87ee5f29c427cdcef45ff8f AS go
 ARG TARGETOS
 ARG TARGETARCH
 ARG VERSION=dev

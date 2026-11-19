@@ -26,6 +26,8 @@ Next: [Getting started](getting-started.md) walks through the install, exposing 
 - **Writes are guarded** — every write is dry-run validated, previewed as a `kubectl diff`-style change, and checked against `resourceVersion` so a 409 shows *your copy vs the server's*. High-risk kinds require typing the resource name. Every change made through the UI lands in the change history with the account name and the previous version, so it can be compared and restored.
 - **Stateless, air-gapped** — React is embedded in the Go binary; sessions are signed cookies, so N replicas scale horizontally and nothing is fetched from the internet at runtime.
 - **Generic resource engine** — dynamic-client based; 12 Istio kinds and 7 Gateway API kinds share one CRUD pipeline, and only CRDs present in the cluster are shown.
+- **Health at a glance** — the home page counts healthy resources and those with warnings or errors, lists every resource with problems first, and shows the latest analysis findings and changes.
+- **Mesh analysis** — cross-resource checks find routing that will not work (missing hosts, undefined subsets, ports a Service does not expose, gateways and subsets that select no pods, pods without a sidecar) and say how to fix each one.
 - **Traffic flow map** — draws ingress/egress paths from routing config alone; broken paths (missing service, zero endpoints) show as red edges.
 - **Request console** — *Check route* computes which rule a request would hit without sending traffic; *Send* (opt-in, admin only) runs the request from inside a pod you pick so you see the real sidecar behavior.
 - **Multi-cluster** — paste a kubeconfig to register a remote cluster; credentials stay in the host cluster's Secret. No Sealane workload runs on targets; by default Sealane creates a limited account there (RBAC and a token) and can remove it when you delete the cluster.
@@ -33,7 +35,7 @@ Next: [Getting started](getting-started.md) walks through the install, exposing 
 
 ## Why this exists
 
-A single typo in a `VirtualService` can take down an entire service. Yet the usual options are raw YAML with `kubectl apply` (no protection against human error) or observability-focused tools like Kiali (weak at editing configuration). This project fills the gap in between: **a console for safely editing configuration**.
+A single typo in a `VirtualService` can take down an entire service. Yet the usual options are raw YAML with `kubectl apply` (no protection against human error) or observability tools like Kiali, which are built around watching traffic rather than changing configuration. This project fills the gap in between: **a console for safely editing configuration**.
 
 One constraint drove the design — **"it must work just by deploying it."** No extra CRDs or operators on the cluster; it reads and renders existing resources the moment it connects. Kubernetes is the single source of truth and Sealane itself holds no state.
 

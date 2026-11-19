@@ -1,4 +1,4 @@
-# Sealane
+# <img src="web/public/favicon.svg" width="36" height="36" align="top" alt=""> Sealane
 
 [English](README.md) | **한국어**
 
@@ -42,6 +42,8 @@ kubectl -n sealane get secret sealane-initial-admin -o jsonpath='{.data.password
 - **쓰기 안전 우선** — 모든 쓰기는 `dry-run` 선검증 → `kubectl diff` 스타일 미리보기 → 적용. `resourceVersion` 낙관적 락으로 409 충돌을 감지해 *내 수정본 vs 서버 최신본*을 대조하고, 고위험 kind는 이름 타이핑 확인을 요구한다. 대시보드를 거친 모든 변경은 홈의 **변경 히스토리**에 계정명과 함께 기록된다.
 - **무상태 HA · 에어갭** — Go `embed.FS`에 React SPA를 내장한 단일 바이너리. 서버가 세션 저장소를 갖지 않아(서명 쿠키) N개 복제본으로 수평 확장되고, 외부 CDN 의존이 0이라 폐쇄망에서 즉시 구동된다.
 - **제네릭 리소스 엔진** — 특정 CRD에 종속되지 않는 dynamic client 기반. Istio 12종 + Gateway API 7종을 하나의 CRUD 파이프라인으로 다룬다.
+- **한눈에 보는 상태** — 홈 화면에서 정상·경고·오류 리소스 수를 세고, 문제 있는 리소스부터 모든 리소스를 나열하며, 최근 분석 결과와 변경 기록을 함께 보여 준다.
+- **메시 분석** — 리소스를 서로 대조해 동작하지 않을 라우팅(없는 호스트, 정의되지 않은 subset, 서비스가 열지 않은 포트, 파드를 고르지 못하는 게이트웨이·subset, 사이드카 없는 파드)을 찾고 고치는 방법을 알려 준다.
 - **트래픽 흐름도** — 라우팅 설정만으로 인그레스/이그레스 경로를 그래프로 그린다. 노드를 클릭하면 그 경로만 부각되고, 끊긴 경로(서비스 없음·엔드포인트 0)는 빨간 엣지로 드러난다.
 - **요청 콘솔** — 요청 하나를 작성해 두 가지로 검증한다: **경로 확인**은 트래픽 없이 어느 룰에 매치되는지 계산하고(불매치 사유까지), **보내기**는 고른 파드 안에서 실제 요청을 보내 사이드카를 통과한 응답을 보여준다(opt-in, admin 전용).
 - **멀티클러스터** — kubeconfig를 붙여넣는 것만으로 원격 클러스터를 등록하고(설정 페이지, admin), 사이드바 맨 위 메뉴로 전환한다. 자격증명은 Sealane이 있는 클러스터의 Secret에만 저장된다. 대상 클러스터에서 Sealane 워크로드는 돌지 않지만, 기본으로 권한을 제한한 계정(RBAC와 토큰)을 만들고 클러스터를 삭제할 때 함께 지울 수 있다.
@@ -51,7 +53,7 @@ kubectl -n sealane get secret sealane-initial-admin -o jsonpath='{.data.password
 
 ## 왜 만들었나
 
-Istio 라우팅은 `VirtualService` 하나의 오타가 서비스 전체 장애로 직결된다. 그런데 이걸 다루는 방법은 보통 두 갈래다 — 날 YAML을 `kubectl apply` 하거나(휴먼 에러에 무방비), Kiali처럼 관측에 특화된 도구를 쓰거나(설정 편집은 약함). 이 프로젝트는 그 사이의 빈칸, 즉 **"안전하게 설정을 편집하는 콘솔"** 을 채운다.
+Istio 라우팅은 `VirtualService` 하나의 오타가 서비스 전체 장애로 직결된다. 그런데 이걸 다루는 방법은 보통 두 갈래다 — 날 YAML을 `kubectl apply` 하거나(휴먼 에러에 무방비), Kiali처럼 트래픽 관측을 중심으로 만든 도구를 쓰거나. 이 프로젝트는 그 사이의 빈칸, 즉 **"안전하게 설정을 편집하는 콘솔"** 을 채운다.
 
 핵심 제약은 하나였다 — **"대시보드를 띄우는 것만으로 동작해야 한다."** 클러스터에 별도 CRD/Operator를 설치하지 않고, 붙는 순간 기존 리소스를 읽어 렌더링한다. 이를 위해 K8s를 유일한 진실의 원천으로 두고, 대시보드 자신은 상태를 갖지 않도록 설계했다.
 
@@ -101,7 +103,7 @@ go test ./internal/...             # 단위 테스트
 go vet ./cmd/... ./internal/...
 ./hack/check-i18n.sh               # 로케일 파일 밖 한글 금지, en/ko 키 일치
 helm lint charts/sealane
-cd web && npm run lint && npm run test:cluster-selection && npm run test:flow-map && npm run test:login-sso
+cd web && npm run lint && npm run test:ui   # npm run dev를 띄운 상태에서 브라우저 검사
 INITIAL_PASS=$(kubectl -n sealane get secret sealane-initial-admin -o jsonpath='{.data.password}' | base64 -d) \
   ./hack/e2e.sh http://localhost:8080   # 새로 설치한 인스턴스에 대한 API 스모크 테스트
 ```
@@ -110,7 +112,7 @@ INITIAL_PASS=$(kubectl -n sealane get secret sealane-initial-admin -o jsonpath='
 
 ## 호환성
 
-CI에서 kind + Istio 1.31.1 + Gateway API v1.5.1(linux/amd64)로 검증하며, 이미지는 멀티아치(amd64/arm64)다.
+CI에서 kind + Istio 1.30.5·1.31.1 + Gateway API v1.5.1(linux/amd64)로 검증하며, 이미지는 멀티아치(amd64/arm64)다.
 Kubernetes 1.28 이상이 필요하며, 전체 표는 [docs/compatibility.md](docs/compatibility.md)에 있다.
 
 ## 라이선스

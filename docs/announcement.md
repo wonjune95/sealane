@@ -40,7 +40,7 @@ Docs: https://wonjune95.github.io/sealane/ · Repo: https://github.com/wonjune95
 
 **Body:**
 
-A single typo in a VirtualService applied with `kubectl apply` can take a service down. The tools I found were either good at showing the mesh (Kiali) but weak at editing it, or were a YAML editor with no guard rails, so I built Sealane to sit in between.
+A single typo in a VirtualService applied with `kubectl apply` can take a service down. The tools I found were either built around watching the mesh (Kiali) rather than changing it, or were a YAML editor with no guard rails, so I built Sealane to sit in between.
 
 One constraint drove the design: it must work just by deploying it. No CRDs, no operators, no database. It reads whatever Istio and Gateway API resources already exist, sessions are signed cookies, and Kubernetes stays the only source of truth, so you can run several replicas or remove it without leaving anything behind.
 

@@ -158,7 +158,7 @@ export function Overview() {
             {rows.slice(0, shown).map((r) => (
               <tr key={`${r.typeId}/${r.namespace}/${r.name}`} className="row-hover">
                 <Td>
-                  <KindBadge kind={r.kind} category={catByType.get(r.typeId)} />
+                  <KindBadge kind={r.kind} category={catByType.get(r.typeId)} showName />
                 </Td>
                 <Td className="text-muted">{r.namespace || '—'}</Td>
                 <Td>

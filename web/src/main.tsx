@@ -8,6 +8,7 @@ import { ToastProvider } from './components/Toast'
 import { NamespaceProvider } from './ui/namespace'
 import { applyTheme, initialTheme } from './ui/theme'
 import { locale } from './i18n'
+import '@fontsource-variable/inter'
 import './index.css'
 
 applyTheme(initialTheme()) // set <html> class before first paint

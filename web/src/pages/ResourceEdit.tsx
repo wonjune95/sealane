@@ -457,7 +457,7 @@ export function ResourceEdit() {
         title={isEdit ? name : t('edit.newTitle', { kind: rt.kind })}
         description={
           <span className="inline-flex flex-wrap items-center gap-2">
-            <KindBadge kind={rt.kind} category={rt.category} />
+            <KindBadge kind={rt.kind} category={rt.category} showName />
             {isEdit ? ns : t('edit.newDescription')}
             {rt.dangerous && (
               <span className="inline-flex items-center gap-1 text-xs text-amber-600 dark:text-amber-400">

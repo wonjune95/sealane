@@ -4,7 +4,7 @@ import { setCluster } from '../api/client'
 import { Icon } from './icons'
 import { t } from '../i18n'
 
-// Header cluster switcher: a menu button styled like the rest of the app instead of a native
+// Sidebar cluster switcher: a menu button styled like the rest of the app instead of a native
 // <select>, whose dropdown list the browser draws and CSS cannot style.
 export function ClusterMenu({
   clusters,
@@ -57,10 +57,10 @@ export function ClusterMenu({
   }
 
   const item =
-    'flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-xs hover:bg-slate-50 focus:bg-slate-50 focus:outline-none dark:hover:bg-slate-800 dark:focus:bg-slate-800'
+    'flex w-full items-center gap-2.5 rounded px-3 py-2 text-left text-xs hover:bg-slate-50 focus:bg-slate-50 focus:outline-none dark:hover:bg-slate-800 dark:focus:bg-slate-800'
 
   return (
-    <div ref={root} className="relative hidden sm:block">
+    <div ref={root} className="relative">
       <button
         ref={button}
         type="button"
@@ -75,16 +75,15 @@ export function ClusterMenu({
             setOpen(true)
           }
         }}
-        className={`flex items-center gap-2 rounded-lg border border-base py-1 pl-2.5 pr-2 text-left text-xs hover:bg-slate-50 dark:hover:bg-slate-800 ${open ? 'bg-slate-50 dark:bg-slate-800' : ''}`}
+        className={`flex w-full items-center gap-2 rounded px-3 py-2 text-left text-xs hover:bg-white/10 ${open ? 'bg-white/10' : 'bg-[rgb(var(--nav-raised))]'}`}
       >
-        <Icon name="network" className="h-4 w-4 text-muted" />
-        <span className="flex flex-col">
-          <span className="hidden text-[9px] font-semibold uppercase leading-3 tracking-[.12em] text-muted md:block">
+        <span className="flex min-w-0 flex-1 flex-col">
+          <span className="text-[10px] font-semibold uppercase leading-3 tracking-[.12em] text-muted">
             {t('layout.cluster')}
           </span>
-          <span className="flex items-center gap-1.5">
-            <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${connected ? 'bg-emerald-500' : 'bg-slate-400'}`} />
-            <span className="max-w-40 truncate font-medium leading-5 text-strong">{current}</span>
+          <span className="mt-1 flex items-center gap-2">
+            <span className={`h-2 w-2 shrink-0 rounded-full ${connected ? 'bg-emerald-400' : 'bg-slate-400'}`} />
+            <span className="truncate text-[13px] font-medium leading-5 text-white">{current}</span>
           </span>
         </span>
         <Icon name="down" className={`h-3.5 w-3.5 text-faint transition-transform ${open ? 'rotate-180' : ''}`} />
@@ -97,9 +96,9 @@ export function ClusterMenu({
           onKeyDown={onMenuKey}
           // One highlight at a time: the item under the pointer takes focus.
           onPointerMove={(e) => (e.target as HTMLElement).closest<HTMLElement>('[role^="menuitem"]')?.focus()}
-          className="menu-panel max-h-80 overflow-y-auto"
+          className="menu-panel !left-0 !right-0 !w-auto max-h-80 overflow-y-auto"
         >
-          <div className="px-3 pb-1.5 pt-1 text-[10px] font-semibold uppercase tracking-[.12em] text-muted">
+          <div className="px-3 pb-1.5 pt-1 text-[10px] font-semibold uppercase tracking-[.12em] text-slate-500">
             {t('layout.switchCluster')}
           </div>
           {clusters.map((name) => {
@@ -112,9 +111,9 @@ export function ClusterMenu({
                 aria-checked={active}
                 tabIndex={-1}
                 onClick={() => pick(name)}
-                className={`${item} ${active ? 'font-semibold text-strong' : 'text-slate-700 dark:text-slate-300'}`}
+                className={`${item} ${active ? 'font-semibold text-slate-900 dark:text-white' : 'text-slate-700 dark:text-slate-300'}`}
               >
-                <Icon name="network" className={`h-4 w-4 shrink-0 ${active ? 'text-accent' : 'text-faint'}`} />
+                <Icon name="network" className={`h-4 w-4 shrink-0 ${active ? 'text-accent' : 'text-slate-400'}`} />
                 <span className="min-w-0 flex-1 truncate">{name}</span>
                 {active && <Icon name="check" className="h-4 w-4 shrink-0 text-accent" />}
               </button>
@@ -133,7 +132,7 @@ export function ClusterMenu({
                 }}
                 className={`${item} text-slate-700 dark:text-slate-300`}
               >
-                <Icon name="settings" className="h-4 w-4 shrink-0 text-faint" />
+                <Icon name="settings" className="h-4 w-4 shrink-0 text-slate-400" />
                 {t('layout.manageClusters')}
               </button>
             </>

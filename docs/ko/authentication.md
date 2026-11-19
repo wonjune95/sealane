@@ -71,7 +71,7 @@ kubectl -n sealane get secret sealane-initial-admin -o jsonpath='{.data.password
 
 ### 내 비밀번호 변경
 
-로컬 계정이 있으면 viewer를 포함해 누구나 자기 비밀번호를 바꿀 수 있습니다. 헤더의 사용자 칩 → 설정 페이지에서 현재 비밀번호를 입력한 뒤 변경합니다. 새 비밀번호는 8자 이상이어야 합니다. 서버는 ConfigMap에서 본인의 키만 패치하고, 지금 세션은 유지하며 다른 곳의 세션은 종료합니다.
+로컬 계정이 있으면 viewer를 포함해 누구나 자기 비밀번호를 바꿀 수 있습니다. 사이드바 아래쪽의 내 이름 → 설정 페이지에서 현재 비밀번호를 입력한 뒤 변경합니다. 새 비밀번호는 8자 이상이어야 합니다. 서버는 ConfigMap에서 본인의 키만 패치하고, 지금 세션은 유지하며 다른 곳의 세션은 종료합니다.
 
 ## SSO(OIDC)
 
@@ -164,7 +164,7 @@ kubectl -n sealane rollout restart deploy/sealane
 실제 IdP 없이 SSO를 시험하려면 [`examples/dex-demo.yaml`](https://github.com/wonjune95/sealane/blob/main/examples/dex-demo.yaml)을 배포합니다. 이 파일은 Dex를 **mock connector**로 실행합니다. 모든 로그인이 `authors` 그룹에 속한 `kilgore@kilgore.trout` 사용자로 성공합니다. 절차는 파일 맨 위 주석에 있습니다. 두 `example.com` 호스트를 바꾸고(Dex는 브라우저**와** Sealane 파드 양쪽에서 같은 발급자 URL로 접근할 수 있어야 합니다), 파일을 적용한 다음 Sealane을 다음과 같이 업그레이드합니다.
 
 ```bash
-helm upgrade sealane oci://ghcr.io/wonjune95/charts/sealane --version 1.19.4 -n sealane --reset-then-reuse-values \
+helm upgrade sealane oci://ghcr.io/wonjune95/charts/sealane --version 1.20.0 -n sealane --reset-then-reuse-values \
   --set oidc.enabled=true --set oidc.displayName=Dex \
   --set oidc.issuerURL=http://dex.example.com/dex --set oidc.clientID=sealane \
   --set oidc.clientSecretRef.name=sealane-dex-client \

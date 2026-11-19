@@ -25,7 +25,7 @@ function Group({ title, items }: { title: string; items: (Ref & { tag?: string }
         <ul className="divide-y divide-slate-100 dark:divide-slate-800">
           {items.map((r) => (
             <li key={`${r.typeId}/${r.namespace}/${r.name}`} className="flex items-center gap-2 px-3 py-1.5 text-sm">
-              <KindBadge kind={r.kind} />
+              <KindBadge kind={r.kind} typeId={r.typeId} />
               <Link to={`/resources/${r.typeId}/${r.namespace || '-'}/${r.name}`} className="font-medium text-accent hover:underline">
                 {r.name}
               </Link>

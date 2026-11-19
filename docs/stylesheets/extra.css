@@ -1,0 +1,11 @@
+/* Sealane's navy and teal on the docs site (Material's "custom" primary colour). */
+[data-md-color-primary="custom"] {
+  --md-primary-fg-color: #14293a;
+  --md-primary-fg-color--light: #1b3449;
+  --md-primary-fg-color--dark: #0b1822;
+  --md-accent-fg-color: #0a7ea4;
+  --md-typeset-a-color: #0a7ea4;
+}
+[data-md-color-scheme="slate"][data-md-color-primary="custom"] {
+  --md-typeset-a-color: #3fc1e0;
+}

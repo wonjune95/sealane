@@ -53,7 +53,7 @@ export function Login() {
           <span className="text-lg font-semibold tracking-tight">Sealane</span>
         </div>
         <div className="relative my-auto py-16">
-          <p className="mb-5 text-[11px] font-semibold uppercase tracking-[.2em] text-blue-300">
+          <p className="mb-5 text-[11px] font-semibold uppercase tracking-[.2em] text-cyan-300">
             {t('login.eyebrow')}
           </p>
           <h1 className="text-4xl font-semibold leading-[1.4] tracking-tight xl:text-5xl">
@@ -69,15 +69,15 @@ export function Login() {
           <MeshIllustration />
           <div className="mt-6 flex flex-wrap gap-x-6 gap-y-3 text-xs text-slate-300">
             <span className="flex items-center gap-2">
-              <Icon name="route" className="h-4 w-4 text-blue-300" />
+              <Icon name="route" className="h-4 w-4 text-cyan-300" />
               {t('login.featRouting')}
             </span>
             <span className="flex items-center gap-2">
-              <Icon name="shield" className="h-4 w-4 text-blue-300" />
+              <Icon name="shield" className="h-4 w-4 text-cyan-300" />
               {t('login.featSecurity')}
             </span>
             <span className="flex items-center gap-2">
-              <Icon name="chart" className="h-4 w-4 text-blue-300" />
+              <Icon name="chart" className="h-4 w-4 text-cyan-300" />
               {t('login.featTelemetry')}
             </span>
           </div>
@@ -106,7 +106,7 @@ export function Login() {
             <img src="/favicon.svg" alt="" className="h-9 w-9" />
             <span className="font-semibold text-strong">Sealane</span>
           </div>
-          <span className="mb-6 flex h-12 w-12 items-center justify-center rounded-2xl border border-blue-100 bg-blue-50 text-blue-600 dark:border-blue-500/20 dark:bg-blue-500/10 dark:text-blue-300">
+          <span className="mb-6 flex h-12 w-12 items-center justify-center rounded-md border border-cyan-100 bg-cyan-50 text-cyan-700 dark:border-cyan-500/20 dark:bg-cyan-500/10 dark:text-cyan-300">
             <Icon name="lock" className="h-5 w-5" />
           </span>
           <h2 className="text-2xl font-semibold tracking-tight text-strong">{t('login.title')}</h2>
@@ -197,18 +197,19 @@ const ALERT =
 function MeshIllustration() {
   return (
     <svg viewBox="0 0 480 180" className="mt-10 w-full max-w-lg" fill="none" aria-hidden="true">
-      <path d="M64 90H188M236 90h66M188 90V38h150M188 90v52h150" stroke="#385378" strokeWidth="1.5" />
-      <path d="M64 90H188M236 90h66" stroke="#60a5fa" strokeWidth="1.5" />
-      <rect x="16" y="66" width="48" height="48" rx="12" fill="#172d4c" stroke="#385378" />
-      <path d="M29 90h22m-7-7 7 7-7 7" stroke="#93c5fd" strokeWidth="1.5" />
-      <rect x="188" y="66" width="48" height="48" rx="12" fill="#2563eb" />
-      <path d="M201 80h22v20h-22zM201 80l22 20" stroke="white" strokeWidth="1.5" />
-      <rect x="338" y="18" width="108" height="40" rx="10" fill="#172d4c" stroke="#385378" />
-      <rect x="302" y="70" width="144" height="40" rx="10" fill="#172d4c" stroke="#60a5fa" />
-      <rect x="338" y="122" width="108" height="40" rx="10" fill="#172d4c" stroke="#385378" />
-      <circle cx="356" cy="38" r="3" fill="#60a5fa" />
+      <path d="M64 90H188M236 90h66M188 90V38h150M188 90v52h150" stroke="#2e4d66" strokeWidth="1.5" />
+      <path d="M64 90H188M236 90h66" stroke="#3fc1e0" strokeWidth="1.5" />
+      <rect x="16" y="66" width="48" height="48" rx="12" fill="#1b3449" stroke="#2e4d66" />
+      <path d="M29 90h22m-7-7 7 7-7 7" stroke="#8fdcef" strokeWidth="1.5" />
+      <rect x="188" y="66" width="48" height="48" rx="12" fill="#0a7ea4" />
+      <path d="M198 90h10c4.5 0 6-10 10.5-10h8M208 90c4.5 0 6 10 10.5 10h8" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+      <circle cx="199" cy="90" r="4" fill="white" />
+      <rect x="338" y="18" width="108" height="40" rx="10" fill="#1b3449" stroke="#2e4d66" />
+      <rect x="302" y="70" width="144" height="40" rx="10" fill="#1b3449" stroke="#3fc1e0" />
+      <rect x="338" y="122" width="108" height="40" rx="10" fill="#1b3449" stroke="#2e4d66" />
+      <circle cx="356" cy="38" r="3" fill="#3fc1e0" />
       <circle cx="320" cy="90" r="3" fill="#34d399" />
-      <circle cx="356" cy="142" r="3" fill="#60a5fa" />
+      <circle cx="356" cy="142" r="3" fill="#3fc1e0" />
       <text x="368" y="42" fontSize="11" fill="#cbd5e1">
         Service A
       </text>

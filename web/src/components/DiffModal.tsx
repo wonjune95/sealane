@@ -39,7 +39,7 @@ export function DiffModal({
 
   return (
     <Modal label={title} onCancel={onCancel} busy={busy}>
-      <div className="panel flex max-h-[85dvh] w-full flex-col rounded-xl shadow-xl">
+      <div className="panel flex max-h-[85dvh] w-full flex-col rounded-md shadow-xl">
         <div className="flex items-start justify-between gap-3 border-b border-base px-5 py-4">
           <div>
             <h3

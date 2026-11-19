@@ -122,7 +122,7 @@ export function RouteCheck() {
       />
 
       {/* URL bar */}
-      <div className="panel flex flex-wrap items-center gap-2 rounded-xl p-3">
+      <div className="panel flex flex-wrap items-center gap-2 rounded-md p-3">
         <select
           value={method}
           onChange={(e) => setMethod(e.target.value)}
@@ -231,7 +231,7 @@ export function RouteCheck() {
       {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
 
       {/* Request editor: pick the source first, then fill headers and body below */}
-      <div className="panel rounded-xl">
+      <div className="panel rounded-md">
         <Section title={t('rt.source')} hint={testerOn ? undefined : t('rt.testerOffHint')}>
           <SourcePicker
             enabled={testerOn}
@@ -281,7 +281,7 @@ export function RouteCheck() {
       )}
       {/* Response */}
       {(route || res) && (
-        <div className="panel rounded-xl">
+        <div className="panel rounded-md">
           <Tabs
             tabs={[
               ...(res ? [{ id: 'body' as const, label: t('rt.tab.body') }] : []),
@@ -393,7 +393,7 @@ function HeaderEditor({
             onChange={(e) => patch(i, { on: e.target.checked })}
             aria-label={t('rt.header.use', { n: i + 1 })}
             title={t('rt.header.useTitle')}
-            className="h-4 w-4 shrink-0 accent-blue-600"
+            className="h-4 w-4 shrink-0 accent-cyan-700"
           />
           <input
             value={h.key}
@@ -624,7 +624,7 @@ function RouteResult({ result, reqPort }: { result: RouteMatchResult; reqPort: n
   return (
     <div className="space-y-4">
       <div
-        className={`rounded-xl border p-4 ${result.matched ? 'border-emerald-500/30 bg-emerald-500/5' : 'border-amber-500/30 bg-amber-500/5'}`}
+        className={`rounded-md border p-4 ${result.matched ? 'border-emerald-500/30 bg-emerald-500/5' : 'border-amber-500/30 bg-amber-500/5'}`}
       >
         <div className="flex items-center gap-2 text-sm font-medium">
           <Icon

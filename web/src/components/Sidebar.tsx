@@ -1,103 +1,103 @@
 import { useState } from 'react'
-import { NavLink } from 'react-router-dom'
+import { Link, NavLink } from 'react-router-dom'
 import { useResourceTypes, CATEGORY_LABELS, type ResourceType } from '../api/resourceTypes'
 import { useResources } from '../api/resources'
 import { useCapabilities } from '../api/capabilities'
-import { apiPost, getCluster, setCluster } from '../api/client'
+import { useAnalysis } from '../api/analyze'
+import { apiPost, getCluster } from '../api/client'
 import { useClusters } from '../api/clusters'
-import { CATEGORY_ORDER, CATEGORY_ICON, accentFor } from '../ui/categories'
+import { CATEGORY_ORDER } from '../ui/categories'
 import { useNamespace } from '../ui/namespace'
+import { ClusterMenu } from './ClusterMenu'
 import { Icon } from './icons'
 import { t, type Key } from '../i18n'
 
 const LINKS: { to: string; icon: string; label: Key }[] = [
-  { to: '/', icon: 'home', label: 'nav.home' },
-  { to: '/overview', icon: 'cube', label: 'nav.overview' },
+  { to: '/', icon: 'dashboard', label: 'nav.home' },
+  { to: '/overview', icon: 'layers', label: 'nav.overview' },
   { to: '/flowmap', icon: 'route', label: 'nav.flowmap' },
-  { to: '/analysis', icon: 'shield', label: 'nav.analysis' },
-  { to: '/services', icon: 'network', label: 'nav.services' },
+  { to: '/analysis', icon: 'activity', label: 'nav.analysis' },
+  { to: '/services', icon: 'cube', label: 'nav.services' },
   { to: '/routecheck', icon: 'terminal', label: 'nav.routecheck' },
 ]
 
 export function Sidebar({ onNavigate, onClose }: { onNavigate?: () => void; onClose?: () => void }) {
   const { data, isLoading } = useResourceTypes()
-  const caps = useCapabilities().data
+  const caps = useCapabilities()
   const clusters = useClusters().data
+  const errors = useAnalysis('', false).data?.findings?.filter((f) => f.severity === 'error').length ?? 0
   const [search, setSearch] = useState('')
   const installed = (data ?? []).filter((rt) => rt.installed)
   const filtered = installed.filter((rt) => rt.kind.toLowerCase().includes(search.toLowerCase()))
   const topLink = ({ isActive }: { isActive: boolean }) => `nav-link ${isActive ? 'active' : ''}`
+  const user = caps.data?.user
 
   return (
     <nav className="app-sidebar" aria-label={t('sidebar.primaryNav')}>
-      {onClose && (
-        <div className="flex items-center justify-between border-b border-base px-4 py-3">
-          <span className="text-sm font-semibold text-strong">Sealane</span>
-          <button onClick={onClose} className="icon-button" aria-label={t('sidebar.closeMenu')}>
+      <div className="flex items-center justify-between border-b border-base pr-2">
+        <Link to="/" className="app-brand" aria-label={t('layout.brandHome')} onClick={onNavigate}>
+          <img src="/favicon.svg" alt="" className="h-7 w-7 shrink-0" />
+          <span className="text-[16px] font-bold text-white">Sealane</span>
+        </Link>
+        {onClose && (
+          <button onClick={onClose} className="icon-button text-white" aria-label={t('sidebar.closeMenu')}>
             <Icon name="close" />
           </button>
-        </div>
-      )}
-      {onClose && clusters && clusters.length > 1 && (
-        <div className="border-b border-base px-4 py-2">
-          <select
-            aria-label={t('layout.selectCluster')}
-            className="input-base text-xs"
-            value={getCluster() || 'local'}
-            onChange={(e) => setCluster(e.target.value)}
-          >
-            {clusters.map((c) => (
-              <option key={c.name} value={c.name}>
-                {c.name}
-              </option>
-            ))}
-          </select>
-        </div>
-      )}
-      <div className="space-y-0.5 px-3 pb-3 pt-3">
+        )}
+      </div>
+      <div className="px-3 pt-3">
+        <ClusterMenu
+          clusters={(clusters?.length ? clusters : [{ name: 'local' }]).map((c) => c.name)}
+          current={getCluster() || 'local'}
+          connected={!!caps.data && !caps.isError}
+          canManage={caps.data?.role === 'admin'}
+        />
+      </div>
+      <div className="space-y-px px-3 py-3">
         {LINKS.map((l) => (
           <NavLink key={l.to} to={l.to} end={l.to === '/'} className={topLink} onClick={onNavigate}>
-            <Icon name={l.icon} className="h-[18px] w-[18px]" />
+            <Icon name={l.icon} className="h-4 w-4" />
             {t(l.label)}
+            {l.to === '/analysis' && errors > 0 && (
+              <span
+                className="ml-auto min-w-[18px] rounded-full bg-red-600 px-1.5 text-center text-[11px] font-semibold leading-[18px] text-white"
+                title={t('sidebar.analysisErrors', { n: errors })}
+              >
+                {errors}
+              </span>
+            )}
           </NavLink>
         ))}
       </div>
-      <div className="min-h-0 flex-1 overflow-y-auto border-t border-base px-3 pb-4 pt-4">
-        <div className="mb-3 flex items-center justify-between px-3">
+      <div className="min-h-0 flex-1 overflow-y-auto border-t border-base px-3 pb-4 pt-3">
+        <div className="mb-2 flex items-center justify-between px-2.5">
           <span className="text-[10px] font-semibold uppercase tracking-[.12em] text-muted">{t('sidebar.resources')}</span>
           <span className="text-[10px] tabular-nums text-muted">{t('sidebar.kindCount', { n: installed.length })}</span>
         </div>
-        <label className="relative mb-4 block">
-          <Icon
-            name="search"
-            className="pointer-events-none absolute left-3 top-2.5 h-3.5 w-3.5 text-faint"
-          />
+        <label className="relative mb-3 block">
+          <Icon name="search" className="pointer-events-none absolute left-2.5 top-2 h-3.5 w-3.5 text-faint" />
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder={t('sidebar.searchKinds')}
             aria-label={t('sidebar.searchKinds')}
-            className="input-base !min-h-8 !py-1.5 pl-8 text-xs"
+            className="input-base !min-h-7 !py-1 pl-8 text-xs"
           />
         </label>
         {isLoading && (
-          <div className="space-y-2 px-3" aria-label={t('sidebar.loading')}>
+          <div className="space-y-2 px-2.5" aria-label={t('sidebar.loading')}>
             {[1, 2, 3].map((n) => (
-              <div key={n} className="h-5 animate-pulse rounded bg-slate-100 dark:bg-slate-800" />
+              <div key={n} className="h-4 animate-pulse rounded bg-white/10" />
             ))}
           </div>
         )}
-        {search && filtered.length === 0 && (
-          <p className="px-3 py-3 text-xs text-muted">{t('sidebar.noKinds')}</p>
-        )}
+        {search && filtered.length === 0 && <p className="px-2.5 py-3 text-xs text-muted">{t('sidebar.noKinds')}</p>}
         {CATEGORY_ORDER.map((cat) => {
           const items = filtered.filter((rt) => rt.category === cat)
           if (!items.length) return null
-          const accent = accentFor(cat)
           return (
-            <div key={cat} className="mb-4">
-              <div className="mb-1.5 flex items-center gap-2 px-3 text-[10px] font-semibold tracking-wide text-muted">
-                <Icon name={CATEGORY_ICON[cat]} className={`h-3.5 w-3.5 ${accent.text}`} />
+            <div key={cat} className="mb-3">
+              <div className="mb-1 px-2.5 text-[10px] font-semibold uppercase tracking-wide text-muted">
                 {CATEGORY_LABELS[cat]}
               </div>
               {items.map((rt) => (
@@ -109,19 +109,37 @@ export function Sidebar({ onNavigate, onClose }: { onNavigate?: () => void; onCl
       </div>
       <div className="border-t border-base p-3">
         <NavLink to="/settings" className={topLink} onClick={onNavigate}>
-          <Icon name="settings" className="h-[18px] w-[18px]" />
-          {t('nav.settings')}<span className="ml-auto text-[10px] capitalize text-faint">{caps?.role}</span>
+          <Icon name="settings" className="h-4 w-4" />
+          {t('nav.settings')}
         </NavLink>
-        {onClose && !caps?.devMode && (
-          <button
-            className="nav-link w-full"
-            onClick={() => {
-              void apiPost('/api/logout', {}).finally(() => window.location.reload())
-            }}
-          >
-            <Icon name="logout" className="h-[18px] w-[18px]" />
-            {t('common.logout')}
-          </button>
+        {!caps.data?.devMode && user && (
+          <div className="mt-1 flex items-center gap-1 pl-1">
+            <Link
+              to="/settings"
+              onClick={onNavigate}
+              title={t('layout.accountSettings')}
+              aria-label={t('layout.accountSettingsFor', { user })}
+              className="flex min-w-0 flex-1 items-center gap-2.5 rounded px-1.5 py-1.5 hover:bg-white/10"
+            >
+              <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-white/15 text-[11px] font-semibold text-white">
+                {user.slice(0, 2).toUpperCase()}
+              </span>
+              <span className="min-w-0 flex-1 leading-4">
+                <span className="block truncate text-[13px] text-white">{user}</span>
+                <span className="text-[11px] capitalize text-muted">{caps.data?.role}</span>
+              </span>
+            </Link>
+            <button
+              onClick={() => {
+                void apiPost('/api/logout', {}).finally(() => window.location.reload())
+              }}
+              aria-label={t('common.logout')}
+              title={t('common.logout')}
+              className="icon-button h-7 w-7 text-muted hover:bg-white/10 hover:text-white"
+            >
+              <Icon name="logout" className="h-4 w-4" />
+            </button>
+          </div>
         )}
       </div>
     </nav>
@@ -139,7 +157,7 @@ function KindLink({ type, onNavigate }: { type: ResourceType; onNavigate?: () =>
     >
       <span className="flex min-w-0 items-center gap-1.5">
         <span className="truncate">{type.kind}</span>
-        {type.dangerous && <Icon name="warning" className="h-3 w-3 shrink-0 text-amber-500" />}
+        {type.dangerous && <Icon name="warning" className="h-3 w-3 shrink-0 text-amber-400" />}
       </span>
       {data && <span className="nav-count">{data.length}</span>}
     </NavLink>

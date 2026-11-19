@@ -69,7 +69,7 @@ Change it after the first sign-in. Sealane reads that Secret again only when the
 
 ### Changing your own password
 
-Everyone with a local account, viewers included, changes their own password from the user chip in the header → settings page, after entering the current one. New passwords need at least 8 characters. The server patches only your own key in the ConfigMap, keeps your current session and ends your other sessions.
+Everyone with a local account, viewers included, changes their own password from their name at the bottom of the sidebar → settings page, after entering the current one. New passwords need at least 8 characters. The server patches only your own key in the ConfigMap, keeps your current session and ends your other sessions.
 
 ## Single sign-on (OIDC)
 
@@ -162,7 +162,7 @@ When upgrading an existing release from 0.9, use `--reset-then-reuse-values` (He
 To try SSO without a real IdP, deploy [`examples/dex-demo.yaml`](https://github.com/wonjune95/sealane/blob/main/examples/dex-demo.yaml). It runs Dex with the **mock connector**: every sign-in succeeds as `kilgore@kilgore.trout` with the group `authors`. The comments at the top of the file give the steps: replace the two `example.com` hosts (Dex must be reachable by the browser **and** by the Sealane pod at the same issuer URL), apply the file, then upgrade Sealane with:
 
 ```bash
-helm upgrade sealane oci://ghcr.io/wonjune95/charts/sealane --version 1.19.4 -n sealane --reset-then-reuse-values \
+helm upgrade sealane oci://ghcr.io/wonjune95/charts/sealane --version 1.20.0 -n sealane --reset-then-reuse-values \
   --set oidc.enabled=true --set oidc.displayName=Dex \
   --set oidc.issuerURL=http://dex.example.com/dex --set oidc.clientID=sealane \
   --set oidc.clientSecretRef.name=sealane-dex-client \

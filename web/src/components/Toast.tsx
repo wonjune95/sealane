@@ -31,7 +31,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
           <div
             key={toast.id}
             role={toast.kind === 'error' ? 'alert' : 'status'}
-            className="panel flex items-start gap-3 rounded-xl p-4 text-xs leading-5 shadow-lg"
+            className="panel flex items-start gap-3 rounded-md p-4 text-xs leading-5 shadow-lg"
           >
             <Icon
               name={toast.kind === 'success' ? 'check' : toast.kind === 'error' ? 'warning' : 'info'}

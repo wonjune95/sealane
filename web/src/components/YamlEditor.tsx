@@ -57,7 +57,7 @@ export function YamlEditor({
   const { theme } = useTheme()
   const focusExt = useMemo(() => (focusLine ? focusLineExtension(focusLine) : []), [focusLine])
   return (
-    <div className="panel overflow-hidden rounded-xl">
+    <div className="panel overflow-hidden rounded-md">
       <CodeMirror
         value={value}
         height="480px"

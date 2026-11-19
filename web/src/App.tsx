@@ -130,7 +130,7 @@ function ForcePasswordChange() {
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-gray-50 px-4 dark:bg-slate-950">
-      <form onSubmit={submit} className="panel w-full max-w-sm space-y-4 rounded-2xl p-8">
+      <form onSubmit={submit} className="panel w-full max-w-sm space-y-4 rounded-md p-8">
         <img src="/favicon.svg" alt="" className="mb-4 h-10 w-10" />
         <h1 className="text-xl font-semibold text-strong">{t('pw.title')}</h1>
         <p className="text-sm text-muted">{t('pw.intro')}</p>

@@ -21,8 +21,8 @@ export function DangerConfirm({
 
   return (
     <Modal label={t('danger.title', { action })} onCancel={onCancel}>
-      <div className="panel w-full max-w-md mx-auto rounded-xl p-6 shadow-xl">
-        <span className="mb-4 flex h-10 w-10 items-center justify-center rounded-xl bg-red-50 text-red-600 dark:bg-red-500/10">
+      <div className="panel w-full max-w-md mx-auto rounded-md p-6 shadow-xl">
+        <span className="mb-4 flex h-10 w-10 items-center justify-center rounded-md bg-red-50 text-red-600 dark:bg-red-500/10">
           <Icon name="warning" className="h-5 w-5" />
         </span>
         <h3 className="mb-2 text-base font-semibold text-red-600 dark:text-red-400">

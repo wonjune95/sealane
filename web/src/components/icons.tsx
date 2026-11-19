@@ -1,46 +1,89 @@
-// Minimal inline SVG icons (heroicons outline style) — cleaner than emoji.
-const PATHS: Record<string, string> = {
-  home: 'M2.25 12l8.954-8.955c.44-.439 1.152-.439 1.591 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75',
-  grid: 'M3.75 6A2.25 2.25 0 016 3.75h2.25A2.25 2.25 0 0110.5 6v2.25a2.25 2.25 0 01-2.25 2.25H6a2.25 2.25 0 01-2.25-2.25V6zM3.75 15.75A2.25 2.25 0 016 13.5h2.25a2.25 2.25 0 012.25 2.25V18a2.25 2.25 0 01-2.25 2.25H6A2.25 2.25 0 013.75 18v-2.25zM13.5 6a2.25 2.25 0 012.25-2.25H18A2.25 2.25 0 0120.25 6v2.25A2.25 2.25 0 0118 10.5h-2.25a2.25 2.25 0 01-2.25-2.25V6zM13.5 15.75a2.25 2.25 0 012.25-2.25H18a2.25 2.25 0 012.25 2.25V18A2.25 2.25 0 0118 20.25h-2.25A2.25 2.25 0 0113.5 18v-2.25z',
-  cube: 'M21 7.5l-9-5.25L3 7.5m18 0l-9 5.25m9-5.25v9l-9 5.25M3 7.5l9 5.25M3 7.5v9l9 5.25m0-9v9',
-  bolt: 'M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z',
-  shield:
-    'M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z',
-  chart:
-    'M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z',
-  warning:
-    'M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z',
-  check: 'M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z',
-  sun: 'M12 3v2.25m6.364.386l-1.591 1.591M21 12h-2.25m-.386 6.364l-1.591-1.591M12 18.75V21m-4.773-4.227l-1.591 1.591M5.25 12H3m4.227-4.773L5.636 5.636M15.75 12a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0z',
-  moon: 'M21.752 15.002A9.718 9.718 0 0118 15.75c-5.385 0-9.75-4.365-9.75-9.75 0-1.33.266-2.597.748-3.752A9.753 9.753 0 003 11.25C3 16.635 7.365 21 12.75 21a9.753 9.753 0 009.002-5.998z',
-  list: 'M3.75 12h16.5M3.75 6.75h16.5M3.75 17.25h16.5',
-  logout:
-    'M15.75 9V5.25A2.25 2.25 0 0013.5 3h-7.5A2.25 2.25 0 003.75 5.25v13.5A2.25 2.25 0 006 21h7.5a2.25 2.25 0 002.25-2.25V15m3 0l3-3m0 0l-3-3m3 3H9',
-  network:
-    'M9 5h6M6 8v8m12-8v8M9 19h6M3 2h6v6H3zM15 2h6v6h-6zM3 16h6v6H3zM15 16h6v6h-6z',
-  route:
-    'M5 5h5a4 4 0 014 4v6a4 4 0 004 4h1M16 16l3 3-3 3M5 2a3 3 0 110 6 3 3 0 010-6z',
-  settings: 'M4 7h16M4 17h16M9 4v6M15 14v6',
-  user: 'M16 7a4 4 0 11-8 0 4 4 0 018 0zM4 21v-2a8 8 0 0116 0v2',
-  search: 'M21 21l-5-5M18 10a8 8 0 11-16 0 8 8 0 0116 0z',
-  plus: 'M12 5v14M5 12h14',
-  minus: 'M5 12h14',
-  fit: 'M8 3H3v5M16 3h5v5M3 16v5h5M21 16v5h-5M8 8h8v8H8z',
-  chevron: 'M9 5l7 7-7 7',
-  down: 'M6 9l6 6 6-6',
-  arrow: 'M4 12h16M14 6l6 6-6 6',
-  back: 'M20 12H4M10 6l-6 6 6 6',
-  close: 'M6 6l12 12M6 18L18 6',
-  download: 'M12 3v12M7 10l5 5 5-5M4 16v4h16v-4',
-  clock: 'M12 7v5l3 2M21 12a9 9 0 11-18 0 9 9 0 0118 0z',
-  refresh: 'M20 7V3l-3 3M4 17v4l3-3M20 7a8 8 0 00-14-2M4 17a8 8 0 0014 2',
-  terminal: 'M5 7l5 5-5 5M13 17h6M2 3h20v18H2z',
-  globe:
-    'M21 12a9 9 0 11-18 0 9 9 0 0118 0zM3 12h18M12 3c5 5 5 13 0 18-5-5-5-13 0-18z',
-  lock: 'M7 10V7a5 5 0 0110 0v3M5 10h14v11H5zM12 14v3',
-  info: 'M12 11v6M12 7h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z',
-  send: 'M22 2L9 15M22 2l-7 20-6-7-7-6 20-7z',
-  trash: 'M3 6h18M9 6V3h6v3M5 6l1 15h12l1-15M10 10v7M14 10v7',
+import {
+  Activity,
+  ArrowLeft,
+  ArrowRight,
+  Box,
+  ChartColumn,
+  Check,
+  ChevronDown,
+  ChevronRight,
+  CircleCheck,
+  CircleX,
+  Clock,
+  Download,
+  Globe,
+  House,
+  Info,
+  Layers,
+  LayoutDashboard,
+  LayoutGrid,
+  Lock,
+  LogOut,
+  Maximize,
+  Menu,
+  Minus,
+  Moon,
+  Network,
+  Plus,
+  RefreshCw,
+  RotateCcwClock,
+  Route,
+  Search,
+  Send,
+  Settings,
+  ShieldCheck,
+  Sun,
+  Terminal,
+  Trash,
+  TriangleExclamationPoint,
+  User,
+  X,
+  Zap,
+  type LucideIcon,
+} from 'lucide-react'
+
+// Lucide icons (ISC licence) under the short names the app has always used.
+const ICONS: Record<string, LucideIcon> = {
+  activity: Activity,
+  arrow: ArrowRight,
+  back: ArrowLeft,
+  bolt: Zap,
+  chart: ChartColumn,
+  check: Check,
+  chevron: ChevronRight,
+  clock: Clock,
+  close: X,
+  cube: Box,
+  dashboard: LayoutDashboard,
+  down: ChevronDown,
+  download: Download,
+  error: CircleX,
+  fit: Maximize,
+  globe: Globe,
+  grid: LayoutGrid,
+  history: RotateCcwClock,
+  home: House,
+  info: Info,
+  layers: Layers,
+  list: Menu,
+  lock: Lock,
+  logout: LogOut,
+  minus: Minus,
+  moon: Moon,
+  network: Network,
+  ok: CircleCheck,
+  plus: Plus,
+  refresh: RefreshCw,
+  route: Route,
+  search: Search,
+  send: Send,
+  settings: Settings,
+  shield: ShieldCheck,
+  sun: Sun,
+  terminal: Terminal,
+  trash: Trash,
+  user: User,
+  warning: TriangleExclamationPoint,
 }
 
 export function Icon({
@@ -48,24 +91,10 @@ export function Icon({
   className = 'h-5 w-5',
   size,
 }: {
-  name: keyof typeof PATHS | string
+  name: string
   className?: string
   size?: number // width/height attributes, for use inside another SVG where no Tailwind size class applies
 }) {
-  return (
-    <svg
-      className={className}
-      width={size}
-      height={size}
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={1.6}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden
-    >
-      <path d={PATHS[name] ?? ''} />
-    </svg>
-  )
+  const Svg = ICONS[name] ?? Box
+  return <Svg className={className} width={size} height={size} strokeWidth={2} aria-hidden />
 }

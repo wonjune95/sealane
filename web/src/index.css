@@ -4,24 +4,33 @@
 
 :root {
   --font-sans:
-    -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans KR', Roboto,
-    Arial, sans-serif;
+    'Inter Variable', -apple-system, BlinkMacSystemFont, 'Segoe UI',
+    'Apple SD Gothic Neo', 'Malgun Gothic', 'Noto Sans KR', Roboto, Arial,
+    sans-serif;
   --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-  --accent: 37 99 235;
-  --accent-hover: 29 78 216;
-  --accent-ring: 96 165 250;
+  --accent: 10 126 164;
+  --accent-hover: 8 106 138;
+  --accent-ring: 63 193 224;
   --surface: 255 255 255;
-  --canvas: 246 248 252;
-  --line: 226 232 240;
+  --canvas: 238 241 244;
+  --line: 217 222 228;
+  /* sidebar: the same deep navy in both themes */
+  --nav: 20 41 58;
+  --nav-raised: 27 52 73;
+  --nav-line: 34 57 76;
+  --nav-text: 197 211 223;
+  --nav-muted: 142 163 181;
 }
 html {
   color-scheme: light;
 }
 html.dark {
   color-scheme: dark;
-  --surface: 15 23 42;
-  --canvas: 8 15 29;
-  --line: 37 49 68;
+  --surface: 22 34 46;
+  --canvas: 13 22 31;
+  --line: 42 58 74;
+  --nav: 11 24 34;
+  --nav-raised: 22 40 55;
 }
 body {
   margin: 0;
@@ -71,13 +80,12 @@ button:disabled {
 
 @layer components {
   .panel {
-    @apply rounded-xl border;
+    @apply rounded border;
     border-color: rgb(var(--line));
     background: rgb(var(--surface));
-    box-shadow: 0 2px 4px rgb(15 23 42 / 0.025);
   }
   .panel-soft {
-    @apply rounded-lg border bg-slate-50;
+    @apply rounded border bg-slate-50;
     border-color: rgb(var(--line));
   }
   .dark .panel-soft {
@@ -111,9 +119,9 @@ button:disabled {
     @apply hover:bg-slate-800/50;
   }
   .input-base {
-    @apply w-full rounded-lg border bg-white px-3 py-2 text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none;
-    border-color: rgb(203 213 225);
-    min-height: 38px;
+    @apply w-full rounded border bg-white px-3 py-1.5 text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none;
+    border-color: rgb(var(--line));
+    min-height: 34px;
   }
   .input-base:focus {
     border-color: rgb(var(--accent));
@@ -151,25 +159,24 @@ button:disabled {
   }
   .btn-primary,
   .btn-ghost {
-    @apply inline-flex min-h-9 items-center justify-center gap-2 rounded-lg px-3.5 py-2 text-sm font-medium disabled:opacity-40;
+    @apply inline-flex min-h-8 items-center justify-center gap-1.5 rounded px-3 py-1.5 text-[13px] font-medium disabled:opacity-40;
     white-space: nowrap;
   }
   .btn-primary {
     @apply border border-transparent text-white;
     background: rgb(var(--accent));
-    box-shadow: 0 1px 2px rgb(15 23 42 / 0.1);
   }
   .btn-primary:hover:not(:disabled) {
     background: rgb(var(--accent-hover));
   }
   .btn-ghost {
-    @apply border border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50;
+    @apply border border-slate-300 bg-white text-slate-700 hover:border-slate-400 hover:bg-slate-50;
   }
   .dark .btn-ghost {
     @apply border-slate-700 bg-slate-900 text-slate-300 hover:border-slate-600 hover:bg-slate-800;
   }
   .icon-button {
-    @apply inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-muted hover:bg-slate-100 hover:text-slate-900 dark:hover:bg-slate-800 dark:hover:text-white;
+    @apply inline-flex h-8 w-8 shrink-0 items-center justify-center rounded text-muted hover:bg-slate-100 hover:text-slate-900 dark:hover:bg-slate-800 dark:hover:text-white;
   }
   .chip {
     @apply inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium;
@@ -181,7 +188,7 @@ button:disabled {
     @apply mb-2 text-[10px] font-semibold uppercase tracking-[.16em] text-muted;
   }
   .page-title {
-    @apply flex flex-wrap items-center gap-2.5 text-2xl font-semibold tracking-tight text-strong;
+    @apply flex flex-wrap items-center gap-2.5 text-xl font-semibold text-strong;
     overflow-wrap: anywhere;
   }
   .page-description {
@@ -197,38 +204,77 @@ button:disabled {
     @apply flex flex-col items-center justify-center px-5 py-10 text-center;
   }
   .empty-state-icon {
-    @apply flex h-12 w-12 items-center justify-center rounded-2xl border border-base bg-slate-50 text-slate-400 dark:bg-slate-800;
+    @apply flex h-12 w-12 items-center justify-center rounded border border-base bg-slate-50 text-slate-400 dark:bg-slate-800;
   }
   .app-shell {
     height: 100dvh;
-    @apply flex flex-col overflow-hidden;
+    @apply flex overflow-hidden;
   }
   .app-header {
-    @apply z-30 flex h-16 shrink-0 items-center border-b border-base bg-white dark:bg-slate-900;
+    @apply z-30 flex h-[52px] shrink-0 items-center border-b border-base bg-white dark:bg-slate-900;
   }
   .app-brand {
-    @apply flex h-full w-[248px] shrink-0 items-center gap-3 border-r border-base px-5;
+    @apply flex h-[52px] shrink-0 items-center gap-2.5 px-4;
   }
+  /* Dark navy sidebar in both themes; its own text, line and hover colours. */
   .app-sidebar {
-    @apply flex h-full w-[248px] shrink-0 flex-col border-r border-base bg-white dark:bg-slate-900;
+    @apply flex h-full w-[232px] shrink-0 flex-col;
+    background: rgb(var(--nav));
+    color: rgb(var(--nav-text));
+  }
+  .app-sidebar .border-base {
+    border-color: rgb(var(--nav-line));
+  }
+  .app-sidebar .text-muted,
+  .app-sidebar .text-faint {
+    color: rgb(var(--nav-muted));
+  }
+  .app-sidebar .text-strong {
+    color: #fff;
+  }
+  .app-sidebar .input-base {
+    border-color: rgb(var(--nav-line));
+    background: rgb(var(--nav-raised));
+    color: #fff;
+  }
+  .app-sidebar .input-base::placeholder {
+    color: rgb(var(--nav-muted));
   }
   .nav-link {
-    @apply flex min-h-9 items-center gap-3 rounded-lg px-3 py-1.5 text-[13px] font-medium text-slate-500 hover:bg-slate-50 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-100;
+    @apply flex min-h-8 items-center gap-2.5 rounded px-2.5 py-1.5 text-[13px] font-medium;
+    color: rgb(var(--nav-text));
+  }
+  .nav-link:hover {
+    background: rgb(var(--nav-raised));
+    color: #fff;
   }
   .nav-link.active {
-    @apply bg-blue-50 text-blue-700 dark:bg-blue-500/15 dark:text-blue-300;
+    background: rgb(var(--accent));
+    color: #fff;
   }
   .resource-link {
-    @apply flex min-h-8 items-center justify-between gap-2 rounded-md px-3 text-xs text-slate-600 hover:bg-slate-50 dark:text-slate-400 dark:hover:bg-slate-800;
+    @apply flex min-h-7 items-center justify-between gap-2 rounded px-2.5 text-xs;
+    color: rgb(var(--nav-text));
+  }
+  .resource-link:hover {
+    background: rgb(var(--nav-raised));
+    color: #fff;
   }
   .resource-link.active {
-    @apply bg-blue-50 font-medium text-blue-700 dark:bg-blue-500/15 dark:text-blue-300;
+    @apply font-medium;
+    background: rgb(var(--nav-raised));
+    color: #fff;
+    box-shadow: inset 2px 0 0 rgb(var(--accent-ring));
   }
   .nav-count {
     @apply min-w-5 rounded bg-slate-100 px-1.5 py-0.5 text-center text-[10px] tabular-nums text-slate-500 dark:bg-slate-800 dark:text-slate-400;
   }
+  .app-sidebar .nav-count {
+    @apply bg-transparent;
+    color: rgb(var(--nav-muted));
+  }
   .app-main {
-    @apply min-w-0 flex-1 overflow-y-auto p-8;
+    @apply min-w-0 flex-1 overflow-y-auto p-6;
   }
   .app-main > .resource-editor {
     max-width: 1120px;
@@ -269,22 +315,7 @@ button:disabled {
     background: rgb(var(--accent-hover));
   }
   .menu-panel {
-    @apply absolute right-0 z-40 mt-2 w-64 rounded-xl border border-base bg-white p-2 shadow-lg dark:bg-slate-900;
-  }
-  .stat-card {
-    @apply panel relative overflow-hidden p-5;
-  }
-  .stat-value {
-    @apply mt-4 flex min-h-8 items-baseline gap-2 text-[26px] font-semibold tracking-tight text-strong;
-  }
-  .stat-icon {
-    @apply flex h-9 w-9 items-center justify-center rounded-xl;
-  }
-  .category-item {
-    @apply flex min-w-0 items-center justify-between gap-2 rounded-lg px-2.5 py-2 text-xs text-slate-600 hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-slate-800;
-  }
-  .shortcut-card {
-    @apply panel flex items-center gap-4 p-4 hover:border-blue-300 dark:hover:border-blue-500/50;
+    @apply absolute right-0 z-40 mt-1 w-64 rounded border border-base bg-white p-1.5 text-slate-700 shadow-lg dark:bg-slate-900 dark:text-slate-300;
   }
   .app-modal {
     @apply w-[calc(100%_-_32px)] max-w-3xl border-0 bg-transparent p-0 text-inherit;
@@ -308,7 +339,7 @@ button:disabled {
     @apply grid min-h-[100dvh] lg:grid-cols-[1fr_1fr];
   }
   .login-story {
-    @apply relative hidden overflow-hidden bg-[#101c34] p-12 text-white lg:flex lg:flex-col xl:p-16;
+    @apply relative hidden overflow-hidden bg-[#14293a] p-12 text-white lg:flex lg:flex-col xl:p-16;
   }
   .login-story::before {
     content: '';
@@ -360,12 +391,6 @@ button:disabled {
   }
   .data-table {
     min-width: 640px;
-  }
-  .stat-card {
-    padding: 16px;
-  }
-  .stat-value {
-    font-size: 23px;
   }
 }
 

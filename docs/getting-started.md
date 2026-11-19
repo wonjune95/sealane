@@ -4,7 +4,7 @@ Running in-cluster is the default. To install the prebuilt image you only need H
 
 ```bash
 # Helm (OCI)
-helm install sealane oci://ghcr.io/wonjune95/charts/sealane --version 1.19.4 -n sealane --create-namespace
+helm install sealane oci://ghcr.io/wonjune95/charts/sealane --version 1.20.0 -n sealane --create-namespace
 # or plain manifests
 kubectl apply -f https://github.com/wonjune95/sealane/releases/latest/download/install.yaml
 kubectl -n sealane port-forward svc/sealane 8080:8080   # → http://localhost:8080, user admin
@@ -23,7 +23,7 @@ Every release tag (`v*`) publishes an image via GitHub Actions — use it direct
 
 ```bash
 # prebuilt image (recommended)
-ghcr.io/wonjune95/sealane:1.19.4     # or :latest
+ghcr.io/wonjune95/sealane:1.20.0     # or :latest
 ```
 
 Or build your own:
@@ -85,7 +85,7 @@ To let people sign in with your identity provider instead, see [Single sign-on (
 
 ## 6) Register more clusters (optional)
 
-To manage multiple clusters from one Sealane install, go to **settings → cluster management** as admin, paste or load your kubeconfig and pick the cluster's context. By default Sealane uses those credentials once to create a limited `sealane-remote` account on that cluster and stores only that account's token, in the `sealane-clusters` Secret next to Sealane. A connectivity test runs on registration, and the header menu switches clusters. See [Multi-cluster](multi-cluster.md).
+To manage multiple clusters from one Sealane install, go to **settings → cluster management** as admin, paste or load your kubeconfig and pick the cluster's context. By default Sealane uses those credentials once to create a limited `sealane-remote` account on that cluster and stores only that account's token, in the `sealane-clusters` Secret next to Sealane. A connectivity test runs on registration, and the cluster menu at the top of the sidebar switches clusters. See [Multi-cluster](multi-cluster.md).
 
 ![Settings — accounts & clusters](img/screenshot-settings.png)
 

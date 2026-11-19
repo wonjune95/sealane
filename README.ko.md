@@ -19,7 +19,7 @@
 
 ```bash
 # Helm (OCI)
-helm install sealane oci://ghcr.io/wonjune95/charts/sealane --version 1.19.4 -n sealane --create-namespace
+helm install sealane oci://ghcr.io/wonjune95/charts/sealane --version 1.20.0 -n sealane --create-namespace
 # or plain manifests
 kubectl apply -f https://github.com/wonjune95/sealane/releases/latest/download/install.yaml
 kubectl -n sealane port-forward svc/sealane 8080:8080   # → http://localhost:8080, 사용자 admin
@@ -44,7 +44,7 @@ kubectl -n sealane get secret sealane-initial-admin -o jsonpath='{.data.password
 - **제네릭 리소스 엔진** — 특정 CRD에 종속되지 않는 dynamic client 기반. Istio 12종 + Gateway API 7종을 하나의 CRUD 파이프라인으로 다룬다.
 - **트래픽 흐름도** — 라우팅 설정만으로 인그레스/이그레스 경로를 그래프로 그린다. 노드를 클릭하면 그 경로만 부각되고, 끊긴 경로(서비스 없음·엔드포인트 0)는 빨간 엣지로 드러난다.
 - **요청 콘솔** — 요청 하나를 작성해 두 가지로 검증한다: **경로 확인**은 트래픽 없이 어느 룰에 매치되는지 계산하고(불매치 사유까지), **보내기**는 고른 파드 안에서 실제 요청을 보내 사이드카를 통과한 응답을 보여준다(opt-in, admin 전용).
-- **멀티클러스터** — kubeconfig를 붙여넣는 것만으로 원격 클러스터를 등록하고(설정 페이지, admin), 헤더 드롭다운으로 전환한다. 자격증명은 Sealane이 있는 클러스터의 Secret에만 저장된다. 대상 클러스터에서 Sealane 워크로드는 돌지 않지만, 기본으로 권한을 제한한 계정(RBAC와 토큰)을 만들고 클러스터를 삭제할 때 함께 지울 수 있다.
+- **멀티클러스터** — kubeconfig를 붙여넣는 것만으로 원격 클러스터를 등록하고(설정 페이지, admin), 사이드바 맨 위 메뉴로 전환한다. 자격증명은 Sealane이 있는 클러스터의 Secret에만 저장된다. 대상 클러스터에서 Sealane 워크로드는 돌지 않지만, 기본으로 권한을 제한한 계정(RBAC와 토큰)을 만들고 클러스터를 삭제할 때 함께 지울 수 있다.
 - **영어 UI + 한국어 로케일** — 헤더에서 언어를 전환한다.
 
 ---

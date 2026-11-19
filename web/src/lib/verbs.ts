@@ -12,7 +12,7 @@ export const VERB_TINT: Record<AuditEntry['verb'], string> = {
   delete: 'bg-red-50 text-red-700 dark:bg-red-500/10 dark:text-red-400',
 }
 
-// "5 min. ago" / "5분 전" for lists; the full time goes in a tooltip.
+// "5 min. ago" in the active language for lists; the full time goes in a tooltip.
 export const timeAgo = (iso: string, lang: string) => {
   const s = (new Date(iso).getTime() - Date.now()) / 1000
   const rtf = new Intl.RelativeTimeFormat(lang, { numeric: 'auto', style: 'narrow' })

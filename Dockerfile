@@ -1,7 +1,7 @@
 # Stage 1 — build the React frontend on the build host (no emulation).
 # Base images are pinned by digest (Dependabot proposes updates), so a rebuild of the same commit
 # gives the image that was scanned.
-FROM --platform=$BUILDPLATFORM node:20-alpine@sha256:fb4cd12c85ee03686f6af5362a0b0d56d50c58a04632e6c0fb8363f609372293 AS web
+FROM --platform=$BUILDPLATFORM node:26-alpine@sha256:6bd9ab43c0ec0190ca7b2d193906cb8b7edf6e7f4afa43ddeccd6452710bffb5 AS web
 WORKDIR /src/web
 COPY web/package.json web/package-lock.json ./
 RUN npm ci
@@ -31,7 +31,7 @@ FROM scratch AS notices
 COPY --from=go /THIRD_PARTY_NOTICES /
 
 # Stage 3 — minimal non-root runtime.
-FROM gcr.io/distroless/static:nonroot@sha256:18f4cc26c9ffa7f20a359298be7deadac5c607c8e03a02b8119f1a5fc2f82c99
+FROM gcr.io/distroless/static:nonroot@sha256:8ce6dd87e9823c5b48dcfb2c8604714ccb351ce59607327bcc4957448da279b5
 COPY --from=go /sealane /sealane
 COPY LICENSE /licenses/LICENSE
 COPY --from=go /THIRD_PARTY_NOTICES /licenses/THIRD_PARTY_NOTICES
